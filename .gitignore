@@ -1,0 +1,24 @@
+/code/Source/gen/*
+###############
+#  fixed file #
+###############
+*.dbg
+*.DBG
+*.o
+*.d
+*.map
+*.elf
+*.DS_Store
+.DS_Store
+
+###############
+#  temp file  #
+###############
+~*
+*.log
+*.cmm
+*.men
+*.ini
+*.fig
+*.cmp
+*.tmp
