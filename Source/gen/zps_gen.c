@@ -6,7 +6,7 @@
  *
  * COMPONENT:      zps_gen.c
  *
- * DATE:           Wed Dec 18 13:35:01 2013
+ * DATE:           Tue Dec 31 10:53:20 2013
  *
  * AUTHOR:         Jennic Zigbee Protocol Stack Configuration Tool
  *

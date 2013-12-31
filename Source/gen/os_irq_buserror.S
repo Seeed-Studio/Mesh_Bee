@@ -6,7 +6,7 @@
 #
 # COMPONENT:      os_irq_buserror.s
 #
-# DATE:           Wed Dec 18 13:34:58 2013
+# DATE:           Tue Dec 31 10:53:18 2013
 #
 # AUTHOR:         Jennic RTOS Configuration Tool
 #

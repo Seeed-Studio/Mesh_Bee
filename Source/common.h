@@ -1,6 +1,6 @@
 /*    
  * common.h
- * Firmware for SeeedStudio RFBeeV2(Zigbee) module 
+ * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
  *   
  * Copyright (c) NXP B.V. 2012.   
  * Spread by SeeedStudio
@@ -55,7 +55,7 @@
 
 #include "ringbuffer.h"
 
-#define SW_VER                          0x0002
+#define SW_VER                          0x1000
 
 #if defined(TARGET_COO) || defined(TARGET_ROU) || defined(TARGET_END)
 #else

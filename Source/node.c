@@ -1,6 +1,6 @@
 /*    
  * node.c
- * Firmware for SeeedStudio RFBeeV2(Zigbee) module 
+ * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
  *   
  * Copyright (c) NXP B.V. 2012.   
  * Spread by SeeedStudio
@@ -783,12 +783,12 @@ PUBLIC void node_vInitialise(void)
 #endif
 
     OS_eActivateTask(APP_taskNWK);
-    
+
+    #ifndef FACT_TEST
     //light on on/sleep led.
     vAHI_DioSetDirection(0, (1 << DIO_ON_SLEEP));
-    vAHI_DioSetOutput((1 << DIO_ON_SLEEP), 0);
+    vAHI_DioSetOutput((1 << DIO_ON_SLEEP), 0); 
     
-    #ifndef FACT_TEST
     //init the association led pin
     vAHI_DioSetDirection(0, (1 << DIO_ASSOC)); 
     

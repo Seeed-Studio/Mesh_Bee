@@ -64,8 +64,8 @@ endif
 ###############################################################################
 # Define TRACE to use with DBG module
 # By default TRACE and OVERLAYS have been turned off
-# Set them to 1 to enable TRACE and overlays.
 TRACE ?=1
+TRACE_ALL?=1
 
 ### Don't use JENNIC_CHIP_FAMILY here because it may not be set from command line
 ## It is not set until after the config.mk files are included below
@@ -97,10 +97,11 @@ endif
 
 
 ifeq ($(TRACE), 1)
+
 CFLAGS  += -DDBG_ENABLE
 $(info Building trace version ...)
 
-# Enable any debug output here:
+ifeq ($(TRACE_ALL), 1) 
 CFLAGS  += -DTRACE_EP=1
 CFLAGS  += -DTRACE_NODE=1
 CFLAGS  += -DTRACE_NODE_HIGH=1
@@ -113,21 +114,35 @@ CFLAGS  += -DTRACE_TIMERS=1
 CFLAGS  += -DTRACE_ZBP_UTILS=1
 CFLAGS  += -DTRACE_EXCEPTION=1 
 
+else
 
-else  #TRACE != 1
+CFLAGS  += -DTRACE_EP=0
+CFLAGS  += -DTRACE_OTA=0
+CFLAGS  += -DTRACE_JOIN=1
+CFLAGS  += -DTRACE_UART=0
+CFLAGS  += -DTRACE_NODE=1
+CFLAGS  += -DTRACE_NODE_HIGH=1
+CFLAGS  += -DTRACE_START=1
+CFLAGS  += -DTRACE_TIMERS=0
+CFLAGS  += -DTRACE_ZBP_UTILS=0
+CFLAGS  += -DTRACE_EXCEPTION=1
+CFLAGS  += -DTRACE_ATAPI=0
+
+endif
+
+else
 
 CFLAGS  += -DTRACE_EP=0
 CFLAGS  += -DTRACE_OTA=0
 CFLAGS  += -DTRACE_JOIN=0
 CFLAGS  += -DTRACE_UART=0
 CFLAGS  += -DTRACE_NODE=0
-CFLAGS  += -DTRACE_NODE_HIGH=1
+CFLAGS  += -DTRACE_NODE_HIGH=0
 CFLAGS  += -DTRACE_START=0
 CFLAGS  += -DTRACE_TIMERS=0
 CFLAGS  += -DTRACE_ZBP_UTILS=0
-CFLAGS  += -DTRACE_EXCEPTION=0 
+CFLAGS  += -DTRACE_EXCEPTION=0
 CFLAGS  += -DTRACE_ATAPI=0
-
 
 endif
 

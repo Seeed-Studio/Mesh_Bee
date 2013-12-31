@@ -1,6 +1,6 @@
 /*    
  * at_api.c
- * Firmware for SeeedStudio RFBeeV2(Zigbee) module 
+ * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
  *   
  * Copyright (c) NXP B.V. 2012.   
  * Spread by SeeedStudio
@@ -735,24 +735,24 @@ int AT_listAllNodes(uint16 *regAddr)
 int AT_ioTest(uint16 *regAddr)
 {
     bAHI_DoEnableOutputs(TRUE);  //DO0 & DO1
-    vAHI_DioSetDirection((1 << 16) | (1 << 0) | (1 << 13) | (1 << DIO_ASSOC) | (1 << 12),
-                         (1 << DIO_RSSI) | (1 << 17) | (1 << 18));
+    vAHI_DioSetDirection((1 << 16)| (1 << 1) | (1 << 13) | (1 << DIO_ASSOC) | (1 << DIO_ON_SLEEP) | (1 << 12),
+                         (1 << DIO_RSSI) | (1<<0) | (1 << 17) | (1 << 18));
     vAHI_DoSetDataOut(0, 0x3);  //do0, do1 -> low
-    vAHI_DioSetOutput((1 << 18) | (1 << DIO_RSSI), (1 << 17)); //D18 ->HIGH
+    vAHI_DioSetOutput((1<<0) | (1 << 18) | (1 << DIO_RSSI), (1 << 17)); //D18 ->HIGH
     uint32 val = u32AHI_DioReadInput();
     
     uart_printf("\r\n\r\n--------------- DIO TEST ----------------\r\n");
-    if (val & (1 << 0))
+    if (val & (1 << 13))
         uart_printf("Do1 = 0, read 1, FAIL\r\n");
     else
         uart_printf("Do1 = 0, read 0, PASS\r\n");
 
-    if (val & (1 << 13))
+    if (val & (1 << DIO_ASSOC)) 
         uart_printf("RSSI = 1, read 1, PASS\r\n");
     else
         uart_printf("RSSI = 1, read 0, FAIL\r\n");
 
-    if (val & (1 << DIO_ASSOC))
+    if (val & (1 << DIO_ON_SLEEP)) 
         uart_printf("Do0 = 0, read 1, FAIL\r\n");
     else
         uart_printf("Do0 = 0, read 0, PASS\r\n");
@@ -761,28 +761,34 @@ int AT_ioTest(uint16 *regAddr)
         uart_printf("D18 = 1, read 1, PASS\r\n");
     else
         uart_printf("D18 = 1, read 0, FAIL\r\n");
-
+    
     if (val & (1 << 16))
         uart_printf("D17 = 0, read 1, FAIL\r\n");
     else
         uart_printf("D17 = 0, read 0, PASS\r\n");
 
+    if (val & (1 << 1)) 
+        uart_printf("D0 = 1, read 1, PASS\r\n");
+    else
+        uart_printf("D0 = 1, read 0, FAIL\r\n");
+
+
     vAHI_DoSetDataOut(0x3, 0);  //do0, do1 -> high
-    vAHI_DioSetOutput((1 << 17), (1 << 18) | (1 << DIO_RSSI));
+    vAHI_DioSetOutput((1 << 17), (1<<0) | (1 << 18) | (1 << DIO_RSSI));
     val = u32AHI_DioReadInput(); 
     
     uart_printf("\r\n\r\n--------------- DIO TEST 2----------------\r\n"); 
-    if (val & (1 << 0))
+    if (val & (1 << 13))
         uart_printf("Do1 = 1, read 1, PASS\r\n");
     else
         uart_printf("Do1 = 1, read 0, FAIL\r\n"); 
 
-    if (val & (1 << 13))
+    if (val & (1 << DIO_ASSOC)) 
         uart_printf("RSSI = 0, read 1, FAIL\r\n");
     else
         uart_printf("RSSI = 0, read 0, PASS\r\n"); 
 
-    if (val & (1 << DIO_ASSOC))
+    if (val & (1 << DIO_ON_SLEEP)) 
         uart_printf("Do0 = 1, read 1, PASS\r\n");
     else
         uart_printf("Do0 = 1, read 0, FAIL\r\n"); 
@@ -797,6 +803,10 @@ int AT_ioTest(uint16 *regAddr)
     else
         uart_printf("D17 = 1, read 0, FAIL\r\n"); 
     
+    if (val & (1 << 1))
+        uart_printf("D0 = 0, read 1, FAIL\r\n"); 
+    else
+        uart_printf("D0 = 0, read 0, PASS\r\n"); 
     
 }
 #endif

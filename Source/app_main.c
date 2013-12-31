@@ -1,6 +1,6 @@
 /*    
  * app_main.c
- * Firmware for SeeedStudio RFBeeV2(Zigbee) module 
+ * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
  *   
  * Copyright (c) NXP B.V. 2012.   
  * Spread by SeeedStudio
@@ -148,7 +148,7 @@ PUBLIC void vAppMain(void)
     DBG_vUartInit(DBG_E_UART_0, DBG_E_UART_BAUD_RATE_115200);
     DBG_vPrintf(TRACE_START, "\r\n\r\n");
     DBG_vPrintf(TRACE_START, "=================================\r\n");
-    DBG_vPrintf(TRACE_START, "            RFBee V2.0 \r\n");
+    DBG_vPrintf(TRACE_START, "            Mesh Bee \r\n");
     DBG_vPrintf(TRACE_START, "  Zigbee module from seeedstudio \r\n");
     DBG_vPrintf(TRACE_START, "         SW Version: 0x%04x \r\n", SW_VER);
     DBG_vPrintf(TRACE_START, "=================================\r\n");

@@ -1,6 +1,6 @@
 /*    
  * ringbuffer.c
- * Firmware for SeeedStudio RFBeeV2(Zigbee) module 
+ * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
  *   
  * Copyright (c) NXP B.V. 2012.   
  * Spread by SeeedStudio
