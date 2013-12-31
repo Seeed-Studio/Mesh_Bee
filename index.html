@@ -29,36 +29,84 @@
       <div class="inner clearfix">
         <section id="main-content">
           <h3>
-<a name="welcome-to-github-pages" class="anchor" href="#welcome-to-github-pages"><span class="octicon octicon-link"></span></a>Welcome to GitHub Pages.</h3>
+<a name="the-canvas" class="anchor" href="#the-canvas"><span class="octicon octicon-link"></span></a>The Canvas</h3>
 
-<p>This automatic page generator is the easiest way to create beautiful pages for all of your projects. Author your page content here using GitHub Flavored Markdown, select a template crafted by a designer, and publish. After your page is generated, you can check out the new branch:</p>
+<p>Here we developed a magical ZigBee module - <strong>Mesh Bee</strong>.</p>
 
-<pre><code>$ cd your_repo_root/repo_name
-$ git fetch origin
-$ git checkout gh-pages
-</code></pre>
+<p><img src="http://www.seeedstudio.com/wiki/images/thumb/e/ef/Mesh_bee.jpg/600px-Mesh_bee.jpg" alt="image"></p>
 
-<p>If you're using the GitHub for Mac, simply sync your repository and you'll see the new branch.</p>
+<p>Mesh Bee is a 2.4GHz wireless transceiver from seeed studio. It's based on NXP's newly JN516x series wireless microcontroller chip and supports ZigBee Pro network stack. </p>
 
-<h3>
-<a name="designer-templates" class="anchor" href="#designer-templates"><span class="octicon octicon-link"></span></a>Designer Templates</h3>
+<p>The reason we introducing it here is that Mesh Bee is totally open hardware and open sourced, which means that you can customize the firmware at your will. NXP provided the whole developing environment and tools which are all free. There's already a ZigBee Pro stack software to get start. The integrated peripherals' drivers are implemented. You can use JN516x's ARM core to control things and JenOS to simplify your development. </p>
 
-<p>We've crafted some handsome templates for you to use. Go ahead and continue to layouts to browse through them. You can easily go back to edit your page before publishing. After publishing your page, you can revisit the page generator and switch to another theme. Your Page content will be preserved if it remained markdown format.</p>
+<p>Mesh Bee will bring you lots of fun.</p>
 
 <h3>
-<a name="rather-drive-stick" class="anchor" href="#rather-drive-stick"><span class="octicon octicon-link"></span></a>Rather Drive Stick?</h3>
+<a name="the-image" class="anchor" href="#the-image"><span class="octicon octicon-link"></span></a>The Image</h3>
 
-<p>If you prefer to not use the automatic generator, push a branch named <code>gh-pages</code> to your repository to create a page manually. In addition to supporting regular HTML content, GitHub Pages support Jekyll, a simple, blog aware static site generator written by our own Tom Preston-Werner. Jekyll makes it easy to create site-wide headers and footers without having to copy them across every page. It also offers intelligent blog support and other advanced templating features.</p>
+<p>We have already developed a firmware for Mesh Bee. The factory firmware wraps the complicated ZigBee stack operation into a few easy to use serial commands, and drives Mesh Bee into a transparent serial communication node that can be part of a simple point-to-point connection or a complex mesh network. Although it can cover the most parts in use it still need improvements. </p>
+
+<h4>
+<a name="features-now" class="anchor" href="#features-now"><span class="octicon octicon-link"></span></a><em>Features now:</em>
+</h4>
+
+<ol>
+<li>Handle ZigBee network formation<br>
+</li>
+<li>Configuration persistent when reboot<br>
+</li>
+<li>OTA support<br>
+</li>
+<li>AT commands to configure Mesh Bee
+
+<ul>
+<li>Show node's information<br>
+</li>
+<li>Whether re-form the network when power up<br>
+</li>
+<li>Whether re-scan the network when power up<br>
+</li>
+<li>Whether auto join network searched<br>
+</li>
+<li>List all networks scanned<br>
+</li>
+<li>Select a network to join<br>
+</li>
+<li>Change the baud rate of UART1<br>
+</li>
+<li>Broadcast or unicast<br>
+</li>
+<li>Unicast destination address<br>
+</li>
+<li>OTA<br>
+</li>
+<li>...<br>
+</li>
+</ul>
+</li>
+</ol><h4>
+<a name="todos" class="anchor" href="#todos"><span class="octicon octicon-link"></span></a><em>TODOs:</em>
+</h4>
+
+<p><strong>1. Phase 1:</strong><br><em>Improve the slave firmware (current factory firmware). This branch will still make Mesh Bee a 'slave' UART device to transfer data through a ZigBee network, but more useful.</em>  </p>
+
+<p><strong>2. Phase 2:</strong><br><em>Develop the controller firmware. This branch will make Mesh Bee a MCU besides a ZigBee node. It can control modules by the GPIO/SPI/I2C, also read analog voltage through ADC pins. This can be done with our <a href="http://www.seeedstudio.com/depot/grove-xbee-carrier-p-905.html?cPath=98_16">Grove - xBee Carrier</a> board.</em></p>
+
+<p>We built a feature <a href="https://groups.google.com/forum/#!topic/seeedstudio-mesh-bee-discussion-group/b073efRU6Lg">vote page</a> for phase 1 at google group, please vote for the features you interested in or you can advance them by posting replies. Thanks.</p>
 
 <h3>
-<a name="authors-and-contributors" class="anchor" href="#authors-and-contributors"><span class="octicon octicon-link"></span></a>Authors and Contributors</h3>
+<a name="discussion" class="anchor" href="#discussion"><span class="octicon octicon-link"></span></a>Discussion</h3>
 
-<p>You can <a href="https://github.com/blog/821" class="user-mention">@mention</a> a GitHub username to generate a link to their profile. The resulting <code>&lt;a&gt;</code> element will link to the contributor's GitHub Profile. For example: In 2007, Chris Wanstrath (<a href="https://github.com/defunkt" class="user-mention">@defunkt</a>), PJ Hyett (<a href="https://github.com/pjhyett" class="user-mention">@pjhyett</a>), and Tom Preston-Werner (<a href="https://github.com/mojombo" class="user-mention">@mojombo</a>) founded GitHub.</p>
+<p>Any query, any question, any idea, any suggestion? Please follow our discussion group <a href="https://groups.google.com/forum/#!forum/seeedstudio-mesh-bee-discussion-group">here</a> and chat.</p>
 
 <h3>
-<a name="support-or-contact" class="anchor" href="#support-or-contact"><span class="octicon octicon-link"></span></a>Support or Contact</h3>
+<a name="links" class="anchor" href="#links"><span class="octicon octicon-link"></span></a>Links</h3>
 
-<p>Having trouble with Pages? Check out the documentation at <a href="http://help.github.com/pages">http://help.github.com/pages</a> or contact <a href="mailto:support@github.com">support@github.com</a> and we’ll help you sort it out.</p>
+<ul>
+<li>  Buy Mesh Bee - coming soon</li>
+<li>  Wiki page for Mesh Bee - <a href="http://www.seeedstudio.com/wiki/Mesh_Bee">here</a>
+</li>
+</ul>
         </section>
 
         <aside id="sidebar">
