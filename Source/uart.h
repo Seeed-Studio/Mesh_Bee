@@ -28,6 +28,7 @@
 
 #define TXFIFOLEN               128
 #define RXFIFOLEN               128
+#define THRESHOLD_READ          50
 
 
 void uart_register_callback();

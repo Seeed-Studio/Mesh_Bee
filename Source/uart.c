@@ -124,9 +124,17 @@ OS_ISR(APP_isrUART1)
             {
                 OS_eEnterCriticalSection(mutexRxRb);
                 ringbuffer_push(&rb_rx_uart, tmp, cnt);
+                avlb_cnt = ringbuffer_data_size(&rb_rx_uart);
                 OS_eExitCriticalSection(mutexRxRb);
-
-                OS_eActivateTask(APP_taskHandleUartRx);
+                
+                //the following logic is to improve the effectivity of every ZigBee packet frame
+                //by avoiding sending packet that is too short
+                if (avlb_cnt >= THRESHOLD_READ) 
+                    OS_eActivateTask(APP_taskHandleUartRx);
+                else
+                {
+                    vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(10));
+                }
             }
         }
     } else if (intrpt == E_AHI_UART_INT_TX) //tx empty

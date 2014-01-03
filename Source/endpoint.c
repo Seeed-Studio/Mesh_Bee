@@ -147,6 +147,7 @@ static uint8 tmp[RXFIFOLEN];
 OS_TASK(APP_taskHandleUartRx)
 {
     uint32 dataCnt = 0;
+    uint32 popCnt = 0;
 
     OS_eEnterCriticalSection(mutexRxRb);
     dataCnt = ringbuffer_data_size(&rb_rx_uart);
@@ -161,43 +162,40 @@ OS_TASK(APP_taskHandleUartRx)
     case E_MODE_DATA:
 
         //read some data out
-        dataCnt = MIN(dataCnt, 50);
-
-        /*if (dataCnt < 50 && !bActiveByTimer)
-        {
-            OS_eStartSWTimer(APP_tmrHandleUartRx, APP_TIME_MS(1), NULL); //handle after 1ms
-            bActiveByTimer = TRUE;
-            return;
-        }
-        bActiveByTimer = FALSE; */
+        popCnt = MIN(dataCnt, THRESHOLD_READ); 
 
         OS_eEnterCriticalSection(mutexRxRb);
-        ringbuffer_pop(&rb_rx_uart, tmp, dataCnt);
+        ringbuffer_pop(&rb_rx_uart, tmp, popCnt); 
         OS_eExitCriticalSection(mutexRxRb);
+        
+        if ((dataCnt - popCnt) >= THRESHOLD_READ) 
+            OS_eActivateTask(APP_taskHandleUartRx); 
+        else if ((dataCnt - popCnt) > 0) 
+            vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(10)); 
 
         //AT filter to find AT delimiter
-        if (searchAtStarter(tmp, dataCnt))
+        if (searchAtStarter(tmp, popCnt)) 
         {
             g_sDevice.eMode = E_MODE_AT;
             uart_printf("Enter AT mode.\r\n");
+            clear_ringbuffer(&rb_rx_uart);
         }
         //if not containing AT, send out the data
         else if (g_sDevice.eState == E_NETWORK_RUN) //if send, make sure network has been created.
         {
             tsApiFrame frm;
             sendToAir(g_sDevice.config.txMode, g_sDevice.config.unicastDstAddr,
-                      &frm, FRM_DATA, tmp, dataCnt);
-
+                      &frm, FRM_DATA, tmp, popCnt); 
         }
         break;
     case E_MODE_AT:
-        dataCnt = MIN(dataCnt, RXFIFOLEN);
+        popCnt = MIN(dataCnt, RXFIFOLEN); 
         
         OS_eEnterCriticalSection(mutexRxRb);
-        ringbuffer_read(&rb_rx_uart, tmp, dataCnt);
+        ringbuffer_read(&rb_rx_uart, tmp, popCnt); 
         OS_eExitCriticalSection(mutexRxRb); 
         
-        int len = dataCnt;
+        int len = popCnt; 
         bool found = FALSE;
         while (len--)
         {
@@ -205,13 +203,13 @@ OS_TASK(APP_taskHandleUartRx)
                 found = TRUE;
         }
         
-        if (!found)
+        if (!found && popCnt < RXFIFOLEN) 
         {
             //OS_eStartSWTimer(APP_tmrHandleUartRx, APP_TIME_MS(5), NULL); //handle after 1ms
             return;
         }
 
-        int ret = processSerialCmd(tmp, dataCnt);
+        int ret = processSerialCmd(tmp, popCnt); 
 
         char *resp;
         if (ret == OK)
@@ -227,7 +225,7 @@ OS_TASK(APP_taskHandleUartRx)
         uart_printf(resp);
         
         OS_eEnterCriticalSection(mutexRxRb); 
-        ringbuffer_pop(&rb_rx_uart, tmp, dataCnt);
+        ringbuffer_pop(&rb_rx_uart, tmp, popCnt); 
         OS_eExitCriticalSection(mutexRxRb);
         break;
     case E_MODE_API:
@@ -780,7 +778,7 @@ bool sendToAir(uint16 txmode, uint16 unicastDest, tsApiFrame *apiFrame, teFrameT
     ZPS_teStatus st;
     if (txmode == BROADCAST)
     {
-        DBG_vPrintf(TRACE_EP, "Broadcast...\r\n");
+        DBG_vPrintf(TRACE_EP, "Broadcast %d ...\r\n", len);
 
         // apdu will be released by the stack automatically after the apdu is send
         st = ZPS_eAplAfBroadcastDataReq(hapdu_ins, TRANS_CLUSTER_ID,
@@ -791,9 +789,9 @@ bool sendToAir(uint16 txmode, uint16 unicastDest, tsApiFrame *apiFrame, teFrameT
     }
     else if (txmode == UNICAST)
     {
-        DBG_vPrintf(TRACE_EP, "Unicast...\r\n");
+        DBG_vPrintf(TRACE_EP, "Unicast %d ...\r\n", len);
 
-        st = ZPS_eAplAfUnicastAckDataReq(hapdu_ins, TRANS_CLUSTER_ID,
+        st = ZPS_eAplAfUnicastDataReq(hapdu_ins, TRANS_CLUSTER_ID,
                                          TRANS_ENDPOINT_ID, TRANS_ENDPOINT_ID,
                                          unicastDest, SEC_MODE_FOR_DATA_ON_AIR,
                                          0, NULL);

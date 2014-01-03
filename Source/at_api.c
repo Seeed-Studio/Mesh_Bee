@@ -258,12 +258,19 @@ void copyApiFrame(tsApiFrame *frm, uint8 *dst)
  ****************************************************************************/
 bool searchAtStarter(uint8 *buffer, int len)
 {
-    while (len-- >= 3)
+    static uint8 plusCnt = 0;
+    while (len--)
     {
-        if (strncmp(buffer++, "+++", 3) == 0)
+        if (*buffer == '+')
         {
-            return TRUE;
+            plusCnt++;
+            if (plusCnt == 3) 
+                return TRUE;
+        }else
+        {
+            plusCnt = 0;
         }
+        buffer++;
     }
     return FALSE;
 }
