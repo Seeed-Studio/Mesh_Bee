@@ -48,6 +48,7 @@ int AT_showInfo(uint16 *regAddr);
 int AT_enterApiMode(uint16 *regAddr);
 int AT_triggerOTAUpgrade(uint16 *regAddr);
 int AT_abortOTAUpgrade(uint16 *regAddr); 
+int AT_OTAStatusPoll(uint16 *regAddr); 
 int AT_ioTest(uint16 *regAddr); 
 
 
@@ -105,6 +106,9 @@ static AT_Command_t atCommands[] =
 
     //ota abort
     { "OA", 0, 0, 0, true, AT_abortOTAUpgrade, false },
+    
+    //ota status poll
+    { "OS", 0, 0, 0, true, AT_OTAStatusPoll, false },
 #endif
 #ifdef FACT_TEST
     { "TT", 0, 0, 0, TRUE, /*APP_vOtaKillInternalReboot*/AT_ioTest, FALSE },
@@ -394,7 +398,8 @@ int processSerialCmd(uint8 *buf, int len)
     AT_Command_Function_t function; // the function which does the real work on change
     
     len = adjustLen(buf, len);
-    if (len < ATHEADERLEN) return ERR;
+    if (len < ATHEADERLEN)
+        return ERRNCMD; 
 
     // read the AT
     if (strncasecmp("AT", buf, 2) == 0)
@@ -458,7 +463,7 @@ int processSerialCmd(uint8 *buf, int len)
             }
         }
     }
-    return ERR;
+    return ERRNCMD; 
 }
 
 /****************************************************************************
@@ -682,6 +687,37 @@ int AT_abortOTAUpgrade(uint16 *regAddr)
     {
         return OK;
     } else
+    {
+        return ERR;
+    }
+
+}
+
+/****************************************************************************
+ *
+ * NAME: AT_OTAStatusPoll
+ *
+ * DESCRIPTION:
+ * 
+ *
+ * PARAMETERS: Name         RW  Usage
+ *             
+ *
+ * RETURNS:
+ * void
+ * 
+ ****************************************************************************/
+int AT_OTAStatusPoll(uint16 *regAddr)
+{
+    uint8 dummy = 0;
+    tsApiFrame frm;
+
+    if (sendToAir(UNICAST, g_sDevice.config.unicastDstAddr,
+                  &frm, FRM_OTA_ST_REQ, (uint8 *)(&dummy), 1))
+    {
+        return OK;
+    }
+    else
     {
         return ERR;
     }

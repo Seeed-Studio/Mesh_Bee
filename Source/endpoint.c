@@ -152,7 +152,7 @@ OS_TASK(APP_taskHandleUartRx)
 
     DBG_vPrintf(TRACE_EP, "-HandleUartRx- \r\n");
 
-    if (dataCnt < (RXFIFOLEN / 2) && !bActiveByTimer)
+    if (dataCnt < 50 && !bActiveByTimer && 0)
     {
         OS_eStartSWTimer(APP_tmrHandleUartRx, APP_TIME_MS(1), NULL); //handle after 1ms
         bActiveByTimer = TRUE;
@@ -165,10 +165,10 @@ OS_TASK(APP_taskHandleUartRx)
         case E_MODE_DATA:
 
             //read some data out
-            dataCnt = MIN(dataCnt, 70);
+            dataCnt = MIN(dataCnt, 64);
 
             OS_eEnterCriticalSection(mutexRxRb);
-            ringbuffer_read(&rb_rx_uart, tmp, dataCnt);
+            ringbuffer_pop(&rb_rx_uart, tmp, dataCnt);
             OS_eExitCriticalSection(mutexRxRb);
 
             //AT filter to find AT delimiter
@@ -183,17 +183,17 @@ OS_TASK(APP_taskHandleUartRx)
                 tsApiFrame frm;
                 bool ok = sendToAir(g_sDevice.config.txMode, g_sDevice.config.unicastDstAddr,
                                     &frm, FRM_DATA, tmp, dataCnt);
-                if (!ok)
+                /*if (!ok)
                 {
                     OS_eStartSWTimer(APP_tmrHandleUartRx, APP_TIME_MS(1), NULL); //handle after 1ms
                     bActiveByTimer = TRUE;
                     break;
-                }
+                }*/
             }
             //really pop out data
-            OS_eEnterCriticalSection(mutexRxRb);
+            /*OS_eEnterCriticalSection(mutexRxRb);
             ringbuffer_pop(&rb_rx_uart, tmp, dataCnt);
-            OS_eExitCriticalSection(mutexRxRb);
+            OS_eExitCriticalSection(mutexRxRb);*/
             break;
         case E_MODE_AT:
             dataCnt = MIN(dataCnt, RXFIFOLEN);
@@ -206,8 +206,9 @@ OS_TASK(APP_taskHandleUartRx)
             char *resp;
             if (ret == OK) resp = "OK\r\n";
             if (ret == ERR) resp = "Error\r\n";
-            if (ret == OUTRNG) resp = "OutRange\r\n";
-            if (ret == OKREBOOT) resp = "OK,need reboot to take place.\r\n";
+            if (ret == ERRNCMD) resp = "Error, invalid command\r\n"; 
+            if (ret == OUTRNG) resp = "Error, out range\r\n";
+            if (ret == OKREBOOT) resp = "OK, need reboot to take place.\r\n";
             uart_printf(resp);
             break;
         case E_MODE_API:
@@ -572,6 +573,19 @@ void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
 
             break;
         }
+    case FRM_OTA_ST_RESP:
+        {
+            PDUM_eAPduFreeAPduInstance(hapdu_ins);
+            DBG_vPrintf(TRACE_EP, "FRM_OTA_ST_RESP: from 0x%04x \r\n", u16SrcAddr); 
+            if (apiFrame.payload.frmOtaStResp.inOTA)
+            {
+                uart_printf("OTA: Node 0x%04x's OTA status: %d%%.\r\n", u16SrcAddr, 
+                            apiFrame.payload.frmOtaStResp.per);
+            }else
+                uart_printf("OTA: Node 0x%04x's is not in OTA or OTA finished.\r\n");
+
+            break;
+        }
 #endif
 #ifdef OTA_CLIENT
     case FRM_OTA_NTF:
@@ -638,6 +652,23 @@ void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
             uint8 dummy = 0;
             sendToAir(UNICAST, u16SrcAddr, &apiFrame, FRM_OTA_ABT_RESP, (uint8 *)(&dummy), 1);
 
+            break;
+        }
+    case FRM_OTA_ST_REQ:
+        {
+            PDUM_eAPduFreeAPduInstance(hapdu_ins);
+            DBG_vPrintf(TRACE_EP, "FRM_OTA_ST_REQ: from 0x%04x \r\n", u16SrcAddr); 
+            
+            tsFrmOtaStatusResp resp;
+            resp.inOTA = (g_sDevice.otaDownloading > 0);
+            resp.per = 0;
+            if (resp.inOTA && g_sDevice.otaTotalBlocks > 0) 
+            {
+                resp.per = (uint8)((g_sDevice.otaCurBlock * 100) / g_sDevice.otaTotalBlocks);
+            }
+            sendToAir(UNICAST, u16SrcAddr, &apiFrame, FRM_OTA_ST_RESP, 
+                      (uint8 *)(&resp), sizeof(resp)); 
+            
             break;
         }
     case FRM_OTA_UPG_RESP:
@@ -725,7 +756,7 @@ bool sendToAir(uint16 txmode, uint16 unicastDest, tsApiFrame *apiFrame, teFrameT
         // apdu will be released by the stack automatically after the apdu is send
         st = ZPS_eAplAfBroadcastDataReq(hapdu_ins, TRANS_CLUSTER_ID,
                                         TRANS_ENDPOINT_ID, TRANS_ENDPOINT_ID,
-                                        ZPS_E_BROADCAST_ALL, ZPS_E_APL_AF_SECURE_NWK,
+                                        ZPS_E_BROADCAST_ALL, SEC_MODE_FOR_DATA_ON_AIR, 
                                         0, NULL);
 
     } else if (txmode == UNICAST)
@@ -734,7 +765,7 @@ bool sendToAir(uint16 txmode, uint16 unicastDest, tsApiFrame *apiFrame, teFrameT
 
         st = ZPS_eAplAfUnicastAckDataReq(hapdu_ins, TRANS_CLUSTER_ID,
                                          TRANS_ENDPOINT_ID, TRANS_ENDPOINT_ID,
-                                         unicastDest, ZPS_E_APL_AF_SECURE_NWK,
+                                         unicastDest, SEC_MODE_FOR_DATA_ON_AIR, 
                                          0, NULL);
     }
 
@@ -745,6 +776,7 @@ bool sendToAir(uint16 txmode, uint16 unicastDest, tsApiFrame *apiFrame, teFrameT
 
         DBG_vPrintf(TRACE_EP, "Send failed: 0x%x, drop it... \r\n", st);
         PDUM_eAPduFreeAPduInstance(hapdu_ins);
+        return FALSE;
     }
     return TRUE;
 }

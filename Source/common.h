@@ -62,7 +62,9 @@
     #define TARGET_COO
 #endif
 
-#define RADIO_RECALIBRATION     //
+#define RADIO_RECALIBRATION                                  //re-calibrate the radio per 1min
+#define SEC_MODE_FOR_DATA_ON_AIR    ZPS_E_APL_AF_SECURE_NWK    //securing mode for the packets passing through the air
+                                                             //ZPS_E_APL_AF_UNSECURE or ZPS_E_APL_AF_SECURE_NWK
 
 
 #ifdef OTA_SUPPORT_OPTIONS        // Option flag passed in from the makefile

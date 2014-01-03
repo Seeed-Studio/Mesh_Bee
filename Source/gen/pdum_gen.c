@@ -6,7 +6,7 @@
  *
  * COMPONENT:      pdum_gen.c
  *
- * DATE:           Tue Dec 31 10:53:19 2013
+ * DATE:           Fri Jan  3 14:07:15 2014
  *
  * AUTHOR:         Jennic PDU Manager Configuration Tool
  *
@@ -78,7 +78,7 @@ typedef struct pdum_tsAPdu_tag pdum_tsAPdu;
 
 
 /* NPDU Pool */
-PRIVATE pdum_tsNPdu s_asNPduPool[12];
+PRIVATE pdum_tsNPdu s_asNPduPool[16];
 
 /* APDU Pool */
 PRIVATE uint8 s_au8apduZDPInstance0Storage[100];
@@ -95,22 +95,22 @@ PRIVATE pdum_tsAPduInstance s_asapduZDPInstances[6] = {
     { s_au8apduZDPInstance4Storage, 0, 0, 0 },
     { s_au8apduZDPInstance5Storage, 0, 0, 0 },
 };
-PRIVATE uint8 s_au8apduZCLInstance0Storage[150];
-PRIVATE uint8 s_au8apduZCLInstance1Storage[150];
-PRIVATE uint8 s_au8apduZCLInstance2Storage[150];
-PRIVATE uint8 s_au8apduZCLInstance3Storage[150];
-PRIVATE uint8 s_au8apduZCLInstance4Storage[150];
-PRIVATE uint8 s_au8apduZCLInstance5Storage[150];
-PRIVATE uint8 s_au8apduZCLInstance6Storage[150];
-PRIVATE uint8 s_au8apduZCLInstance7Storage[150];
-PRIVATE uint8 s_au8apduZCLInstance8Storage[150];
-PRIVATE uint8 s_au8apduZCLInstance9Storage[150];
-PRIVATE uint8 s_au8apduZCLInstance10Storage[150];
-PRIVATE uint8 s_au8apduZCLInstance11Storage[150];
-PRIVATE uint8 s_au8apduZCLInstance12Storage[150];
-PRIVATE uint8 s_au8apduZCLInstance13Storage[150];
-PRIVATE uint8 s_au8apduZCLInstance14Storage[150];
-PRIVATE uint8 s_au8apduZCLInstance15Storage[150];
+PRIVATE uint8 s_au8apduZCLInstance0Storage[100];
+PRIVATE uint8 s_au8apduZCLInstance1Storage[100];
+PRIVATE uint8 s_au8apduZCLInstance2Storage[100];
+PRIVATE uint8 s_au8apduZCLInstance3Storage[100];
+PRIVATE uint8 s_au8apduZCLInstance4Storage[100];
+PRIVATE uint8 s_au8apduZCLInstance5Storage[100];
+PRIVATE uint8 s_au8apduZCLInstance6Storage[100];
+PRIVATE uint8 s_au8apduZCLInstance7Storage[100];
+PRIVATE uint8 s_au8apduZCLInstance8Storage[100];
+PRIVATE uint8 s_au8apduZCLInstance9Storage[100];
+PRIVATE uint8 s_au8apduZCLInstance10Storage[100];
+PRIVATE uint8 s_au8apduZCLInstance11Storage[100];
+PRIVATE uint8 s_au8apduZCLInstance12Storage[100];
+PRIVATE uint8 s_au8apduZCLInstance13Storage[100];
+PRIVATE uint8 s_au8apduZCLInstance14Storage[100];
+PRIVATE uint8 s_au8apduZCLInstance15Storage[100];
 PRIVATE pdum_tsAPduInstance s_asapduZCLInstances[16] = {
     { s_au8apduZCLInstance0Storage, 0, 0, 1 },
     { s_au8apduZCLInstance1Storage, 0, 0, 1 },
@@ -136,7 +136,7 @@ PRIVATE pdum_tsAPduInstance s_asapduZCLInstances[16] = {
 
 PRIVATE pdum_tsAPdu s_asAPduPool[2] = {
     { s_asapduZDPInstances, 0, 100, 6},
-    { s_asapduZCLInstances, 0, 150, 16},
+    { s_asapduZCLInstances, 0, 100, 16},
 };
 
 /****************************************************************************/
@@ -162,7 +162,7 @@ PUBLIC void PDUM_vInit(void)
     asm("_pdum_apduZDP=_s_asAPduPool + 0" : );
     asm(".globl _pdum_apduZCL" : );
     asm("_pdum_apduZCL=_s_asAPduPool + 12" : );
-    pdum_vNPduInit(s_asNPduPool, 12, mutexMAC);
+    pdum_vNPduInit(s_asNPduPool, 16, mutexMAC);
     pdum_vAPduInit(s_asAPduPool, 2, mutexPDUM);
 }
 

@@ -6,7 +6,7 @@
  *
  * COMPONENT:      zps_gen.c
  *
- * DATE:           Tue Dec 31 10:53:20 2013
+ * DATE:           Fri Jan  3 14:07:16 2014
  *
  * AUTHOR:         Jennic Zigbee Protocol Stack Configuration Tool
  *
@@ -541,11 +541,11 @@ PRIVATE ZPS_tsAplApsKeyDescriptorTable s_keyPairTable = { s_keyPairTableStorage,
 PRIVATE ZPS_tsAplAib s_sAplAib = {
     0,
     0x0000000000000000ULL,
-    0x0310c800UL,
+    0x0010f800UL,
     FALSE,
     TRUE,
     0x02,
-    0x32,
+    0x0a,
     0,
     0,
     0,
@@ -554,7 +554,7 @@ PRIVATE ZPS_tsAplAib s_sAplAib = {
     NULL,
     &s_keyPairTable,
     &s_keyPairTableStorage[5],
-    0x03e8,
+    0x0bb8,
 };
 PRIVATE uint8 s_sDefaultServerContext[8] __attribute__ ((aligned (4)));
 PRIVATE uint8 s_sZdoClientContext[8] __attribute__ ((aligned (4)));
@@ -653,9 +653,9 @@ PRIVATE ZPS_tsAplAfNodeDescriptor s_sNodeDescriptor = {
     0x8c,
     0x0000,
     0x7f,
-    0x0096,
+    0x0064,
     0x0000,
-    0x0096,
+    0x0064,
     0x00};
 
 /* Node Power Descriptor */
@@ -677,12 +677,6 @@ PRIVATE zps_tsMsgRecord s_asApsSyncMsgPool[5];
 /* APSDE dcfm record pool */
 PRIVATE zps_tsDcfmRecord s_asApsDcfmRecordPool[5];
 
-/* APSDE fragmentation rx pool */
-PRIVATE zps_tsFragmentReceive s_asApsFragRxPool[5];
-
-/* APSDE fragmentation tx pool */
-PRIVATE zps_tsFragmentTransmit s_asApsFragTxPool[5];
-
 /* APSME Command Manager Command Containers */
 PRIVATE zps_tsApsmeCmdContainer s_sApsmeCmdContainer_4 = { NULL, {}, {}, NULL, 0 };
 PRIVATE zps_tsApsmeCmdContainer s_sApsmeCmdContainer_3 = { &s_sApsmeCmdContainer_4, {}, {}, NULL, 0 };
@@ -694,16 +688,16 @@ zps_tsAplZdoInitSecKey s_sInitSecKey = { { 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0
 
 /* Network Layer Context */
 PRIVATE uint8                   s_sNwkContext[1376] __attribute__ ((aligned (4)));
-PRIVATE ZPS_tsNwkDiscNtEntry    s_asNwkNtDisc[8];
-PRIVATE ZPS_tsNwkActvNtEntry    s_asNwkNtActv[5];
-PRIVATE ZPS_tsNwkRtDiscEntry    s_asNwkRtDisc[8];
-PRIVATE ZPS_tsNwkRtEntry        s_asNwkRt[8];
-PRIVATE ZPS_tsNwkBtr            s_asNwkBtt[36];
+PRIVATE ZPS_tsNwkDiscNtEntry    s_asNwkNtDisc[16];
+PRIVATE ZPS_tsNwkActvNtEntry    s_asNwkNtActv[20];
+PRIVATE ZPS_tsNwkRtDiscEntry    s_asNwkRtDisc[16];
+PRIVATE ZPS_tsNwkRtEntry        s_asNwkRt[16];
+PRIVATE ZPS_tsNwkBtr            s_asNwkBtt[64];
 PRIVATE ZPS_tsNwkRctEntry       s_asNwkRct[8];
 PRIVATE ZPS_tsNwkSecMaterialSet s_asNwkSecMatSet[2];
-PRIVATE ZPS_tsNwkInFCDesc       s_asNwkInFCSet[2][5];
-PRIVATE uint16                  s_au16NwkAddrMapNwk[5];
-PRIVATE uint64                  s_au64NwkAddrMapExt[5];
+PRIVATE ZPS_tsNwkInFCDesc       s_asNwkInFCSet[2][20];
+PRIVATE uint16                  s_au16NwkAddrMapNwk[20];
+PRIVATE uint64                  s_au64NwkAddrMapExt[20];
 
 PRIVATE const zps_tsNwkNibInitialValues s_sNibInitialValues =
 {
@@ -734,14 +728,14 @@ PRIVATE const zps_tsNwkNibInitialValues s_sNibInitialValues =
 
 
 PRIVATE const ZPS_tsNwkNibTblSize     s_sNwkTblSize = {
-    5,
+    20,
+    16,
     8,
-    8,
-    5,
-    5,
-    8,
-    8,
-    36,
+    20,
+    20,
+    16,
+    16,
+    64,
     2,
     sizeof(s_sNibInitialValues)
 };
@@ -824,13 +818,13 @@ PRIVATE zps_tsApl s_sApl = {
         5,
         0,
         { s_asApsDcfmRecordPool, 1, 5 },
-        { s_asApsFragRxPool, 5, 100 },
-        { s_asApsFragTxPool, 5 },
-        zps_eStartFragmentedTransmission,
-        zps_vHandleExtendedDataAckFrame,
-        zps_vHandleApsdeDataFragInd,
+        { NULL, 0, 0 },
+        { NULL, 0 },
+        NULL,
+        NULL,
+        zps_vHandleApsdeDataFragIndNotSupported,
         { &s_sApsmeCmdContainer_1, NULL },
-        { { /* Timer */}, 350, 0 },
+        { { /* Timer */}, 100, 0 },
         { NULL, NULL },
         { /* Timer */}
     },

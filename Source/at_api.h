@@ -40,6 +40,8 @@ typedef enum
     FRM_OTA_ABT_RESP,
     FRM_OTA_UPG_REQ,
     FRM_OTA_UPG_RESP,
+    FRM_OTA_ST_REQ,
+    FRM_OTA_ST_RESP,
     FRM_TOPO_REQ,
     FRM_TOPO_RESP
 }teFrameType; 
@@ -71,6 +73,12 @@ typedef struct
     uint32              crc;
 }tsFrmOtaResp;
 
+typedef struct
+{
+    bool                inOTA;
+    uint8               per;
+}tsFrmOtaStatusResp;
+
 //TOPO
 typedef struct
 {
@@ -91,7 +99,8 @@ typedef struct __apiFrame
         tsFrmControl    frmCtrl; 
         tsFrmOtaNtf     frmOtaNtf;
         tsFrmOtaReq     frmOtaReq;
-        tsFrmOtaResp    frmOtaResp;
+        tsFrmOtaResp    frmOtaResp; 
+        tsFrmOtaStatusResp    frmOtaStResp; 
         tsFrmTOPOResp   frmTopoResp;
     }payload;
     uint8               checksum; 
@@ -120,7 +129,8 @@ enum ErrorCode
     NOTHING,
     MODIFIED,
     OUTRNG,
-    OKREBOOT
+    OKREBOOT,
+    ERRNCMD
 }; 
 
 
