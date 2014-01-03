@@ -99,7 +99,8 @@ OS_TASK(APP_taskMyEndPoint)
 
     DBG_vPrintf(TRACE_EP, "-EndPoint- \r\n");
 
-    if (g_sDevice.eState != E_NETWORK_RUN) return;
+    if (g_sDevice.eState != E_NETWORK_RUN)
+        return;
 
     if (OS_eCollectMessage(APP_msgMyEndPointEvents, &sStackEvent) == OS_E_OK)
     {
@@ -109,18 +110,21 @@ OS_TASK(APP_taskMyEndPoint)
                         sStackEvent.uEvent.sApsDataIndEvent.uSrcAddress.u16Addr);
 
             handleDataIndicatorEvent(sStackEvent);
-        } else if (ZPS_EVENT_APS_DATA_CONFIRM == sStackEvent.eType)
+        }
+        else if (ZPS_EVENT_APS_DATA_CONFIRM == sStackEvent.eType)
         {
             if (g_sDevice.config.txMode == BROADCAST)
             {
                 DBG_vPrintf(TRACE_EP, "[D_CFM] from 0x%04x \r\n",
                             sStackEvent.uEvent.sApsDataConfirmEvent.uDstAddr.u16Addr);
             }
-        } else if (ZPS_EVENT_APS_DATA_ACK == sStackEvent.eType)
+        }
+        else if (ZPS_EVENT_APS_DATA_ACK == sStackEvent.eType)
         {
             DBG_vPrintf(TRACE_EP, "[D_ACK] from 0x%04x \r\n",
                         sStackEvent.uEvent.sApsDataAckEvent.u16DstAddr);
-        } else
+        }
+        else
         {
             DBG_vPrintf(TRACE_EP, "[UNKNOWN] event: 0x%x\r\n", sStackEvent.eType);
         }
@@ -148,77 +152,91 @@ OS_TASK(APP_taskHandleUartRx)
     dataCnt = ringbuffer_data_size(&rb_rx_uart);
     OS_eExitCriticalSection(mutexRxRb);
 
-    if (dataCnt == 0) return;
+    if (dataCnt == 0)  return;
 
     DBG_vPrintf(TRACE_EP, "-HandleUartRx- \r\n");
+    //
+    switch (g_sDevice.eMode)
+    {
+    case E_MODE_DATA:
 
-    if (dataCnt < 50 && !bActiveByTimer && 0)
-    {
-        OS_eStartSWTimer(APP_tmrHandleUartRx, APP_TIME_MS(1), NULL); //handle after 1ms
-        bActiveByTimer = TRUE;
-    } else
-    {
-        bActiveByTimer = FALSE;
-        //
-        switch (g_sDevice.eMode)
+        //read some data out
+        dataCnt = MIN(dataCnt, 50);
+
+        /*if (dataCnt < 50 && !bActiveByTimer)
         {
-        case E_MODE_DATA:
+            OS_eStartSWTimer(APP_tmrHandleUartRx, APP_TIME_MS(1), NULL); //handle after 1ms
+            bActiveByTimer = TRUE;
+            return;
+        }
+        bActiveByTimer = FALSE; */
 
-            //read some data out
-            dataCnt = MIN(dataCnt, 64);
+        OS_eEnterCriticalSection(mutexRxRb);
+        ringbuffer_pop(&rb_rx_uart, tmp, dataCnt);
+        OS_eExitCriticalSection(mutexRxRb);
 
-            OS_eEnterCriticalSection(mutexRxRb);
-            ringbuffer_pop(&rb_rx_uart, tmp, dataCnt);
-            OS_eExitCriticalSection(mutexRxRb);
+        //AT filter to find AT delimiter
+        if (searchAtStarter(tmp, dataCnt))
+        {
+            g_sDevice.eMode = E_MODE_AT;
+            uart_printf("Enter AT mode.\r\n");
+        }
+        //if not containing AT, send out the data
+        else if (g_sDevice.eState == E_NETWORK_RUN) //if send, make sure network has been created.
+        {
+            tsApiFrame frm;
+            sendToAir(g_sDevice.config.txMode, g_sDevice.config.unicastDstAddr,
+                      &frm, FRM_DATA, tmp, dataCnt);
 
-            //AT filter to find AT delimiter
-            if (searchAtStarter(tmp, dataCnt))
-            {
-                g_sDevice.eMode = E_MODE_AT;
-                uart_printf("Enter AT mode.\r\n");
-            }
-            //if not containing AT, send out the data
-            else if (g_sDevice.eState == E_NETWORK_RUN) //if send, make sure network has been created.
-            {
-                tsApiFrame frm;
-                bool ok = sendToAir(g_sDevice.config.txMode, g_sDevice.config.unicastDstAddr,
-                                    &frm, FRM_DATA, tmp, dataCnt);
-                /*if (!ok)
-                {
-                    OS_eStartSWTimer(APP_tmrHandleUartRx, APP_TIME_MS(1), NULL); //handle after 1ms
-                    bActiveByTimer = TRUE;
-                    break;
-                }*/
-            }
-            //really pop out data
-            /*OS_eEnterCriticalSection(mutexRxRb);
-            ringbuffer_pop(&rb_rx_uart, tmp, dataCnt);
-            OS_eExitCriticalSection(mutexRxRb);*/
-            break;
-        case E_MODE_AT:
-            dataCnt = MIN(dataCnt, RXFIFOLEN);
-            OS_eEnterCriticalSection(mutexRxRb);
-            ringbuffer_pop(&rb_rx_uart, tmp, dataCnt);
-            OS_eExitCriticalSection(mutexRxRb);
-
-            int ret = processSerialCmd(tmp, dataCnt);
-
-            char *resp;
-            if (ret == OK) resp = "OK\r\n";
-            if (ret == ERR) resp = "Error\r\n";
-            if (ret == ERRNCMD) resp = "Error, invalid command\r\n"; 
-            if (ret == OUTRNG) resp = "Error, out range\r\n";
-            if (ret == OKREBOOT) resp = "OK, need reboot to take place.\r\n";
-            uart_printf(resp);
-            break;
-        case E_MODE_API:
-
-            break;
-        default:
-            break;
+        }
+        break;
+    case E_MODE_AT:
+        dataCnt = MIN(dataCnt, RXFIFOLEN);
+        
+        OS_eEnterCriticalSection(mutexRxRb);
+        ringbuffer_read(&rb_rx_uart, tmp, dataCnt);
+        OS_eExitCriticalSection(mutexRxRb); 
+        
+        int len = dataCnt;
+        bool found = FALSE;
+        while (len--)
+        {
+            if (tmp[len] == '\r' || tmp[len] == '\n') 
+                found = TRUE;
+        }
+        
+        if (!found)
+        {
+            //OS_eStartSWTimer(APP_tmrHandleUartRx, APP_TIME_MS(5), NULL); //handle after 1ms
+            return;
         }
 
+        int ret = processSerialCmd(tmp, dataCnt);
+
+        char *resp;
+        if (ret == OK)
+            resp = "OK\r\n";
+        if (ret == ERR)
+            resp = "Error\r\n";
+        if (ret == ERRNCMD)
+            resp = "Error, invalid command\r\n";
+        if (ret == OUTRNG)
+            resp = "Error, out range\r\n";
+        if (ret == OKREBOOT)
+            resp = "OK, need reboot to take place.\r\n";
+        uart_printf(resp);
+        
+        OS_eEnterCriticalSection(mutexRxRb); 
+        ringbuffer_pop(&rb_rx_uart, tmp, dataCnt);
+        OS_eExitCriticalSection(mutexRxRb);
+        break;
+    case E_MODE_API:
+
+        break;
+    default:
+        break;
     }
+
 }
 
 /****************************************************************************
@@ -240,7 +258,7 @@ OS_TASK(APP_taskOTAReq)
 
     if (g_sDevice.otaDownloading == 1)
     {
-        tsApiFrame frm; 
+        tsApiFrame frm;
         tsFrmOtaReq req;
 
         req.blockIdx = g_sDevice.otaCurBlock;
@@ -264,8 +282,8 @@ OS_TASK(APP_taskOTAReq)
         uint8 dummy = 0;
 
         sendToAir(UNICAST, g_sDevice.otaSvrAddr16, &frm, FRM_OTA_UPG_REQ, (&dummy), 1);
-        
-        vResetATimer(APP_OTAReqTimer, APP_TIME_MS(1000)); 
+
+        vResetATimer(APP_OTAReqTimer, APP_TIME_MS(1000));
     }
 #endif
 }
@@ -402,7 +420,8 @@ void clientOtaFinishing()
             DBG_vPrintf(TRACE_EP, "OtaFinishing: total length not match. \r\n");
             valid = false;
         }
-    } else
+    }
+    else
     {
         DBG_vPrintf(TRACE_EP, "OtaFinishing: not find magic num. \r\n");
         valid = false;
@@ -420,12 +439,13 @@ void clientOtaFinishing()
     if (valid)
     {
         //send upgrade request to ota server
-        g_sDevice.otaDownloading = 2; 
-        PDM_vSaveRecord(&g_sDevicePDDesc); 
-        //OS_eActivateTask(APP_taskOTAReq); 
-        vResetATimer(APP_OTAReqTimer, APP_TIME_MS(1000)); 
+        g_sDevice.otaDownloading = 2;
+        PDM_vSaveRecord(&g_sDevicePDDesc);
+        //OS_eActivateTask(APP_taskOTAReq);
+        vResetATimer(APP_OTAReqTimer, APP_TIME_MS(1000));
         //APP_vOtaKillInternalReboot();
-    } else
+    }
+    else
     {
         clientOtaRestartDownload();
     }
@@ -459,28 +479,29 @@ void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
     uint8 *payload_addr;
     uint8 lqi;
     uint16 pwmWidth;
-    
-    hapdu_ins = sStackEvent.uEvent.sApsDataIndEvent.hAPduInst; 
+
+    hapdu_ins = sStackEvent.uEvent.sApsDataIndEvent.hAPduInst;
     lqi = sStackEvent.uEvent.sApsDataIndEvent.u8LinkQuality;
     u16PayloadSize = PDUM_u16APduInstanceGetPayloadSize(hapdu_ins);
     payload_addr = PDUM_pvAPduInstanceGetPayload(hapdu_ins);
-    
-    DBG_vPrintf(TRACE_EP, "lqi: %d \r\n", lqi); 
+
+    DBG_vPrintf(TRACE_EP, "lqi: %d \r\n", lqi);
     pwmWidth = lqi * 500 / 110;
-    if (pwmWidth > 500) pwmWidth = 500; 
-    
-    #ifndef FACT_TEST
-    vAHI_TimerStartRepeat(E_AHI_TIMER_1, 500-pwmWidth, 500+pwmWidth); 
-    #else
+    if (pwmWidth > 500)
+        pwmWidth = 500;
+
+#ifndef FACT_TEST
+    vAHI_TimerStartRepeat(E_AHI_TIMER_1, 500 - pwmWidth, 500 + pwmWidth);
+#else
     sum_lqi += lqi;
     if (++pkt_cnt % 20 == 0)
     {
         uart_printf("---------------- LQI TEST ---------------\r\n");
-        uart_printf("avg lqi: %d \r\n", sum_lqi/20);
+        uart_printf("avg lqi: %d \r\n", sum_lqi / 20);
         sum_lqi = 0;
         pkt_cnt = 0;
     }
-    #endif
+#endif
 
     //we drop packets under AT mode
     //if (g_sDevice.eMode == E_MODE_AT)
@@ -521,7 +542,8 @@ void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
             if (apiFrame.payloadLen > u16FreeSpace)
             {
                 OS_eActivateTask(APP_taskMyEndPoint); //read later
-            } else
+            }
+            else
             {
                 uart_tx_data(apiFrame.payload.data, apiFrame.payloadLen);
                 PDUM_eAPduFreeAPduInstance(hapdu_ins);
@@ -535,13 +557,15 @@ void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
 
             uint16 cltAddr = u16SrcAddr;
             uint32 blkIdx  = apiFrame.payload.frmOtaReq.blockIdx;
-            if (blkIdx >= g_sDevice.otaTotalBlocks) break;
+            if (blkIdx >= g_sDevice.otaTotalBlocks)
+                break;
 
             uint8 buff[OTA_BLOCK_SIZE];
             uint16 rdLen = ((blkIdx + 1) * OTA_BLOCK_SIZE > g_sDevice.otaTotalBytes) ?
                            (g_sDevice.otaTotalBytes - blkIdx * OTA_BLOCK_SIZE) :
                            (OTA_BLOCK_SIZE);
-            if (rdLen > OTA_BLOCK_SIZE) rdLen = OTA_BLOCK_SIZE;
+            if (rdLen > OTA_BLOCK_SIZE)
+                rdLen = OTA_BLOCK_SIZE;
 
             APP_vOtaFlashLockRead(blkIdx * OTA_BLOCK_SIZE, rdLen, buff);
 
@@ -567,7 +591,7 @@ void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
             PDUM_eAPduFreeAPduInstance(hapdu_ins);
             DBG_vPrintf(TRACE_EP, "FRM_OTA_UPG_REQ: from 0x%04x \r\n", u16SrcAddr);
             uart_printf("OTA: Node 0x%04x's OTA download done, crc check ok.\r\n", u16SrcAddr);
-            
+
             uint8 dummy = 0;
             sendToAir(UNICAST, u16SrcAddr, &apiFrame, FRM_OTA_UPG_RESP, (uint8 *)(&dummy), 1);
 
@@ -576,12 +600,13 @@ void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
     case FRM_OTA_ST_RESP:
         {
             PDUM_eAPduFreeAPduInstance(hapdu_ins);
-            DBG_vPrintf(TRACE_EP, "FRM_OTA_ST_RESP: from 0x%04x \r\n", u16SrcAddr); 
+            DBG_vPrintf(TRACE_EP, "FRM_OTA_ST_RESP: from 0x%04x \r\n", u16SrcAddr);
             if (apiFrame.payload.frmOtaStResp.inOTA)
             {
-                uart_printf("OTA: Node 0x%04x's OTA status: %d%%.\r\n", u16SrcAddr, 
+                uart_printf("OTA: Node 0x%04x's OTA status: %d%%.\r\n", u16SrcAddr,
                             apiFrame.payload.frmOtaStResp.per);
-            }else
+            }
+            else
                 uart_printf("OTA: Node 0x%04x's is not in OTA or OTA finished.\r\n");
 
             break;
@@ -591,7 +616,8 @@ void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
     case FRM_OTA_NTF:
         {
             PDUM_eAPduFreeAPduInstance(hapdu_ins);
-            if (!g_sDevice.supportOTA) break;
+            if (!g_sDevice.supportOTA)
+                break;
 
             g_sDevice.otaReqPeriod  = apiFrame.payload.frmOtaNtf.reqPeriodMs;
             g_sDevice.otaTotalBytes = apiFrame.payload.frmOtaNtf.totalBytes;
@@ -626,8 +652,10 @@ void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
                 APP_vOtaFlashLockWrite(offset, len, apiFrame.payload.frmOtaResp.block);
                 g_sDevice.otaCurBlock += 1;
                 g_sDevice.otaCrc = crc;
-                if (g_sDevice.otaCurBlock % 100 == 0) PDM_vSaveRecord(&g_sDevicePDDesc);
-            } else
+                if (g_sDevice.otaCurBlock % 100 == 0)
+                    PDM_vSaveRecord(&g_sDevicePDDesc);
+            }
+            else
             {
                 DBG_vPrintf(TRACE_EP, "OTA_RESP: DesireBlk: %d, RecvBlk: %d \r\n", g_sDevice.otaCurBlock, blkIdx);
             }
@@ -657,29 +685,29 @@ void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
     case FRM_OTA_ST_REQ:
         {
             PDUM_eAPduFreeAPduInstance(hapdu_ins);
-            DBG_vPrintf(TRACE_EP, "FRM_OTA_ST_REQ: from 0x%04x \r\n", u16SrcAddr); 
-            
+            DBG_vPrintf(TRACE_EP, "FRM_OTA_ST_REQ: from 0x%04x \r\n", u16SrcAddr);
+
             tsFrmOtaStatusResp resp;
             resp.inOTA = (g_sDevice.otaDownloading > 0);
             resp.per = 0;
-            if (resp.inOTA && g_sDevice.otaTotalBlocks > 0) 
+            if (resp.inOTA && g_sDevice.otaTotalBlocks > 0)
             {
                 resp.per = (uint8)((g_sDevice.otaCurBlock * 100) / g_sDevice.otaTotalBlocks);
             }
-            sendToAir(UNICAST, u16SrcAddr, &apiFrame, FRM_OTA_ST_RESP, 
-                      (uint8 *)(&resp), sizeof(resp)); 
-            
+            sendToAir(UNICAST, u16SrcAddr, &apiFrame, FRM_OTA_ST_RESP,
+                      (uint8 *)(&resp), sizeof(resp));
+
             break;
         }
     case FRM_OTA_UPG_RESP:
         {
             PDUM_eAPduFreeAPduInstance(hapdu_ins);
-            DBG_vPrintf(TRACE_EP, "FRM_OTA_UPG_RESP: from 0x%04x \r\n", u16SrcAddr); 
-            
-            g_sDevice.otaDownloading = 0; 
-            PDM_vSaveRecord(&g_sDevicePDDesc); 
-            
-            APP_vOtaKillInternalReboot(); 
+            DBG_vPrintf(TRACE_EP, "FRM_OTA_UPG_RESP: from 0x%04x \r\n", u16SrcAddr);
+
+            g_sDevice.otaDownloading = 0;
+            PDM_vSaveRecord(&g_sDevicePDDesc);
+
+            APP_vOtaKillInternalReboot();
             break;
         }
 #endif
@@ -701,13 +729,13 @@ void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
             PDUM_eAPduFreeAPduInstance(hapdu_ins);
             uint32 mac0 = (uint32)apiFrame.payload.frmTopoResp.nodeMacAddr0;
             uint32 mac1 = (uint32)apiFrame.payload.frmTopoResp.nodeMacAddr1;
-            uint16 fwver= (uint16)apiFrame.payload.frmTopoResp.nodeFWVer;
-            int8 dbm = (lqi-305)/3;
+            uint16 fwver = (uint16)apiFrame.payload.frmTopoResp.nodeFWVer;
+            int8 dbm = (lqi - 305) / 3;
 
             DBG_vPrintf(TRACE_EP, "FRM_TOPO_RESP: from 0x%04x \r\n", u16SrcAddr);
 
-            uart_printf("+--Node resp--\r\n|--0x%04x,%08lx%08lx,LQI:%d,DBm:%d,Ver:0x%04x\r\n", u16SrcAddr, 
-                          mac1, mac0, lqi, dbm, fwver);
+            uart_printf("+--Node resp--\r\n|--0x%04x,%08lx%08lx,LQI:%d,DBm:%d,Ver:0x%04x\r\n", u16SrcAddr,
+                        mac1, mac0, lqi, dbm, fwver);
             break;
         }
     }
@@ -739,7 +767,8 @@ bool sendToAir(uint16 txmode, uint16 unicastDest, tsApiFrame *apiFrame, teFrameT
 {
     PDUM_thAPduInstance hapdu_ins = PDUM_hAPduAllocateAPduInstance(apduZCL);
 
-    if (hapdu_ins == PDUM_INVALID_HANDLE) return FALSE;
+    if (hapdu_ins == PDUM_INVALID_HANDLE)
+        return FALSE;
 
     //assemble the packet
     uint16 frameLen = assembleApiFrame(apiFrame, type, buff, len);
@@ -756,16 +785,17 @@ bool sendToAir(uint16 txmode, uint16 unicastDest, tsApiFrame *apiFrame, teFrameT
         // apdu will be released by the stack automatically after the apdu is send
         st = ZPS_eAplAfBroadcastDataReq(hapdu_ins, TRANS_CLUSTER_ID,
                                         TRANS_ENDPOINT_ID, TRANS_ENDPOINT_ID,
-                                        ZPS_E_BROADCAST_ALL, SEC_MODE_FOR_DATA_ON_AIR, 
+                                        ZPS_E_BROADCAST_ALL, SEC_MODE_FOR_DATA_ON_AIR,
                                         0, NULL);
 
-    } else if (txmode == UNICAST)
+    }
+    else if (txmode == UNICAST)
     {
         DBG_vPrintf(TRACE_EP, "Unicast...\r\n");
 
         st = ZPS_eAplAfUnicastAckDataReq(hapdu_ins, TRANS_CLUSTER_ID,
                                          TRANS_ENDPOINT_ID, TRANS_ENDPOINT_ID,
-                                         unicastDest, SEC_MODE_FOR_DATA_ON_AIR, 
+                                         unicastDest, SEC_MODE_FOR_DATA_ON_AIR,
                                          0, NULL);
     }
 
