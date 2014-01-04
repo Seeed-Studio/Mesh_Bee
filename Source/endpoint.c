@@ -171,7 +171,7 @@ OS_TASK(APP_taskHandleUartRx)
         if ((dataCnt - popCnt) >= THRESHOLD_READ) 
             OS_eActivateTask(APP_taskHandleUartRx); 
         else if ((dataCnt - popCnt) > 0) 
-            vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(10)); 
+            vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(1)); 
 
         //AT filter to find AT delimiter
         if (searchAtStarter(tmp, popCnt)) 
@@ -801,7 +801,6 @@ bool sendToAir(uint16 txmode, uint16 unicastDest, tsApiFrame *apiFrame, teFrameT
     {
         //we dont care about the failure anymore, because handling this failure will delay or
         //even block the following waiting data. So just let it go and focus on the next data.
-
         DBG_vPrintf(TRACE_EP, "Send failed: 0x%x, drop it... \r\n", st);
         PDUM_eAPduFreeAPduInstance(hapdu_ins);
         return FALSE;

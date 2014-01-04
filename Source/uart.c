@@ -133,7 +133,7 @@ OS_ISR(APP_isrUART1)
                     OS_eActivateTask(APP_taskHandleUartRx);
                 else
                 {
-                    vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(10));
+                    vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(5));
                 }
             }
         }
