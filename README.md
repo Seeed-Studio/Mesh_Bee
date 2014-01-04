@@ -1,8 +1,8 @@
 Mesh Bee
----------------------------------------------------------
+------------
 Here we have a prototype version：
 
-![image](http://www.seeedstudio.com/wiki/images/c/c8/Mesh_Bee_alpha_ver.jpg)
+![image](http://www.seeedstudio.com/wiki/images/thumb/5/53/MeshBeePic1.png/400px-MeshBeePic1.png)
 
 And the release version is coming soon.
 
@@ -10,7 +10,20 @@ Mesh Bee is a 2.4GHz wireless transceiver from seeed studio. It's based on NXP's
 
 Mesh Bee will bring you lots of fun.
 
+### Usage
 
+The details are descripted at [this](http://www.seeedstudio.com/wiki/Mesh_Bee) wiki page, please launch there and find your need.
+
+### Contribution
+
+Contributing to this software is warmly welcomed. You can do this basically by
+[forking](https://help.github.com/articles/fork-a-repo), committing modifications and then [pulling requests](https://help.github.com/articles/using-pull-requests) (follow the links above for operating guide). Adding change log and your contact into file header is encouraged.  
+
+Thanks for your contribution.  
+
+Want to know more about our firmware development process? Please check out this link: [http://seeed-studio.github.io/Mesh_Bee/](http://seeed-studio.github.io/Mesh_Bee/).
+
+And more, you can post on our discussion group at [here](https://groups.google.com/forum/#!forum/seeedstudio-mesh-bee-discussion-group) and share your ideas.
 
     
 ----
@@ -18,10 +31,6 @@ Mesh Bee will bring you lots of fun.
 This software is written by Jack Shao (xuguang.shao@seeedstudio.com) for seeed studio<br>
 and is licensed under [The MIT License](http://opensource.org/licenses/mit-license.php). Check License.txt for more information.<br>
 
-Contributing to this software is warmly welcomed. You can do this basically by<br>
-[forking](https://help.github.com/articles/fork-a-repo), committing modifications and then [pulling requests](https://help.github.com/articles/using-pull-requests) (follow the links above<br>
-for operating guide). Adding change log and your contact into file header is encouraged.<br>
-Thanks for your contribution.
 
 Seeed Studio is an open hardware facilitation company based in Shenzhen, China. <br>
 Benefiting from local manufacture power and convenient global logistic system, <br>

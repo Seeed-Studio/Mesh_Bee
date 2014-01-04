@@ -490,6 +490,7 @@ int processSerialCmd(uint8 *buf, int len)
 int AT_enterDataMode(uint16 *regAddr)
 {
     g_sDevice.eMode = E_MODE_DATA;
+    PDM_vSaveRecord(&g_sDevicePDDesc); 
     return OK;
 }
 

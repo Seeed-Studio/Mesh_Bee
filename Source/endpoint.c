@@ -177,6 +177,7 @@ OS_TASK(APP_taskHandleUartRx)
         if (searchAtStarter(tmp, popCnt)) 
         {
             g_sDevice.eMode = E_MODE_AT;
+            PDM_vSaveRecord(&g_sDevicePDDesc); 
             uart_printf("Enter AT mode.\r\n");
             clear_ringbuffer(&rb_rx_uart);
         }
