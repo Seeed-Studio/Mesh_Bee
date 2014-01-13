@@ -58,7 +58,7 @@ void uart_initialize()
     AT_setBaudRateUart1(&g_sDevice.config.baudRateUart1);
     vAHI_UartSetControl(UART_COMM, E_AHI_UART_EVEN_PARITY, E_AHI_UART_PARITY_DISABLE, E_AHI_UART_WORD_LEN_8, E_AHI_UART_1_STOP_BIT, FALSE);
     vAHI_UartSetInterrupt(UART_COMM, FALSE, FALSE, TRUE, TRUE, E_AHI_UART_FIFO_LEVEL_1);
-    DBG_vPrintf(TRACE_UART, "UART1 enabled \r\n");
+    DBG_vPrintf(TRACE_UART, "UART1 enabled, baud rate: %d \r\n", g_sDevice.config.baudRateUart1); 
 }
 
 /****************************************************************************
@@ -81,10 +81,24 @@ int AT_setBaudRateUart1(uint16 *regAddr)
     //#define E_AHI_UART_RATE_9600       1
     //#define E_AHI_UART_RATE_19200      2
     //#define E_AHI_UART_RATE_38400      3
-    //#define E_AHI_UART_RATE_76800      4
+    //#define E_AHI_UART_RATE_76800      //76800's not a well-used baudrate, we take 57600 instead.
     //#define E_AHI_UART_RATE_115200     5
     if (*regAddr > 5) *regAddr = 5;
-    vAHI_UartSetBaudRate(UART_COMM, *regAddr);
+    if (*regAddr == 4)
+    {
+      vAHI_UartSetBaudDivisor(UART_COMM, 23);  //57600bps
+      vAHI_UartSetClocksPerBit(UART_COMM, 11); 
+    }
+    else if (*regAddr == 5)
+    {
+      vAHI_UartSetBaudDivisor(UART_COMM, 10);  
+      vAHI_UartSetClocksPerBit(UART_COMM, 13);
+    }
+    else //others are acurate
+    {
+      vAHI_UartSetClocksPerBit(UART_COMM, 15); 
+      vAHI_UartSetBaudRate(UART_COMM, *regAddr);
+    }
 }
 
 /****************************************************************************
@@ -112,13 +126,13 @@ OS_ISR(APP_isrUART1)
         if (avlb_cnt > 0)
         {
             uint8 tmp[RXFIFOLEN];
-
+            
             u16AHI_UartBlockReadData(UART_COMM, tmp, avlb_cnt); //anyhow we read to empty to clear interrupt flag
                                                                 //if not do so, ISR will occur again and again
             OS_eEnterCriticalSection(mutexRxRb);
             free_cnt = ringbuffer_free_space(&rb_rx_uart);
             OS_eExitCriticalSection(mutexRxRb);
-            cnt = MIN(free_cnt, avlb_cnt);
+            cnt = MIN(free_cnt, avlb_cnt); 
             DBG_vPrintf(TRACE_UART, "avlb_cnt: %u, free_cnt: %u \r\n", avlb_cnt, free_cnt);
             if (cnt > 0)
             {
