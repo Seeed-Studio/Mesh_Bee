@@ -466,10 +466,6 @@ void clientOtaFinishing()
  * void
  * 
  ****************************************************************************/
-#ifdef FACT_TEST
-PRIVATE uint16 sum_lqi = 0;
-PRIVATE int pkt_cnt = 0;
-#endif
 void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
 {
     PDUM_thAPduInstance hapdu_ins;
@@ -489,18 +485,7 @@ void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
     if (pwmWidth > 500)
         pwmWidth = 500;
 
-#ifndef FACT_TEST
     vAHI_TimerStartRepeat(E_AHI_TIMER_1, 500 - pwmWidth, 500 + pwmWidth);
-#else
-    sum_lqi += lqi;
-    if (++pkt_cnt % 20 == 0)
-    {
-        uart_printf("---------------- LQI TEST ---------------\r\n");
-        uart_printf("avg lqi: %d \r\n", sum_lqi / 20);
-        sum_lqi = 0;
-        pkt_cnt = 0;
-    }
-#endif
 
     //we drop packets under AT mode
     //if (g_sDevice.eMode == E_MODE_AT)

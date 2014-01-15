@@ -51,7 +51,7 @@ int AT_abortOTAUpgrade(uint16 *regAddr);
 int AT_OTAStatusPoll(uint16 *regAddr); 
 int AT_ioTest(uint16 *regAddr); 
 
-
+static uint16 attt_dummy_reg = 0;
 
 static AT_Command_t atCommands[] =
 {
@@ -110,9 +110,7 @@ static AT_Command_t atCommands[] =
     //ota status poll
     { "OS", 0, 0, 0, true, AT_OTAStatusPoll, false },
 #endif
-#ifdef FACT_TEST
-    { "TT", 0, 0, 0, TRUE, /*APP_vOtaKillInternalReboot*/AT_ioTest, FALSE },
-#endif
+    { "TT", &attt_dummy_reg, 1, 1, TRUE, AT_ioTest, FALSE },
 
 };
 
@@ -754,8 +752,8 @@ int AT_listAllNodes(uint16 *regAddr)
 
     if (sendToAir(BROADCAST, 0, &frm, FRM_TOPO_REQ, (&dummy), 1))
     {
-        uart_printf("Topo discovery request has been sent.\r\n");
-        uart_printf("This may take a while, please wait patiently.\r\n");
+        uart_printf("The request has been sent.\r\n");
+        uart_printf("Wait for response...\r\n");
         return OK;
     }
     return ERR;
@@ -775,82 +773,185 @@ int AT_listAllNodes(uint16 *regAddr)
  * void
  * 
  ****************************************************************************/
-#ifdef FACT_TEST
 int AT_ioTest(uint16 *regAddr)
 {
-    bAHI_DoEnableOutputs(TRUE);  //DO0 & DO1
-    vAHI_DioSetDirection((1 << 16)| (1 << 1) | (1 << 13) | (1 << DIO_ASSOC) | (1 << DIO_ON_SLEEP) | (1 << 12),
-                         (1 << DIO_RSSI) | (1<<0) | (1 << 17) | (1 << 18));
-    vAHI_DoSetDataOut(0, 0x3);  //do0, do1 -> low
-    vAHI_DioSetOutput((1<<0) | (1 << 18) | (1 << DIO_RSSI), (1 << 17)); //D18 ->HIGH
-    uint32 val = u32AHI_DioReadInput();
+    //disable pwm for rssi
+    vAHI_TimerDisable(E_AHI_TIMER_1);
+    //disable spi for external flash
+    vAHI_SpiDisable();
     
-    uart_printf("\r\n\r\n--------------- DIO TEST ----------------\r\n");
+    //now test the IOs
+    bAHI_DoEnableOutputs(TRUE);  //DO0 & DO1
+    vAHI_DioSetDirection((1 << 16) | (1 << 1) | (1 << 13) | (1 << DIO_ASSOC) | (1 << DIO_ON_SLEEP) | (1 << 12),
+                         (1 << DIO_RSSI) | (1 << 0) | (1 << 17) | (1 << 18));
+    vAHI_DoSetDataOut(0, 0x3);  //do0, do1 -> low
+    vAHI_DioSetOutput((1 << 0) | (1 << 18) | (1 << DIO_RSSI), (1 << 17)); //D18 ->HIGH
+    uint32 val = u32AHI_DioReadInput();
+    bool ok = TRUE;
+    uint16 detail = *regAddr;
+
+    if (detail)
+        uart_printf("\r\n\r\n--------------- DIO TEST ----------------\r\n"); 
     if (val & (1 << 13))
-        uart_printf("Do1 = 0, read 1, FAIL\r\n");
+    {
+        if (detail)
+            uart_printf("Do1 = 0, read 1, FAIL\r\n");
+        ok = FALSE;
+    }
     else
-        uart_printf("Do1 = 0, read 0, PASS\r\n");
+    {
+        if (detail)
+            uart_printf("Do1 = 0, read 0, PASS\r\n"); 
+    }
 
-    if (val & (1 << DIO_ASSOC)) 
-        uart_printf("RSSI = 1, read 1, PASS\r\n");
+    if (val & (1 << DIO_ASSOC))
+    {
+        if (detail)
+            uart_printf("RSSI = 1, read 1, PASS\r\n"); 
+    }
     else
-        uart_printf("RSSI = 1, read 0, FAIL\r\n");
+    {
+        if (detail)
+            uart_printf("RSSI = 1, read 0, FAIL\r\n"); 
+        ok = FALSE;
+    }
 
-    if (val & (1 << DIO_ON_SLEEP)) 
-        uart_printf("Do0 = 0, read 1, FAIL\r\n");
+    if (val & (1 << DIO_ON_SLEEP))
+    {
+        if (detail)
+            uart_printf("Do0 = 0, read 1, FAIL\r\n"); 
+        ok = FALSE;
+    }
     else
-        uart_printf("Do0 = 0, read 0, PASS\r\n");
+    {
+        if (detail) 
+            uart_printf("Do0 = 0, read 0, PASS\r\n");
+    }
 
     if (val & (1 << 12))
-        uart_printf("D18 = 1, read 1, PASS\r\n");
+    {
+        if (detail)
+            uart_printf("D18 = 1, read 1, PASS\r\n"); 
+    }
     else
-        uart_printf("D18 = 1, read 0, FAIL\r\n");
-    
-    if (val & (1 << 16))
-        uart_printf("D17 = 0, read 1, FAIL\r\n");
-    else
-        uart_printf("D17 = 0, read 0, PASS\r\n");
+    {
+        if (detail)
+            uart_printf("D18 = 1, read 0, FAIL\r\n"); 
+        ok = FALSE;
+    }
 
-    if (val & (1 << 1)) 
-        uart_printf("D0 = 1, read 1, PASS\r\n");
+    if (val & (1 << 16))
+    {
+        if (detail)
+            uart_printf("D17 = 0, read 1, FAIL\r\n"); 
+        ok = FALSE;
+    }
     else
-        uart_printf("D0 = 1, read 0, FAIL\r\n");
+    {
+        if (detail)
+            uart_printf("D17 = 0, read 0, PASS\r\n"); 
+    }
+
+
+    if (val & (1 << 1))
+    {
+        if (detail)
+            uart_printf("D0 = 1, read 1, PASS\r\n"); 
+    }
+    else
+    {
+        if (detail)
+            uart_printf("D0 = 1, read 0, FAIL\r\n"); 
+        ok = FALSE;
+    }
 
 
     vAHI_DoSetDataOut(0x3, 0);  //do0, do1 -> high
-    vAHI_DioSetOutput((1 << 17), (1<<0) | (1 << 18) | (1 << DIO_RSSI));
-    val = u32AHI_DioReadInput(); 
-    
-    uart_printf("\r\n\r\n--------------- DIO TEST 2----------------\r\n"); 
+    vAHI_DioSetOutput((1 << 17), (1 << 0) | (1 << 18) | (1 << DIO_RSSI));
+    val = u32AHI_DioReadInput();
+
+    if (detail)
+        uart_printf("\r\n\r\n--------------- DIO TEST 2----------------\r\n"); 
     if (val & (1 << 13))
-        uart_printf("Do1 = 1, read 1, PASS\r\n");
+    {
+        if (detail)
+            uart_printf("Do1 = 1, read 1, PASS\r\n"); 
+    }
     else
-        uart_printf("Do1 = 1, read 0, FAIL\r\n"); 
+    {
+        if (detail)
+            uart_printf("Do1 = 1, read 0, FAIL\r\n"); 
+        ok = FALSE;
+    }
 
-    if (val & (1 << DIO_ASSOC)) 
-        uart_printf("RSSI = 0, read 1, FAIL\r\n");
+    if (val & (1 << DIO_ASSOC))
+    {
+        if (detail)
+            uart_printf("RSSI = 0, read 1, FAIL\r\n"); 
+        ok = FALSE;
+    }
     else
-        uart_printf("RSSI = 0, read 0, PASS\r\n"); 
+    {
+        if (detail)
+            uart_printf("RSSI = 0, read 0, PASS\r\n"); 
+    }
 
-    if (val & (1 << DIO_ON_SLEEP)) 
-        uart_printf("Do0 = 1, read 1, PASS\r\n");
+    if (val & (1 << DIO_ON_SLEEP))
+    {
+        if (detail)
+            uart_printf("Do0 = 1, read 1, PASS\r\n"); 
+    }
     else
-        uart_printf("Do0 = 1, read 0, FAIL\r\n"); 
+    {
+        if (detail)
+            uart_printf("Do0 = 1, read 0, FAIL\r\n"); 
+        ok = FALSE; 
+    }
 
     if (val & (1 << 12))
-        uart_printf("D18 = 0, read 1, FAIL\r\n");
+    {
+        if (detail)
+            uart_printf("D18 = 0, read 1, FAIL\r\n"); 
+        ok = FALSE; 
+    }
     else
-        uart_printf("D18 = 0, read 0, PASS\r\n"); 
+    {
+        if (detail)
+            uart_printf("D18 = 0, read 0, PASS\r\n"); 
+    }
 
     if (val & (1 << 16))
-        uart_printf("D17 = 1, read 1, PASS\r\n");
+    {
+        if (detail)
+            uart_printf("D17 = 1, read 1, PASS\r\n"); 
+    }
     else
-        uart_printf("D17 = 1, read 0, FAIL\r\n"); 
-    
+    {
+        if (detail)
+            uart_printf("D17 = 1, read 0, FAIL\r\n"); 
+        ok = FALSE; 
+    }
+
     if (val & (1 << 1))
-        uart_printf("D0 = 0, read 1, FAIL\r\n"); 
+    {
+        if (detail)
+            uart_printf("D0 = 0, read 1, FAIL\r\n"); 
+        ok = FALSE; 
+    }
     else
-        uart_printf("D0 = 0, read 0, PASS\r\n"); 
+    {
+        if (detail)
+            uart_printf("D0 = 0, read 0, PASS\r\n"); 
+    }
     
+    if (!detail)
+    {
+        uart_printf("%s\r\n", ok? "PASS":"FAIL");
+    }
+    
+    //soft reset to restore io functions
+    while (uart_get_tx_status_busy()); 
+    vAHI_SwReset(); 
+    
+    return OK;
 }
-#endif

@@ -776,15 +776,13 @@ PUBLIC void node_vInitialise(void)
     bIsServer = TRUE;
 #endif
     g_sDevice.isOTASvr = bIsServer;
-#ifndef FACT_TEST
+
     bAHI_FlashInit(E_FL_CHIP_ST_M25P40_A, NULL);
-#endif
 
 #endif
 
     OS_eActivateTask(APP_taskNWK);
 
-    #ifndef FACT_TEST
     //light on on/sleep led.
     vAHI_DioSetDirection(0, (1 << DIO_ON_SLEEP));
     vAHI_DioSetOutput((1 << DIO_ON_SLEEP), 0); 
@@ -795,7 +793,6 @@ PUBLIC void node_vInitialise(void)
     //init pwm for rssi
     vAHI_TimerEnable(E_AHI_TIMER_1, 4, FALSE, FALSE, TRUE);
     vAHI_TimerStartRepeat(E_AHI_TIMER_1, 1000, 1);
-    #endif
 }
 
 
