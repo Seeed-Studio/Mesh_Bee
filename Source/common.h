@@ -55,7 +55,7 @@
 
 #include "ringbuffer.h"
 
-#define SW_VER                          0x1000
+#define SW_VER                          0x1001
 
 #if defined(TARGET_COO) || defined(TARGET_ROU) || defined(TARGET_END)
 #else

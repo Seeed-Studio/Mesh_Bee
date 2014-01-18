@@ -38,6 +38,13 @@
 #define PREAMBLE        0xed
 #define ATHEADERLEN     4
 
+//AT reg print functions
+//int AT_printBaudRate(uint16 *regAddr); //in uart.c
+int AT_printTT(uint16 *regAddr);
+
+//AT cmd postProcess funtions:
+int AT_reboot(uint16 *regAddr);
+int AT_powerUpActionSet(uint16 *regAddr);
 int AT_enterDataMode(uint16 *regAddr);
 //int AT_reScanNetwork(uint16 *regAddr); //in zigbee_join.c
 //int AT_joinNetworkWithIndex(uint16 *regAddr); //in zigbee_join.c
@@ -49,39 +56,43 @@ int AT_enterApiMode(uint16 *regAddr);
 int AT_triggerOTAUpgrade(uint16 *regAddr);
 int AT_abortOTAUpgrade(uint16 *regAddr); 
 int AT_OTAStatusPoll(uint16 *regAddr); 
-int AT_ioTest(uint16 *regAddr); 
+int AT_TestTest(uint16 *regAddr); 
 
 static uint16 attt_dummy_reg = 0;
 
+//cmd_name, reg_addr, isHex, digits, max, printFunc, func
 static AT_Command_t atCommands[] =
 {
+    //reboot
+    { "RB", NULL, FALSE, 0, 0, NULL, AT_reboot },
+    
     //power up action, for coo:powerup re-form the network; for rou:powerup re-scan networks
-    { "PA", &g_sDevice.config.powerUpAction, 1, 1, FALSE, 0, TRUE },
+    { "PA", &g_sDevice.config.powerUpAction, FALSE, 1, 1, NULL, AT_powerUpActionSet }, 
 
 #ifndef TARGET_COO
     //for rou&end, auto join the first network in scan result list
-    { "AJ", &g_sDevice.config.autoJoinFirst, 1, 1, FALSE, 0, FALSE },
+    { "AJ", &g_sDevice.config.autoJoinFirst, FALSE, 1, 1, NULL, NULL }, 
 
     // re-scan radio channels to find networks
-    { "RS", 0, 0, 0, TRUE, AT_reScanNetwork, FALSE },
+    { "RS", NULL, FALSE, 0, 0, NULL, AT_reScanNetwork }, 
 
     // list all network scaned
-    { "LN", 0, 0, 0, TRUE, AT_listNetworkScaned, FALSE },
+    { "LN", NULL, FALSE, 0, 0, NULL, AT_listNetworkScaned }, 
 
     //network index which is selected to join,MAX_SINGLE_CHANNEL_NETWORKS = 8
-    { "JN", &g_sDevice.config.networkToJoin, 3, MAX_SINGLE_CHANNEL_NETWORKS, TRUE, AT_joinNetworkWithIndex, FALSE },
+    { "JN", &g_sDevice.config.networkToJoin, FALSE, 3, MAX_SINGLE_CHANNEL_NETWORKS, NULL, AT_joinNetworkWithIndex }, 
 #endif
     // list all nodes of the whole network, this will take a little more time
-    { "LA", 0, 0, 0, TRUE, AT_listAllNodes, FALSE }, 
+    { "LA", NULL, FALSE, 0, 0, NULL, AT_listAllNodes }, 
 
     //tx mode, 0: broadcast; 1:unicast
-    { "TM", &g_sDevice.config.txMode, 1, 1, FALSE, 0, FALSE },
+    { "TM", &g_sDevice.config.txMode, FALSE, 1, 1, NULL, NULL }, 
 
     //unicast dst addr
-    { "DA", &g_sDevice.config.unicastDstAddr, 4, 65535, FALSE, 0, FALSE },
+    { "DA", &g_sDevice.config.unicastDstAddr, TRUE, 4, 65535, NULL, NULL }, 
 
     //baud rate for uart1
-    { "BR", &g_sDevice.config.baudRateUart1, 1, 10, TRUE, AT_setBaudRateUart1, FALSE },
+    { "BR", &g_sDevice.config.baudRateUart1, FALSE, 1, 10, AT_printBaudRate, AT_setBaudRateUart1 }, 
 #if 0//defined(TARGET_END)
     //for end: whether enter sleep mode
     { "SL", &g_sDevice.config.sleepMode, 1, 1, FALSE, 0, FALSE },
@@ -90,27 +101,27 @@ static AT_Command_t atCommands[] =
     { "WD", &g_sDevice.config.wakeupDuration, 3, 999, FALSE, 0, FALSE }, 
 #endif
     //show the infomation of node                              
-    { "IF", 0, 0, 0, TRUE, AT_showInfo, FALSE },  
+    { "IF", NULL, FALSE, 0, 0, NULL, AT_showInfo },  
 
     //enter api mode immediatelly                              
-    { "AP", 0, 0, 0, TRUE, AT_enterApiMode, FALSE }, 
+    { "AP", NULL, FALSE, 0, 0, NULL, AT_enterApiMode }, 
 
     //exit at mode into data mode                               
-    { "EX", 0, 0, 0, TRUE, AT_enterDataMode, FALSE },
+    { "EX", NULL, FALSE, 0, 0, NULL, AT_enterDataMode }, 
 #ifdef OTA_SERVER
     //ota trigger, trigger upgrade for unicastDstAddr
-    { "OT", 0, 0, 0, TRUE, AT_triggerOTAUpgrade, FALSE },
+    { "OT", NULL, FALSE, 0, 0, NULL, AT_triggerOTAUpgrade },
     
     //ota rate, client req period
-    { "OR", &g_sDevice.config.reqPeriodMs, 5, 60000, FALSE, 0, FALSE },
+    { "OR", &g_sDevice.config.reqPeriodMs, FALSE, 5, 60000, NULL, NULL },
 
     //ota abort
-    { "OA", 0, 0, 0, true, AT_abortOTAUpgrade, false },
+    { "OA", NULL, FALSE, 0, 0, NULL, AT_abortOTAUpgrade },
     
     //ota status poll
-    { "OS", 0, 0, 0, true, AT_OTAStatusPoll, false },
+    { "OS", NULL, FALSE, 0, 0, NULL, AT_OTAStatusPoll },
 #endif
-    { "TT", &attt_dummy_reg, 1, 1, TRUE, AT_ioTest, FALSE },
+    { "TT", &attt_dummy_reg, FALSE, 1, 5, AT_printTT, AT_TestTest }, 
 
 };
 
@@ -400,7 +411,6 @@ int processSerialCmd(uint8 *buf, int len)
     int result = ERR;
 
     uint16 paraValue;   // the ID used in the EEPROM
-    AT_Command_Function_t function; // the function which does the real work on change
     
     len = adjustLen(buf, len);
     if (len < ATHEADERLEN)
@@ -420,45 +430,41 @@ int processSerialCmd(uint8 *buf, int len)
             {
                 if (atCommands[i].paramDigits == 0)
                 {
-                    if (atCommands[i].postProcess)
+                    if (atCommands[i].function != NULL)
                     {
-                        function = atCommands[i].function;
-                        result = function(atCommands[i].configAddr);
+                        result = atCommands[i].function(atCommands[i].configAddr); 
                     }
                     return result;
                 }
                 
-                if (strncasecmp(atCommands[i].name, "DA", 2) == 0) 
+                if (atCommands[i].isHex) 
                 {
-                    result = getHexParamData(buf, len, &paraValue, atCommands[i].paramDigits);
-                    if (result == NOTHING)
-                    {
-                        uart_printf("%04x\r\n", *(atCommands[i].configAddr)); 
-                        return OK;
-                    }
-                } else
+                    result = getHexParamData(buf, len, &paraValue, atCommands[i].paramDigits); 
+                }else
                 {
                     result = getDecParamData(buf, len, &paraValue, atCommands[i].paramDigits);
-                    if (result == NOTHING)
-                    {
-                        uart_printf("%d\r\n", *(atCommands[i].configAddr)); 
-                        return OK; 
-                        
-                    }
                 }
                 
-                if (result == OK)
+                if (result == NOTHING) 
+                {
+                    if (atCommands[i].printFunc != NULL) 
+                        atCommands[i].printFunc(atCommands[i].configAddr);
+                    else if (atCommands[i].isHex)
+                        uart_printf("%04x\r\n", *(atCommands[i].configAddr)); 
+                    else
+                        uart_printf("%d\r\n", *(atCommands[i].configAddr)); 
+                    return OK;
+                }
+                else if (result == OK)
                 {
                     if (paraValue <= atCommands[i].maxValue)
                     {
                         *(atCommands[i].configAddr) = paraValue;
                         PDM_vSaveRecord(&g_sDevicePDDesc); 
-                        if (atCommands[i].postProcess)
+                        if (atCommands[i].function != NULL) 
                         {
-                            function = atCommands[i].function;
-                            result = function(atCommands[i].configAddr);
+                            result = atCommands[i].function(atCommands[i].configAddr); 
                         }
-                        if (result == OK && atCommands[i].reboot) result = OKREBOOT; 
                         return result; 
                     } else
                     {
@@ -469,6 +475,47 @@ int processSerialCmd(uint8 *buf, int len)
         }
     }
     return ERRNCMD; 
+}
+
+/****************************************************************************
+ *
+ * NAME: AT_reboot
+ *
+ * DESCRIPTION:
+ * 
+ *
+ * PARAMETERS: Name         RW  Usage
+ *             
+ *
+ * RETURNS:
+ * void
+ * 
+ ****************************************************************************/
+int AT_reboot(uint16 *regAddr)
+{
+    vAHI_SwReset(); 
+    return OK;
+}
+
+/****************************************************************************
+ *
+ * NAME: AT_powerUpActionSet
+ *
+ * DESCRIPTION:
+ * function be executed after ATPA cmd is processed
+ *
+ * PARAMETERS: Name         RW  Usage
+ *             
+ *
+ * RETURNS:
+ * void
+ * 
+ ****************************************************************************/
+int AT_powerUpActionSet(uint16 *regAddr)
+{
+    uart_printf("Power-up action register has been set.\r\n"); 
+    uart_printf("You may reboot the device by reset button or ATRB cmd.\r\n");
+    return OK;
 }
 
 /****************************************************************************
@@ -528,63 +575,63 @@ int AT_enterApiMode(uint16 *regAddr)
  ****************************************************************************/
 int AT_showInfo(uint16 *regAddr)
 {
-    uart_printf("1.supported at cmds:\r\n"); 
+    uart_printf("1.AT commands supported:\r\n"); 
     
     int cnt = sizeof(atCommands) / sizeof(AT_Command_t); 
     int i = 0;
     for (i = 0; i < cnt; i++)
     {
         uart_printf("AT%s ", atCommands[i].name); 
-        if ((i+1) % 5 == 0)
+        if ((i+1) % 8 == 0)
         {
             uart_printf("\r\n"); 
         }
     }
 
-    uart_printf("\r\n\r\n2.node info:\r\n"); 
+    uart_printf("\r\n\r\n2.Node information:\r\n"); 
     
-    uart_printf("FW Version\t: 0x%04x \r\n", SW_VER); 
+    uart_printf("FW Version       : 0x%04x \r\n", SW_VER); 
 
-    uart_printf("Short Addr\t: 0x%04x \r\n", ZPS_u16AplZdoGetNwkAddr()); 
+    uart_printf("Short Addr       : 0x%04x \r\n", ZPS_u16AplZdoGetNwkAddr()); 
 
-    uart_printf("Mac Addr\t: 0x%08x%08x \r\n", 
+    uart_printf("Mac Addr         : 0x%08x%08x \r\n", 
                   (uint32)(ZPS_u64AplZdoGetIeeeAddr() >> 32),
                   (uint32)(ZPS_u64AplZdoGetIeeeAddr()));
 
-    uart_printf("RadioChnl\t: %d \r\n", ZPS_u8AplZdoGetRadioChannel()); 
+    uart_printf("RadioChnl        : %d \r\n", ZPS_u8AplZdoGetRadioChannel()); 
     
     char *txt;
     switch (ZPS_eAplZdoGetDeviceType())
     {
     case ZPS_ZDO_DEVICE_COORD:
-        txt = "Device Type\t: Co-ordinator \r\n"; 
+        txt = "Co-ordinator \r\n"; 
         break;
     case ZPS_ZDO_DEVICE_ROUTER:
-        txt = "Device Type\t: Router \r\n"; 
+        txt = "Router \r\n"; 
         break; 
     case ZPS_ZDO_DEVICE_ENDDEVICE:
-        txt = "Device Type\t: EndDevice \r\n"; 
+        txt = "EndDevice \r\n"; 
         break;
     default:
         break;
     }
-    uart_printf(txt); 
+    uart_printf("Device Type      : %s",txt); 
 
     //#define E_AHI_UART_RATE_4800       0
     //#define E_AHI_UART_RATE_9600       1
     //#define E_AHI_UART_RATE_19200      2
     //#define E_AHI_UART_RATE_38400      3
-    //#define E_AHI_UART_RATE_76800      4
+    //#define E_AHI_UART_RATE_76800      //76800's not a well-used baudrate, we take 57600 instead.
     //#define E_AHI_UART_RATE_115200     5
-    uint32 br[6] = {4800, 9600, 19200, 38400, 76800, 115200, 0};
+    uint32 br[6] = { 4800, 9600, 19200, 38400, 57600, 115200, 0 }; 
     uint8 brIdx = g_sDevice.config.baudRateUart1;
     if (brIdx > 5)  brIdx = 6;
-    uart_printf("Uart1 BaudRate\t: %d \r\n", br[brIdx]); 
+    uart_printf("UART1's BaudRate : %d \r\n", br[brIdx]); 
 
     uart_printf("Unicast Dest Addr: 0x%04x \r\n", g_sDevice.config.unicastDstAddr); 
     
     //
-    txt = "\r\n\r\n3.belonging to:\r\n";
+    txt = "\r\n\r\n3.Belonging to:\r\n";
     uart_printf(txt); 
 
     uart_printf("PANID: 0x%04x \tEXPANID: 0x%08x%08x\r\n", 
@@ -626,7 +673,7 @@ int AT_triggerOTAUpgrade(uint16 *regAddr)
     
     if (memcmp(magicNum, au8Values, OTA_MAGIC_NUM_LEN) == 0)
     {
-        uart_printf("server found valid image at external flash.\r\n");
+        uart_printf("Found valid image at external flash.\r\n");
 
         //read the image length out
         APP_vOtaFlashLockRead(OTA_IMAGE_LEN_OFFSET, 4, (uint8 * )(&u32TotalImage));
@@ -761,7 +808,7 @@ int AT_listAllNodes(uint16 *regAddr)
 
 /****************************************************************************
  *
- * NAME: AT_ioTest
+ * NAME: AT_printTT
  *
  * DESCRIPTION:
  * 
@@ -773,7 +820,27 @@ int AT_listAllNodes(uint16 *regAddr)
  * void
  * 
  ****************************************************************************/
-int AT_ioTest(uint16 *regAddr)
+int AT_printTT(uint16 *regAddr)
+{
+    uart_printf("ATTT cmd is for internal testing.\r\n");
+    return OK;
+}
+
+/****************************************************************************
+ *
+ * NAME: AT_TestTest
+ *
+ * DESCRIPTION:
+ * 
+ *
+ * PARAMETERS: Name         RW  Usage
+ *             
+ *
+ * RETURNS:
+ * void
+ * 
+ ****************************************************************************/
+int AT_TestTest(uint16 *regAddr)
 {
     //disable pwm for rssi
     vAHI_TimerDisable(E_AHI_TIMER_1);
@@ -941,16 +1008,17 @@ int AT_ioTest(uint16 *regAddr)
     else
     {
         if (detail)
-            uart_printf("D0 = 0, read 0, PASS\r\n"); 
+            uart_printf("D0 = 0, read 0, PASS\r\n "); 
     }
     
     if (!detail)
     {
-        uart_printf("%s\r\n", ok? "PASS":"FAIL");
+        uart_printf("%s\r\n ", ok? "PASS":"FAIL");
     }
     
     //soft reset to restore io functions
-    while (uart_get_tx_status_busy()); 
+    while (uart_get_tx_status_busy());
+    
     vAHI_SwReset(); 
     
     return OK;

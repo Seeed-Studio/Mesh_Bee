@@ -108,6 +108,7 @@ typedef struct __apiFrame
 
 //AT
 typedef int (*AT_Command_Function_t)(uint16 *); 
+typedef int (*AT_Command_Print_t)(uint16 *);
 
 typedef int8 byte;
 
@@ -115,11 +116,11 @@ typedef struct
 {
     const char    *name;
     uint16        *configAddr;   // the ID used in the EEPROM
+    const bool    isHex;         // whether the reg number is hex
     const int     paramDigits;  // how many digits for the parameter
     const uint16  maxValue;     // maximum value of the parameter
-    const bool    postProcess;  // do we need to call the function to perform extra actions on change
+    AT_Command_Print_t    printFunc;  //the print function of this reg
     AT_Command_Function_t function; // the function which does the real work on change
-    const bool    reboot;
 }  AT_Command_t; 
 
 enum ErrorCode

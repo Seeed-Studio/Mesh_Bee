@@ -99,6 +99,28 @@ int AT_setBaudRateUart1(uint16 *regAddr)
       vAHI_UartSetClocksPerBit(UART_COMM, 15); 
       vAHI_UartSetBaudRate(UART_COMM, *regAddr);
     }
+    return 0;
+}
+/****************************************************************************
+ *
+ * NAME: AT_printBaudRate
+ *
+ * DESCRIPTION:
+ * print the buad rate for uart1
+ *
+ * PARAMETERS: Name         RW  Usage
+ *             regAddr      R   poiter to a uint16 that containing the value of baudrate index
+ *
+ * RETURNS:
+ * void
+ * 
+ ****************************************************************************/
+int AT_printBaudRate(uint16 *regAddr)
+{
+    uart_printf("%d\r\n", *regAddr); 
+    uart_printf("--------\r\n");
+    uart_printf("Note: 0-4800, 1-9600, 2-19200, 3-38400, 4-57600, 5-115200\r\n");
+    return 0;
 }
 
 /****************************************************************************

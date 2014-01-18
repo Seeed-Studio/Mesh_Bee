@@ -39,5 +39,6 @@ void uart_trigger_tx();
 void uart_tx_data(void *data, int len);
 int uart_printf(const char *fmt, ...);
 int AT_setBaudRateUart1(uint16 *regAddr);
+int AT_printBaudRate(uint16 *regAddr);
 
 #endif /* __UART_H__ */

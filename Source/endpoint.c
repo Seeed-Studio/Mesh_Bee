@@ -214,15 +214,13 @@ OS_TASK(APP_taskHandleUartRx)
 
         char *resp;
         if (ret == OK)
-            resp = "OK\r\n";
+            resp = "OK\r\n\r\n";
         if (ret == ERR)
-            resp = "Error\r\n";
+            resp = "Error\r\n\r\n"; 
         if (ret == ERRNCMD)
-            resp = "Error, invalid command\r\n";
+            resp = "Error, invalid command\r\n\r\n"; 
         if (ret == OUTRNG)
-            resp = "Error, out range\r\n";
-        if (ret == OKREBOOT)
-            resp = "OK, need reboot to take place.\r\n";
+            resp = "Error, out range\r\n\r\n"; 
         uart_printf(resp);
         
         OS_eEnterCriticalSection(mutexRxRb); 
