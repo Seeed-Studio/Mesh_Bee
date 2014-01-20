@@ -1,25 +1,3 @@
-/*    
- * .cproject
- * Firmware for SeeedStudio RFBeeV2(Zigbee) module 
- *   
- * Copyright (c) NXP B.V. 2012.   
- * Spread by SeeedStudio
- * Author     : Jack Shao
- * Create Time: 2013/10 
- * Change Log :   
- *   
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.  
- */
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <?fileVersion 4.0.0?><cproject>
 <storageModule moduleId="org.eclipse.cdt.core.settings">
@@ -2248,6 +2226,6 @@
 </cconfiguration>
 </storageModule>
 <storageModule moduleId="cdtBuildSystem" version="4.0.0">
-<project id="RFBeeV2.cdt.managedbuild.target.gnu.cygwin.exe.1185935665" name="Executable" projectType="cdt.managedbuild.target.gnu.cygwin.exe"/>
+<project id="Mesh_Bee.cdt.managedbuild.target.gnu.cygwin.exe.1185935665" name="Executable" projectType="cdt.managedbuild.target.gnu.cygwin.exe"/>
 </storageModule>
 </cproject>
