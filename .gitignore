@@ -1,4 +1,5 @@
-/Source/gen/*
+/build/gen/*
+/build/obj/*
 ###############
 #  fixed file #
 ###############
