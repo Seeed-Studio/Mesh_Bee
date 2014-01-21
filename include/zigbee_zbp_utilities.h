@@ -1,5 +1,5 @@
 /*    
- * endpoint.h
+ * zigbee_zbp_utilities.h
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
  *   
  * Copyright (c) NXP B.V. 2012.   
@@ -21,20 +21,13 @@
  * POSSIBILITY OF SUCH DAMAGE.  
  */
 
-#ifndef __ENDPOINT_H__
-#define __ENDPOINT_H__
+#ifndef APP_ZBP_UTILITIES_H_
+#define APP_ZBP_UTILITIES_H_
 
-#include <jendefs.h>
-#include "zps_apl_aib.h"
-#include "at_api.h"
 
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
-
-#define TRANS_CLUSTER_ID                0x1000
-#define TRANS_ENDPOINT_ID               (1)
-
 
 /****************************************************************************/
 /***        Type Definitions                                              ***/
@@ -44,17 +37,33 @@
 /***        Exported Functions                                            ***/
 /****************************************************************************/
 
-void endpoint_vInitialize();
-void clientOtaFinishing();
-bool sendToAir(uint16 txmode, uint16 unicastDest, tsApiFrame *apiFrame,  teFrameType type, uint8 *buff, int len);
+PUBLIC void vClearDiscNT(void);
+PUBLIC void vRemoveCoordParents(void);
+PUBLIC void vDisplayDiscNT(void);
+PUBLIC bool bInRoutingTable(uint16 u16ShortAddress);
+PUBLIC void vDisplayRoutingTable(void);
+PUBLIC void vDisplayTableSizes(void);
+PUBLIC void vDisplayAddressMapTable(void);
+PUBLIC void vDisplayNT(void);
+PUBLIC void vClearRoutingTable(void);
+PUBLIC void vDisplayRouteRecordTable(void);
+PUBLIC void vClearRouteRecordTable(void);PUBLIC void vDisplayAPSTable(void);
+PUBLIC void vDisplayNWKTransmitTable(void);
+
+#ifdef TRACE_TIMERS
+PUBLIC void vDebugTimers(void);
+#endif
 
 /****************************************************************************/
 /***        External Variables                                            ***/
 /****************************************************************************/
 
+/****************************************************************************/
+/***        In line  Functions                                            ***/
+/****************************************************************************/
 
 /****************************************************************************/
 /****************************************************************************/
 /****************************************************************************/
 
-#endif /* __ENDPOINT_H__ */
+#endif /*APP_ZBP_UTILITIES_H_*/

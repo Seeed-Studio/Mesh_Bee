@@ -1,5 +1,5 @@
 /*    
- * at_api.h
+ * firmware_at_cmd.h
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
  *   
  * Copyright (c) NXP B.V. 2012.   
@@ -25,8 +25,8 @@
 #define __AT_API_H__
 
 #include <jendefs.h>
-#include "uart.h"
-#include "app_ota.h"
+#include "firmware_uart.h"
+#include "firmware_ota.h"
 
 typedef enum
 {

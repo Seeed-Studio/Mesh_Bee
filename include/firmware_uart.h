@@ -1,5 +1,5 @@
 /*    
- * ringbuffer.h
+ * firmware_uart.h
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
  *   
  * Copyright (c) NXP B.V. 2012.   
@@ -20,30 +20,25 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.  
  */
-#ifndef TERMBOX_RINGBUFFER_H
-#define TERMBOX_RINGBUFFER_H
+
+#ifndef __UART_H__
+#define __UART_H__
 
 #include <jendefs.h>
 
-#define ERINGBUFFER_ALLOC_FAIL -1
+#define TXFIFOLEN               128
+#define RXFIFOLEN               128
+#define THRESHOLD_READ          50
 
-struct ringbuffer {
-    char *buf;
-    uint32 size;
 
-    char *begin;
-    char *end;
-};
+void uart_register_callback();
+void uart_initialize(void);
+bool uart_pass_up(char *buff, unsigned short len);
+bool uart_get_tx_status_busy();
+void uart_trigger_tx();
+void uart_tx_data(void *data, int len);
+int uart_printf(const char *fmt, ...);
+int AT_setBaudRateUart1(uint16 *regAddr);
+int AT_printBaudRate(uint16 *regAddr);
 
-typedef struct ringbuffer RingBuffer;
-
-int init_ringbuffer(struct ringbuffer *r, void *buff, uint32 size);
-void free_ringbuffer(struct ringbuffer *r);
-void clear_ringbuffer(struct ringbuffer *r);
-uint32 ringbuffer_free_space(struct ringbuffer *r);
-uint32 ringbuffer_data_size(struct ringbuffer *r);
-void ringbuffer_push(struct ringbuffer *r, const void *data, uint32 size);
-void ringbuffer_pop(struct ringbuffer *r, void *data, uint32 size);
-void ringbuffer_read(struct ringbuffer *r, void *data, uint32 size);
-
-#endif
+#endif /* __UART_H__ */

@@ -1,5 +1,5 @@
 /*    
- * endpoint.c
+ * zigbee_endpoint.c
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
  *   
  * Copyright (c) NXP B.V. 2012.   
@@ -27,16 +27,11 @@
 
 #include "common.h"
 
-#include "uart.h"
-#include "endpoint.h"
-#include "node.h"
-#include "at_api.h"
-#include "app_ota.h"
-
-#ifdef STACK_MEASURE
-#include "StackMeasure.h"
-tsStackInfo StackInfo;
-#endif
+#include "firmware_uart.h"
+#include "zigbee_endpoint.h"
+#include "zigbee_node.h"
+#include "firmware_at_cmd.h"
+#include "firmware_ota.h"
 
 /****************************************************************************/
 /***        Macro Definitions                                             ***/

@@ -1,5 +1,5 @@
 /*    
- * ringbuffer.c
+ * firmware_ringbuffer.c
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
  *   
  * Copyright (c) NXP B.V. 2012.   
@@ -22,13 +22,9 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
-
-/* for ptrdiff_t */
-//#include <stddef.h>
-
 #include <string.h>
 
-#include "ringbuffer.h"
+#include "firmware_ringbuffer.h"
 
 int init_ringbuffer(struct ringbuffer *r, void *buff, uint32 size)
 {

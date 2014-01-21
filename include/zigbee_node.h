@@ -1,5 +1,5 @@
 /*    
- * os_msg_types.h
+ * zigbee_node.h
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
  *   
  * Copyright (c) NXP B.V. 2012.   
@@ -21,50 +21,36 @@
  * POSSIBILITY OF SUCH DAMAGE.  
  */
 
-#ifndef MSG_TYPES_H_
-#define MSG_TYPES_H_
-
-#include "jendefs.h"
-#include "pdum_apl.h"
-#include "zps_apl_af.h"
-
+#ifndef __NODE_H__
+#define __NODE_H__
 
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
+#define RESTART_TIME             APP_TIME_MS(1000)
 
-#define NWK_RESP                                0x8000
-#define IEEE_RESP                               0x8001
-#define BIND_RESP                               0x8021
+#define ONE_SECOND_TICK_TIME     APP_TIME_MS(1000)
+
+#define EMPTY                    0
+#define ONE_MINUTE               1
+#define TWO_MINUTES              2
+#define ONE_HOUR                 60
+#define MAX_TIME_INTERVAL        65535
+
+#define PDM_REC_MAGIC            0x55667788
+#define REC_ID1                  0x1
+
 
 /****************************************************************************/
 /***        Type Definitions                                              ***/
 /****************************************************************************/
 
-
-typedef enum
-{
-    APP_E_EVENT_NONE = 0,
-    APP_E_EVENT_BUTTON_UP,
-    APP_E_EVENT_BUTTON_DOWN,
-    APP_E_EVENT_DRLC_EVENT
-} APP_teEventType;
-
-typedef struct {
-    uint8 u8Button;
-} APP_teEventButton;
-
-typedef struct {
-    APP_teEventType eType;
-    union {
-        APP_teEventButton sButton;
-    };
-} APP_tsEvent;
-
-
 /****************************************************************************/
 /***        Exported Functions                                            ***/
 /****************************************************************************/
+
+PUBLIC void node_vInitialise(void);
+PUBLIC void deleteStackPDM();
 
 /****************************************************************************/
 /***        External Variables                                            ***/
@@ -74,5 +60,4 @@ typedef struct {
 /****************************************************************************/
 /****************************************************************************/
 
-
-#endif /*MSG_TYPES_H_*/
+#endif /*__NODE_H__*/

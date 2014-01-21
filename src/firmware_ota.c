@@ -1,5 +1,5 @@
 /*    
- * app_ota.c
+ * firmware_ota.c
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
  *   
  * Copyright (c) NXP B.V. 2012.   
@@ -23,7 +23,7 @@
 
 
 #include "common.h"
-#include "app_ota.h"
+#include "firmware_ota.h"
 
 
 #ifndef TRACE_OTA

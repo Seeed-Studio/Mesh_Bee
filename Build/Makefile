@@ -40,7 +40,7 @@ PDM_BUILD_TYPE ?= _EEPROM
 ###############################################################################
 # Default DK2 development kit target hardware
 
-JENNIC_PCB ?= DEVKIT4
+JENNIC_PCB ?= MESH_BEE
 
 ###############################################################################
 # Select the network stack (e.g. MAC, ZBPro, SE)
@@ -67,16 +67,6 @@ endif
 TRACE ?=1
 TRACE_ALL?=1
 
-### Don't use JENNIC_CHIP_FAMILY here because it may not be set from command line
-## It is not set until after the config.mk files are included below
-#ifeq ($(JENNIC_CHIP),JN5168)
-OVERLAY_BUILD ?=0
-#else
-#OVERLAY_BUILD ?=1
-#endif
-
-FACT_TEST?=0
-
 # Application Flags
 CFLAGS += -DTARGET_$(TARGET)
 CFLAGS += -D$(CERTIFICATES)
@@ -88,13 +78,6 @@ ifeq ($(OTA_SUPPORT),1)
 OTA_DEFAULT_VERSION = 1
 CFLAGS += -DOTA_SUPPORT_OPTIONS
 endif
-
-ifeq ($(FACT_TEST),1)
-CFLAGS += -DFACT_TEST
-BIN_SUFFIX=_TEST
-endif
-
-
 
 ifeq ($(TRACE), 1)
 
@@ -150,11 +133,12 @@ endif
 # Path definitions
 
 # Use if application directory contains multiple targets
-SDK_BASE_DIR		= $(abspath ../../../)
-APP_BASE		= $(abspath ../)
-APP_BLD_DIR		= $(APP_BASE)/Build
-APP_SRC_DIR		= $(APP_BASE)/Source
-UTIL_SRC_DIR		= $(COMPONENTS_BASE_DIR)/Utilities/Source
+SDK_BASE_DIR    = $(abspath ../../../)
+APP_BASE        = $(abspath ../)
+APP_INC_DIR     = $(APP_BASE)/include
+APP_BLD_DIR     = $(APP_BASE)/build
+APP_SRC_DIR     = $(APP_BASE)/src
+UTIL_SRC_DIR    = $(COMPONENTS_BASE_DIR)/Utilities/Source
 
 ###############################################################################
 # Application Source files
@@ -171,27 +155,25 @@ APPSRC += pdum_gen.c
 APPSRC += zps_gen.c
 ##########
 APPSRC += app_timer_driver.c
-APPSRC += app_main.c
-APPSRC += node.c
-APPSRC += endpoint.c
-APPSRC += app_zbp_utilities.c
-
-APPSRC += ringbuffer.c
-APPSRC += at_api.c
-APPSRC += uart.c
-APPSRC += app_ota.c
+APPSRC += zigbee_main.c
+APPSRC += zigbee_node.c
+APPSRC += zigbee_endpoint.c
 APPSRC += zigbee_join.c
+APPSRC += zigbee_zbp_utilities.c
 
+APPSRC += firmware_ringbuffer.c
+APPSRC += firmware_at_cmd.c
+APPSRC += firmware_uart.c
+APPSRC += firmware_ota.c
 
 ####
-APP_ZPSCFG = app.zpscfg
+APP_ZPSCFG = MeshBee.zpscfg
 
 ###############################################################################
 # Standard Application header search paths
 
-INCFLAGS += -I$(APP_SRC_DIR)
-INCFLAGS += -I$(APP_SRC_DIR)/gen
-INCFLAGS += -I$(APP_SRC_DIR)/..
+INCFLAGS += -I$(APP_INC_DIR)
+INCFLAGS += -I$(APP_BLD_DIR)/gen
 
 INCFLAGS += -I$(COMPONENTS_BASE_DIR)/Utilities/Include
 INCFLAGS += -I$(COMPONENTS_BASE_DIR)/Recal/Include
@@ -211,7 +193,6 @@ APPLIBS += Recal
 # Configure for the selected chip or chip family
 
 include $(SDK_BASE_DIR)/Chip/Common/Build/config.mk
-include $(SDK_BASE_DIR)/Platform/Common/Build/Config.mk
 include $(SDK_BASE_DIR)/Stack/Common/Build/config.mk
 
 ###############################################################################
@@ -242,47 +223,43 @@ LDFLAGS += -L$(STACK_BASE_DIR)/ZBPro/Build
 
 .PHONY: all clean
 # Path to directories containing application source 
-vpath % $(APP_SRC_DIR):$(APP_SRC_DIR)/gen:$(SE_SRC_DIRS):$(UTIL_SRC_DIR)
+vpath % $(APP_SRC_DIR):$(APP_BLD_DIR)/gen:$(SE_SRC_DIRS):$(UTIL_SRC_DIR)
 
 
-all: $(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).bin
+all: $(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).bin
 
 
-#-include $(APPDEPS)
-#%.d:
-#	rm -f $*.o
-
-$(APP_SRC_DIR)/gen/os_gen.c $(APP_SRC_DIR)/gen/os_gen.h $(APP_SRC_DIR)/gen/os_irq.S $(APP_SRC_DIR)/gen/os_irq_alignment.S $(APP_SRC_DIR)/gen/os_irq_buserror.S $(APP_SRC_DIR)/gen/os_irq_illegalinstruction.S $(APP_SRC_DIR)/gen/os_irq_stackoverflowexception.S $(APP_SRC_DIR)/gen/os_irq_unimplementedmodule.S: $(APP_SRC_DIR)/App_AllInOne_$(JENNIC_CHIP_FAMILY).oscfgdiag $(OSCONFIG) 
+$(APP_BLD_DIR)/gen/os_gen.c $(APP_BLD_DIR)/gen/os_gen.h $(APP_BLD_DIR)/gen/os_irq.S $(APP_BLD_DIR)/gen/os_irq_alignment.S $(APP_BLD_DIR)/gen/os_irq_buserror.S $(APP_BLD_DIR)/gen/os_irq_illegalinstruction.S $(APP_BLD_DIR)/gen/os_irq_stackoverflowexception.S $(APP_BLD_DIR)/gen/os_irq_unimplementedmodule.S: $(APP_SRC_DIR)/MeshBee.oscfgdiag $(OSCONFIG) 
 	$(info Configuring the OS ...)
-	$(OSCONFIG) -f "$(shell cygpath -w "$<")" -o "$(shell cygpath -w "$(APP_SRC_DIR)/gen")" -v $(JENNIC_CHIP)
+	$(OSCONFIG) -f "$(shell cygpath -w "$<")" -o "$(shell cygpath -w "$(APP_BLD_DIR)/gen")" -v $(JENNIC_CHIP)
 	@echo
 
-$(APP_SRC_DIR)/gen/pdum_gen.c $(APP_SRC_DIR)/gen/pdum_gen.h: $(APP_SRC_DIR)/$(APP_ZPSCFG) $(PDUMCONFIG)
+$(APP_BLD_DIR)/gen/pdum_gen.c $(APP_BLD_DIR)/gen/pdum_gen.h: $(APP_SRC_DIR)/$(APP_ZPSCFG) $(PDUMCONFIG)
 	$(info Configuring the PDUM ...)
-	$(PDUMCONFIG) -z $(TARGET) -f "$(shell cygpath -w "$<")" -o "$(shell cygpath -w "$(APP_SRC_DIR)/gen")"
+	$(PDUMCONFIG) -z $(TARGET) -f "$(shell cygpath -w "$<")" -o "$(shell cygpath -w "$(APP_BLD_DIR)/gen")"
 	@echo
 
-$(APP_SRC_DIR)/gen/zps_gen.c $(APP_SRC_DIR)/gen/zps_gen.h: $(APP_SRC_DIR)/$(APP_ZPSCFG) $(ZPSCONFIG)
+$(APP_BLD_DIR)/gen/zps_gen.c $(APP_BLD_DIR)/gen/zps_gen.h: $(APP_SRC_DIR)/$(APP_ZPSCFG) $(ZPSCONFIG)
 	$(info Configuring the Zigbee Protocol Stack ...)
-	$(ZPSCONFIG) -n $(TARGET) -t $(JENNIC_CHIP) -l $(ZPS_NWK_LIB) -a $(ZPS_APL_LIB) -f "$(shell cygpath -w "$<")" -o "$(shell cygpath -w "$(APP_SRC_DIR)/gen")"
+	$(ZPSCONFIG) -n $(TARGET) -t $(JENNIC_CHIP) -l $(ZPS_NWK_LIB) -a $(ZPS_APL_LIB) -f "$(shell cygpath -w "$<")" -o "$(shell cygpath -w "$(APP_BLD_DIR)/gen")"
 	@echo
 
 %.o: %.S
 	$(info Assembling $< ...)
-	$(CC) -c -o $(subst Source,Build,$@) $(CFLAGS) $(INCFLAGS) $< -MD -MF $*.d -MP
+	$(CC) -c -o $(APP_BLD_DIR)/obj/$@ $(CFLAGS) $(INCFLAGS) $< -MD -MF $(APP_BLD_DIR)/obj/$*.d -MP
 	@echo
 
 %.o: %.c 
 	$(info Compiling $< ...)
-	$(CC) -c -o $(subst Source,Build,$@) $(CFLAGS) $(INCFLAGS) $< -MD -MF $*.d -MP
+	$(CC) -c -o $(APP_BLD_DIR)/obj/$@ $(CFLAGS) $(INCFLAGS) $< -MD -MF $(APP_BLD_DIR)/obj/$*.d -MP
 	@echo
 
-$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).elf: $(APPOBJS) $(addsuffix.a,$(addprefix $(COMPONENTS_BASE_DIR)/Library/lib,$(APPLDLIBS))) 
+$(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).elf: $(APPOBJS) $(addsuffix.a,$(addprefix $(COMPONENTS_BASE_DIR)/Library/lib,$(APPLDLIBS))) 
 	$(info Linking $@ ...)
-	$(CC) -Wl,--gc-sections -Wl,-u_AppColdStart -Wl,-u_AppWarmStart $(LDFLAGS) -TAppBuild_JN5168.ld -o $@ -Wl,--start-group $(APPOBJS) $(addprefix -l,$(LDLIBS)) -Wl,--end-group -Wl,-Map,$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).map 	 
+	$(CC) -Wl,--gc-sections -Wl,-u_AppColdStart -Wl,-u_AppWarmStart $(LDFLAGS) -TAppBuild_JN5168.ld -o $@ -Wl,--start-group $(addprefix $(APP_BLD_DIR)/obj/,$(APPOBJS)) $(addprefix -l,$(LDLIBS)) -Wl,--end-group -Wl,-Map,$(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).map 	 
 	$(SIZE) $@ 
 
-$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).bin: $(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).elf 
+$(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).bin: $(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).elf 
 	$(info Generating binary ...)
 	$(OBJCOPY) -j .version -j .bir -j .flashheader -j .vsr_table -j .vsr_handlers  -j .ro_mac_address -j .ro_ota_header -j .ro_se_lnkKey -j .ro_se_cert -j.ro_se_pvKey -j .ro_se_customData -j .rodata -j .text -j .data -j .bss -j .heap -j .stack -S -O binary $< $@
 	@echo
@@ -291,7 +268,7 @@ $(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).bin: $(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX)
 ###############################################################################
 
 clean:
-	rm -f $(APPOBJS) $(APPDEPS) $(TARGET)_$(JENNIC_CHIP)*.elf $(TARGET)_$(JENNIC_CHIP)*.map
-	rm -f $(APP_SRC_DIR)/gen/os_gen.c $(APP_SRC_DIR)/gen/os_gen.h $(APP_SRC_DIR)/gen/os_irq*.S $(APP_SRC_DIR)/gen/pdum_gen.* $(APP_SRC_DIR)/gen/zps_gen*.*
+	rm -f $(APP_BLD_DIR)/obj/* $(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)*.elf $(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)*.map
+	rm -f $(APP_BLD_DIR)/gen/os_gen.c $(APP_BLD_DIR)/gen/os_gen.h $(APP_BLD_DIR)/gen/os_irq*.S $(APP_BLD_DIR)/gen/pdum_gen.* $(APP_BLD_DIR)/gen/zps_gen*.*
 
 ###############################################################################

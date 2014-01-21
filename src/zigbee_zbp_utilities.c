@@ -1,5 +1,5 @@
 /*    
- * app_zbp_utilities.c
+ * zigbee_zbp_utilities.c
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
  *   
  * Copyright (c) NXP B.V. 2012.   

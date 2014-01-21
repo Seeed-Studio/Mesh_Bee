@@ -1,5 +1,5 @@
 /*    
- * uart.c
+ * firmware_uart.c
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
  *   
  * Copyright (c) NXP B.V. 2012.   
@@ -22,7 +22,7 @@
  */
 
 #include "common.h"
-#include "uart.h"
+#include "firmware_uart.h"
 
 
 #ifndef TRACE_UART
@@ -280,12 +280,12 @@ void uart_tx_data(void *data, int len)
 int uart_printf(const char *fmt, ...)
 {
     char buff[82];
-	va_list args;
+    va_list args;
     int n;
 
-	va_start(args, fmt);
-	n = vsnprintf(buff, 80, fmt, args);
-	va_end(args);
+    va_start(args, fmt);
+    n = vsnprintf(buff, 80, fmt, args);
+    va_end(args);
     
     uart_tx_data(buff, n);
     

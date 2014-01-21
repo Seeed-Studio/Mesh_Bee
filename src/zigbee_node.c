@@ -1,5 +1,5 @@
 /*    
- * node.c
+ * zigbee_node.c
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
  *   
  * Copyright (c) NXP B.V. 2012.   
@@ -32,11 +32,11 @@
 #include "recal.h"
 #endif
 
-#include "node.h"
-#include "uart.h"
-#include "endpoint.h"
+#include "zigbee_node.h"
+#include "firmware_uart.h"
+#include "zigbee_endpoint.h"
 #include "zigbee_join.h"
-#include "app_ota.h"
+#include "firmware_ota.h"
 
 
 /****************************************************************************/

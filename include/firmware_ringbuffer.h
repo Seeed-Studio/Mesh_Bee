@@ -1,5 +1,5 @@
 /*    
- * app_ota.h
+ * firmware_ringbuffer.h
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
  *   
  * Copyright (c) NXP B.V. 2012.   
@@ -20,30 +20,30 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.  
  */
+#ifndef TERMBOX_RINGBUFFER_H
+#define TERMBOX_RINGBUFFER_H
 
-#ifndef __OTA_H__
-#define __OTA_H__
+#include <jendefs.h>
 
-#include "common.h"
+#define ERINGBUFFER_ALLOC_FAIL -1
 
-#define OTA_BLOCK_SIZE              50
-#define OTA_SECTOR_SIZE             64*1024
-#define OTA_SECTOR_CNT              8
-#define OTA_MAGIC_OFFSET            0x0
-#define OTA_IMAGE_LEN_OFFSET        0x20
-#define OTA_MAGIC_NUM_LEN           12
+struct ringbuffer {
+    char *buf;
+    uint32 size;
 
-extern uint8 magicNum[OTA_MAGIC_NUM_LEN];
+    char *begin;
+    char *end;
+};
 
-PUBLIC void APP_vOtaFlashLockRead(uint32 offsetByte, uint16 len, uint8 *dest);
-PUBLIC void APP_vOtaFlashLockWrite(uint32 offsetByte, uint16 len, uint8 *buff);
-PUBLIC void APP_vOtaFlashLockErase(uint8 sector); 
-PUBLIC void APP_vOtaFlashLockEraseAll(); 
-PUBLIC void APP_vOtaKillInternalReboot();
+typedef struct ringbuffer RingBuffer;
 
-PUBLIC void init_crc_table(void);
-PUBLIC unsigned int crc32(unsigned int crc, unsigned char *buffer, unsigned int size); 
-PUBLIC uint32 imageCrc(uint32 imageLen); 
+int init_ringbuffer(struct ringbuffer *r, void *buff, uint32 size);
+void free_ringbuffer(struct ringbuffer *r);
+void clear_ringbuffer(struct ringbuffer *r);
+uint32 ringbuffer_free_space(struct ringbuffer *r);
+uint32 ringbuffer_data_size(struct ringbuffer *r);
+void ringbuffer_push(struct ringbuffer *r, const void *data, uint32 size);
+void ringbuffer_pop(struct ringbuffer *r, void *data, uint32 size);
+void ringbuffer_read(struct ringbuffer *r, void *data, uint32 size);
 
-
-#endif /* __OTA_H__ */
+#endif

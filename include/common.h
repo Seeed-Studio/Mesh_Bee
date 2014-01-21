@@ -48,12 +48,13 @@
 
 #include "string.h"
 #include "app_timer_driver.h"
-#include "app_zbp_utilities.h"
+#include "zigbee_zbp_utilities.h"
 #include "Time.h"
 #include "Utilities.h"
 #include "Printf.h"
+#include "os_msg_types.h"
 
-#include "ringbuffer.h"
+#include "firmware_ringbuffer.h"
 
 #define SW_VER                          0x1001
 
@@ -75,7 +76,6 @@
 #define OTA_CLIENT
 #endif
 #endif
-
 
 #define UART_COMM                       E_AHI_UART_1
 #define MAX_ROUTE_DISCOVERY_FAILURES    10

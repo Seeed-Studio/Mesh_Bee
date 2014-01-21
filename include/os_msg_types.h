@@ -1,5 +1,5 @@
 /*    
- * app_zbp_utilities.h
+ * os_msg_types.h
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
  *   
  * Copyright (c) NXP B.V. 2012.   
@@ -21,49 +21,58 @@
  * POSSIBILITY OF SUCH DAMAGE.  
  */
 
-#ifndef APP_ZBP_UTILITIES_H_
-#define APP_ZBP_UTILITIES_H_
+#ifndef MSG_TYPES_H_
+#define MSG_TYPES_H_
+
+#include "jendefs.h"
+#include "pdum_apl.h"
+#include "zps_apl_af.h"
 
 
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
 
+#define NWK_RESP                                0x8000
+#define IEEE_RESP                               0x8001
+#define BIND_RESP                               0x8021
+
 /****************************************************************************/
 /***        Type Definitions                                              ***/
 /****************************************************************************/
 
+/*
+typedef enum
+{
+    APP_E_EVENT_NONE = 0,
+    APP_E_EVENT_BUTTON_UP,
+    APP_E_EVENT_BUTTON_DOWN,
+    APP_E_EVENT_DRLC_EVENT
+} APP_teEventType;
+
+typedef struct {
+    uint8 u8Button;
+} APP_teEventButton;
+
+typedef struct {
+    APP_teEventType eType;
+    union {
+        APP_teEventButton sButton;
+    };
+} APP_tsEvent;
+*/
+
 /****************************************************************************/
 /***        Exported Functions                                            ***/
 /****************************************************************************/
-
-PUBLIC void vClearDiscNT(void);
-PUBLIC void vRemoveCoordParents(void);
-PUBLIC void vDisplayDiscNT(void);
-PUBLIC bool bInRoutingTable(uint16 u16ShortAddress);
-PUBLIC void vDisplayRoutingTable(void);
-PUBLIC void vDisplayTableSizes(void);
-PUBLIC void vDisplayAddressMapTable(void);
-PUBLIC void vDisplayNT(void);
-PUBLIC void vClearRoutingTable(void);
-PUBLIC void vDisplayRouteRecordTable(void);
-PUBLIC void vClearRouteRecordTable(void);PUBLIC void vDisplayAPSTable(void);
-PUBLIC void vDisplayNWKTransmitTable(void);
-
-#ifdef TRACE_TIMERS
-PUBLIC void vDebugTimers(void);
-#endif
 
 /****************************************************************************/
 /***        External Variables                                            ***/
 /****************************************************************************/
 
 /****************************************************************************/
-/***        In line  Functions                                            ***/
-/****************************************************************************/
-
-/****************************************************************************/
 /****************************************************************************/
 /****************************************************************************/
 
-#endif /*APP_ZBP_UTILITIES_H_*/
+
+#endif /*MSG_TYPES_H_*/

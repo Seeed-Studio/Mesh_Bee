@@ -1,5 +1,5 @@
 /*    
- * uart.h
+ * firmware_ota.h
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
  *   
  * Copyright (c) NXP B.V. 2012.   
@@ -21,24 +21,29 @@
  * POSSIBILITY OF SUCH DAMAGE.  
  */
 
-#ifndef __UART_H__
-#define __UART_H__
+#ifndef __OTA_H__
+#define __OTA_H__
 
-#include <jendefs.h>
+#include "common.h"
 
-#define TXFIFOLEN               128
-#define RXFIFOLEN               128
-#define THRESHOLD_READ          50
+#define OTA_BLOCK_SIZE              50
+#define OTA_SECTOR_SIZE             64*1024
+#define OTA_SECTOR_CNT              8
+#define OTA_MAGIC_OFFSET            0x0
+#define OTA_IMAGE_LEN_OFFSET        0x20
+#define OTA_MAGIC_NUM_LEN           12
+
+extern uint8 magicNum[OTA_MAGIC_NUM_LEN];
+
+PUBLIC void APP_vOtaFlashLockRead(uint32 offsetByte, uint16 len, uint8 *dest);
+PUBLIC void APP_vOtaFlashLockWrite(uint32 offsetByte, uint16 len, uint8 *buff);
+PUBLIC void APP_vOtaFlashLockErase(uint8 sector); 
+PUBLIC void APP_vOtaFlashLockEraseAll(); 
+PUBLIC void APP_vOtaKillInternalReboot();
+
+PUBLIC void init_crc_table(void);
+PUBLIC unsigned int crc32(unsigned int crc, unsigned char *buffer, unsigned int size); 
+PUBLIC uint32 imageCrc(uint32 imageLen); 
 
 
-void uart_register_callback();
-void uart_initialize(void);
-bool uart_pass_up(char *buff, unsigned short len);
-bool uart_get_tx_status_busy();
-void uart_trigger_tx();
-void uart_tx_data(void *data, int len);
-int uart_printf(const char *fmt, ...);
-int AT_setBaudRateUart1(uint16 *regAddr);
-int AT_printBaudRate(uint16 *regAddr);
-
-#endif /* __UART_H__ */
+#endif /* __OTA_H__ */

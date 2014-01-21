@@ -1,5 +1,5 @@
 /*    
- * app_main.c
+ * zigbee_main.c
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
  *   
  * Copyright (c) NXP B.V. 2012.   
@@ -27,15 +27,11 @@
 
 #include "common.h"
 #include "appapi.h"
-#include "node.h"
-#include "uart.h"
+#include "zigbee_node.h"
+#include "firmware_uart.h"
 
 #ifdef RADIO_RECALIBRATION
 #include "recal.h"
-#endif
-
-#ifdef STACK_MEASURE
-#include "StackMeasure.h"
 #endif
 
 #ifdef PDM_EEPROM

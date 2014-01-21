@@ -1,5 +1,5 @@
 /*    
- * at_api.c
+ * firmware_at_cmd.c
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
  *   
  * Copyright (c) NXP B.V. 2012.   
@@ -24,11 +24,11 @@
 #include <stdio.h>
 #include <string.h>
 #include "common.h"
-#include "uart.h"
+#include "firmware_uart.h"
 #include "zigbee_join.h"
-#include "at_api.h"
-#include "app_ota.h"
-#include "endpoint.h"
+#include "firmware_at_cmd.h"
+#include "firmware_ota.h"
+#include "zigbee_endpoint.h"
 
 
 #ifndef TRACE_ATAPI

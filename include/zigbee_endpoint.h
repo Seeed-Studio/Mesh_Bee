@@ -1,5 +1,5 @@
 /*    
- * node.h
+ * zigbee_endpoint.h
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
  *   
  * Copyright (c) NXP B.V. 2012.   
@@ -21,44 +21,19 @@
  * POSSIBILITY OF SUCH DAMAGE.  
  */
 
-#ifndef __NODE_H__
-#define __NODE_H__
+#ifndef __ENDPOINT_H__
+#define __ENDPOINT_H__
 
-
-
-
-/* address of the IPD. In the field this address will be added to
- * the table out of band, not hard coded
- */
-#define IPD_MAC_ADDR1             0x0000000000000001LL
-#define IPD_MAC_ADDR2             0x0000000000000002LL
-#define IPD_MAC_ADDR3             0x0000000000000003LL
-#define IPD_MAC_ADDR4             0x0000000000000004LL
-#define IPD_MAC_ADDR5             0x0000000000000005LL
-
-
+#include <jendefs.h>
+#include "zps_apl_aib.h"
+#include "firmware_at_cmd.h"
 
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
 
-#define ESP_METER_LOCAL_EP         1
-#define MIRROR_START_EP            2
-
-#define RESTART_TIME            APP_TIME_MS(1000)
-
-#define ONE_SECOND_TICK_TIME    APP_TIME_MS(1000)
-
-#define EMPTY                    0
-#define ONE_MINUTE                1
-#define TWO_MINUTES                2
-#define ONE_HOUR                60
-#define MAX_TIME_INTERVAL         65535
-
-//#define RADIO_RECALIBRATION
-
-#define PDM_REC_MAGIC            0x55667788
-#define REC_ID1                    0x1
+#define TRANS_CLUSTER_ID                0x1000
+#define TRANS_ENDPOINT_ID               (1)
 
 
 /****************************************************************************/
@@ -69,15 +44,17 @@
 /***        Exported Functions                                            ***/
 /****************************************************************************/
 
-PUBLIC void node_vInitialise(void);
-PUBLIC void deleteStackPDM();
+void endpoint_vInitialize();
+void clientOtaFinishing();
+bool sendToAir(uint16 txmode, uint16 unicastDest, tsApiFrame *apiFrame,  teFrameType type, uint8 *buff, int len);
 
 /****************************************************************************/
 /***        External Variables                                            ***/
 /****************************************************************************/
 
+
 /****************************************************************************/
 /****************************************************************************/
 /****************************************************************************/
 
-#endif /*__NODE_H__*/
+#endif /* __ENDPOINT_H__ */

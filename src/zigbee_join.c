@@ -29,9 +29,9 @@
 #include <rnd_pub.h>
 #include "common.h"
 #include "zigbee_join.h"
-#include "at_api.h"
-#include "uart.h"
-#include "node.h"
+#include "firmware_at_cmd.h"
+#include "firmware_uart.h"
+#include "zigbee_node.h"
 
 
 #ifndef TRACE_JOIN
