@@ -1,5 +1,5 @@
-/build/gen/*
-/build/obj/*
+build/gen/*
+build/obj/*
 ###############
 #  fixed file #
 ###############

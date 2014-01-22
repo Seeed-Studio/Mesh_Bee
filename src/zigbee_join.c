@@ -29,7 +29,7 @@
 #include <rnd_pub.h>
 #include "common.h"
 #include "zigbee_join.h"
-#include "firmware_at_cmd.h"
+#include "firmware_at_api.h"
 #include "firmware_uart.h"
 #include "zigbee_node.h"
 

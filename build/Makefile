@@ -162,7 +162,7 @@ APPSRC += zigbee_join.c
 APPSRC += zigbee_zbp_utilities.c
 
 APPSRC += firmware_ringbuffer.c
-APPSRC += firmware_at_cmd.c
+APPSRC += firmware_at_api.c
 APPSRC += firmware_uart.c
 APPSRC += firmware_ota.c
 

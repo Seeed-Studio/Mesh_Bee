@@ -1,5 +1,5 @@
 /*    
- * firmware_at_cmd.h
+ * firmware_at_api.h
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
  *   
  * Copyright (c) NXP B.V. 2012.   

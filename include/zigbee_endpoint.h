@@ -26,7 +26,7 @@
 
 #include <jendefs.h>
 #include "zps_apl_aib.h"
-#include "firmware_at_cmd.h"
+#include "firmware_at_api.h"
 
 /****************************************************************************/
 /***        Macro Definitions                                             ***/

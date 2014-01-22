@@ -30,7 +30,7 @@
 #include "firmware_uart.h"
 #include "zigbee_endpoint.h"
 #include "zigbee_node.h"
-#include "firmware_at_cmd.h"
+#include "firmware_at_api.h"
 #include "firmware_ota.h"
 
 /****************************************************************************/
