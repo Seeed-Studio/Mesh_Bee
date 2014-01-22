@@ -12,6 +12,12 @@ Mesh Bee will bring you lots of fun.
 
 ### Usage
 
+1. Install the SDK toolchain;
+2. Download this repo and put all files into a directory A (example);
+3. Move directory A to $TOOLCHAIN_INSTALL_DIR/Application;
+4. Open eclipse of the toolchain, "File" -> "Import". 
+5. Or you can build this repo by command line: Open "Jennic Bash Shell" -> change directory to "A/build", then execute "./build.sh" to build all targets.
+
 The details are descripted at [this](http://www.seeedstudio.com/wiki/Mesh_Bee) wiki page, please launch there and find your need.
 
 ### Contribution
