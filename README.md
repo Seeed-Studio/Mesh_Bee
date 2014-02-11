@@ -53,5 +53,5 @@ global distributors and partners to push open hardware movement.<br>
 
 [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/Seeed-Studio/mesh_bee/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
 
-[![githalytics.com alpha](https://cruel-carlota.pagodabox.com/b86b552292b3b5ecb6d154050490e8ce)](http://githalytics.com/Seeed-Studio/Mesh_Bee  "githalytics.com")
+[![Analytics](https://ga-beacon.appspot.com/UA-46589105-3/Mesh_Bee)](https://github.com/igrigorik/ga-beacon)
 
