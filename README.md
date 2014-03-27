@@ -1,10 +1,10 @@
 Mesh Bee
 ------------
-Here we have a prototype version：
 
-![image](http://www.seeedstudio.com/wiki/images/thumb/5/53/MeshBeePic1.png/400px-MeshBeePic1.png)
+Hi Makers, Mesh Bee is released.
 
-And the release version is coming soon.
+![image](http://www.seeedstudio.com/wiki/images/6/6b/QQ20140327-1.png)
+
 
 Mesh Bee is a 2.4GHz wireless transceiver from seeed studio. It's based on NXP's newly JN516x series wireless microcontroller chip and supports ZigBee Pro network stack. The factory firmware wraps the complicated ZigBee stack operation into a few easy to use serial commands, and drives Mesh Bee into a transparent serial communication node that can be part of a simple point-to-point connection or a complex mesh network. Moreover, Mesh Bee is totally open hardware and open sourced, which means that you can customize the firmware on your requirements. You can use JN516x's ARM core to control things and JenOS to simplify your development. The developing environment and tools from NXP are all free. 
 
