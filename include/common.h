@@ -1,13 +1,13 @@
-/*    
+/*
  * common.h
- * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
- *   
- * Copyright (c) NXP B.V. 2012.   
+ * Firmware for SeeedStudio Mesh Bee(Zigbee) module
+ *
+ * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
  * Author     : Jack Shao
- * Create Time: 2013/10 
- * Change Log :   
- *   
+ * Create Time: 2013/10
+ * Change Log :
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -18,7 +18,7 @@
  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.  
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef GLOBAL_DEF_H_
@@ -56,7 +56,7 @@
 
 #include "firmware_ringbuffer.h"
 
-#define SW_VER                          0x1001
+#define SW_VER                          0x1002
 
 #if defined(TARGET_COO) || defined(TARGET_ROU) || defined(TARGET_END)
 #else
@@ -109,7 +109,7 @@ typedef enum
     E_SUB_NONE,
     E_SUB_RESCANNING,
     E_SUB_REJOINNING
-}teSubState; 
+}teSubState;
 
 typedef enum
 {
@@ -136,7 +136,7 @@ typedef struct
     uint16             sleepMode;
     uint16             wakeupDuration;
     uint16             reqPeriodMs;
-}tsConfig; 
+}tsConfig;
 
 
 typedef struct
@@ -151,8 +151,8 @@ typedef struct
     //OTA related
     #ifdef CLD_OTA
     bool        supportOTA;
-    bool        isOTASvr; 
-    uint32      otaTotalBytes; 
+    bool        isOTASvr;
+    uint32      otaTotalBytes;
     uint32      otaTotalBlocks;
     uint32      otaReqPeriod;
     uint32      otaCurBlock;
@@ -160,15 +160,15 @@ typedef struct
     uint8       otaDownloading;  //0: idle; 1: block downloading; 2: upgrade requesting
     uint32      otaCrc;
     #endif
-} tsDevice; 
+} tsDevice;
 
 
 /****************************************************************************/
 /***        Exported Variables                                            ***/
 /****************************************************************************/
 extern struct ringbuffer rb_rx_uart;
-extern struct ringbuffer rb_tx_uart; 
-extern tsDevice g_sDevice; 
+extern struct ringbuffer rb_tx_uart;
+extern tsDevice g_sDevice;
 extern PDM_tsRecordDescriptor g_sDevicePDDesc;
 
 /****************************************************************************/

@@ -1,13 +1,13 @@
-/*    
+/*
  * zigbee_endpoint.c
- * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
- *   
- * Copyright (c) NXP B.V. 2012.   
+ * Firmware for SeeedStudio Mesh Bee(Zigbee) module
+ *
+ * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
  * Author     : Jack Shao
- * Create Time: 2013/10 
- * Change Log :   
- *   
+ * Create Time: 2013/10
+ * Change Log : Oliver Wang Modify 2014/03
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -18,7 +18,7 @@
  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.  
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 /****************************************************************************/
@@ -82,7 +82,7 @@ extern PDM_tsRecordDescriptor g_sDevicePDDesc;
  * NAME: APP_taskMyEndPoint
  *
  * DESCRIPTION:
- * Task to handle to end point(1) events
+ * Task to handle to end point(1) events (transmit-related event)
  *
  * RETURNS:
  * void
@@ -104,6 +104,7 @@ OS_TASK(APP_taskMyEndPoint)
             DBG_vPrintf(TRACE_EP, "[D_IND] from 0x%04x \r\n",
                         sStackEvent.uEvent.sApsDataIndEvent.uSrcAddress.u16Addr);
 
+            //handle data
             handleDataIndicatorEvent(sStackEvent);
         }
         else if (ZPS_EVENT_APS_DATA_CONFIRM == sStackEvent.eType)
@@ -131,7 +132,7 @@ OS_TASK(APP_taskMyEndPoint)
  * NAME: APP_taskHandleUartRx
  *
  * DESCRIPTION:
- * handle uart rx'ed data
+ * a thread handle uart1(user data port) rx'ed data
  *
  * RETURNS:
  * void
@@ -144,35 +145,38 @@ OS_TASK(APP_taskHandleUartRx)
     uint32 dataCnt = 0;
     uint32 popCnt = 0;
 
+    //calculate data size of the ring buffer
     OS_eEnterCriticalSection(mutexRxRb);
     dataCnt = ringbuffer_data_size(&rb_rx_uart);
     OS_eExitCriticalSection(mutexRxRb);
 
+    //if there is no data,return
     if (dataCnt == 0)  return;
 
     DBG_vPrintf(TRACE_EP, "-HandleUartRx- \r\n");
-    //
+
+
     switch (g_sDevice.eMode)
     {
     case E_MODE_DATA:
 
         //read some data out
-        popCnt = MIN(dataCnt, THRESHOLD_READ); 
+        popCnt = MIN(dataCnt, THRESHOLD_READ);
 
         OS_eEnterCriticalSection(mutexRxRb);
-        ringbuffer_pop(&rb_rx_uart, tmp, popCnt); 
+        ringbuffer_pop(&rb_rx_uart, tmp, popCnt);
         OS_eExitCriticalSection(mutexRxRb);
-        
-        if ((dataCnt - popCnt) >= THRESHOLD_READ) 
-            OS_eActivateTask(APP_taskHandleUartRx); 
-        else if ((dataCnt - popCnt) > 0) 
-            vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(1)); 
+
+        if ((dataCnt - popCnt) >= THRESHOLD_READ)
+            OS_eActivateTask(APP_taskHandleUartRx);
+        else if ((dataCnt - popCnt) > 0)
+            vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(1));
 
         //AT filter to find AT delimiter
-        if (searchAtStarter(tmp, popCnt)) 
+        if (searchAtStarter(tmp, popCnt))
         {
             g_sDevice.eMode = E_MODE_AT;
-            PDM_vSaveRecord(&g_sDevicePDDesc); 
+            PDM_vSaveRecord(&g_sDevicePDDesc);
             uart_printf("Enter AT mode.\r\n");
             clear_ringbuffer(&rb_rx_uart);
         }
@@ -181,45 +185,45 @@ OS_TASK(APP_taskHandleUartRx)
         {
             tsApiFrame frm;
             sendToAir(g_sDevice.config.txMode, g_sDevice.config.unicastDstAddr,
-                      &frm, FRM_DATA, tmp, popCnt); 
+                      &frm, FRM_DATA, tmp, popCnt);
         }
         break;
     case E_MODE_AT:
-        popCnt = MIN(dataCnt, RXFIFOLEN); 
-        
+        popCnt = MIN(dataCnt, RXFIFOLEN);
+
         OS_eEnterCriticalSection(mutexRxRb);
-        ringbuffer_read(&rb_rx_uart, tmp, popCnt); 
-        OS_eExitCriticalSection(mutexRxRb); 
-        
-        int len = popCnt; 
+        ringbuffer_read(&rb_rx_uart, tmp, popCnt);
+        OS_eExitCriticalSection(mutexRxRb);
+
+        int len = popCnt;
         bool found = FALSE;
         while (len--)
         {
-            if (tmp[len] == '\r' || tmp[len] == '\n') 
+            if (tmp[len] == '\r' || tmp[len] == '\n')
                 found = TRUE;
         }
-        
-        if (!found && popCnt < RXFIFOLEN) 
+
+        if (!found && popCnt < RXFIFOLEN)
         {
             //OS_eStartSWTimer(APP_tmrHandleUartRx, APP_TIME_MS(5), NULL); //handle after 1ms
             return;
         }
 
-        int ret = processSerialCmd(tmp, popCnt); 
+        int ret = processSerialCmd(tmp, popCnt);
 
         char *resp;
         if (ret == OK)
             resp = "OK\r\n\r\n";
         if (ret == ERR)
-            resp = "Error\r\n\r\n"; 
+            resp = "Error\r\n\r\n";
         if (ret == ERRNCMD)
-            resp = "Error, invalid command\r\n\r\n"; 
+            resp = "Error, invalid command\r\n\r\n";
         if (ret == OUTRNG)
-            resp = "Error, out range\r\n\r\n"; 
-        uart_printf(resp);
-        
-        OS_eEnterCriticalSection(mutexRxRb); 
-        ringbuffer_pop(&rb_rx_uart, tmp, popCnt); 
+            resp = "Error, out range\r\n\r\n";
+        uart_printf(resp);						//comment this for sensor data server mode
+
+        OS_eEnterCriticalSection(mutexRxRb);
+        ringbuffer_pop(&rb_rx_uart, tmp, popCnt);
         OS_eExitCriticalSection(mutexRxRb);
         break;
     case E_MODE_API:
@@ -236,7 +240,7 @@ OS_TASK(APP_taskHandleUartRx)
  * NAME: APP_taskOTAReq
  *
  * DESCRIPTION:
- * send OTA request 
+ * send OTA request
  *
  * RETURNS:
  * void
@@ -296,9 +300,9 @@ OS_TASK(APP_taskOTAReq)
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
-void endpoint_vInitialize()
+void ringbuf_vInitialize()
 {
     init_ringbuffer(&rb_rx_uart, rb_rx_mempool, RXFIFOLEN * 3);
     init_ringbuffer(&rb_tx_uart, rb_tx_mempool, TXFIFOLEN * 3);
@@ -317,7 +321,7 @@ void endpoint_vInitialize()
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 PUBLIC void vResetATimer(OS_thSWTimer hSWTimer, uint32 u32Ticks)
 {
@@ -346,7 +350,7 @@ PUBLIC void vResetATimer(OS_thSWTimer hSWTimer, uint32 u32Ticks)
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 void clientOtaRestartDownload()
 {
@@ -382,7 +386,7 @@ void clientOtaRestartDownload()
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 void clientOtaFinishing()
 {
@@ -444,6 +448,86 @@ void clientOtaFinishing()
 #endif
 }
 
+/****************************************************************************
+ *
+ * NAME: v_ProcessQueryCmd
+ *
+ * DESCRIPTION:
+ * handle Query Command in server-client mode
+ *
+ * PARAMETERS: Name           RW  Usage
+ *             apiFrame       R
+ *			   unicastDstAddr R
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
+void v_ProcessQueryCmd(tsApiFrame* apiFrame, uint16 unicastDstAddr)
+{
+	uint16 adSampleVal = 0;
+
+	tsDataStream dataStream;
+	memset(&dataStream, 0, sizeof(tsDataStream));
+
+	//verify
+	if(apiFrame->payloadLen != sizeof(uint16))
+	{
+		uart_printf("Query command format is incorrect.\r\n");
+		return;
+	}
+
+	uint16 QueryCmd = 0;
+	memcpy(&QueryCmd, (uint16*)apiFrame->payload.data, sizeof(uint16));
+
+	switch(QueryCmd)
+	{
+		case QUERY_INNER_TEMP:
+
+			dataStream.verifyByte = VERIFY_BYTE;
+			dataStream.dataType = INNER_TEMP;
+
+			/* read sensor data several times,modify dataStream size to meet your demands */
+			int i = 0;
+			for(i=0; i<DATA_POINT_NUM; i++)
+			{
+				/* Sample Chip Temperature */
+				uint16 adSampleVal = vHAL_AdcSampleRead(E_AHI_ADC_SRC_TEMP);
+				int16 i16ChipTemperature = i16HAL_GetChipTemp(adSampleVal);
+
+				/*
+				  If the JN516x device operates at temperatures  in excess of 90¡ãC, it may be necessary
+				  to call this function to maintain the frequ ency tolerance of the clock to within the
+				  40ppm limit specified by the IEEE 802.15. 4 standard.
+				*/
+				vHAL_PullXtal((int32)i16ChipTemperature);
+
+				dataStream.datapoint[i] = i16ChipTemperature;
+				dataStream.dataPointCnt++;
+			}
+
+			if(g_sDevice.eState == E_NETWORK_RUN)
+			{
+				tsApiFrame frm;
+				bool ret = sendToAir(UNICAST, unicastDstAddr, &frm, FRM_QUERY_RESP, (uint8*)(&dataStream), sizeof(tsDataStream));
+				if(!ret)
+				{
+					uart_printf("AD:%d send to 0x%04x failed.\n",dataStream.datapoint[0], unicastDstAddr);
+				}
+				else
+				{
+					uint8 tmp[20] = {0};
+					sprintf(tmp, "First AD:%d\n", dataStream.datapoint[0]);
+					uart_printf("%s",tmp);
+				}
+			}
+			break;
+
+		case QUERY_INNER_VOL:
+			break;
+		/*your own sensor query here*/
+		default:break;
+	}
+}
 
 /****************************************************************************
  *
@@ -453,11 +537,11 @@ void clientOtaFinishing()
  * handle endpoint data indicator event
  *
  * PARAMETERS: Name         RW  Usage
- *             sStackEvent  R   
+ *             sStackEvent  R
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
 {
@@ -507,7 +591,36 @@ void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
     case FRM_CTRL:
         break;
     case FRM_QUERY:
+    	v_ProcessQueryCmd(&apiFrame, u16SrcAddr);
+    	PDUM_eAPduFreeAPduInstance(hapdu_ins);			//The network will be down(stack flow) if you don't free the APDU
         break;
+    case FRM_QUERY_RESP:
+    	OS_eEnterCriticalSection(mutexTxRb);
+    	u16FreeSpace = ringbuffer_free_space(&rb_tx_uart);
+    	OS_eExitCriticalSection(mutexTxRb);
+
+        if (apiFrame.payloadLen > u16FreeSpace)
+        {
+            OS_eActivateTask(APP_taskMyEndPoint); //if there is no enough space in ringbuffer,read it later
+        }
+        else
+        {
+        	/*test no problem
+        	tsDataStream dataStream;
+        	memset(&dataStream, 0, sizeof(tsDataStream));
+        	if(apiFrame.payloadLen == sizeof(tsDataStream))
+        	{
+				memcpy((uint8*)(&dataStream), apiFrame.payload.data, apiFrame.payloadLen);
+        	    uart_printf("verifyByte:%c\n",dataStream.verifyByte);
+        	    uart_printf("dataType:%d\n",dataStream.dataType);
+        	    uart_printf("dataPoint[0]:%d\n",dataStream.datapoint[0]);
+        	}
+        	end*/
+        	/* Process the response data */
+        	uart_tx_data(apiFrame.payload.data, apiFrame.payloadLen);
+        	PDUM_eAPduFreeAPduInstance(hapdu_ins);
+        }
+    	break;
     case FRM_DATA:
         {
             OS_eEnterCriticalSection(mutexTxRb);
@@ -738,7 +851,7 @@ void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
  * RETURNS:
  * TRUE: send ok
  * FALSE:failed to allocate APDU
- * 
+ *
  ****************************************************************************/
 bool sendToAir(uint16 txmode, uint16 unicastDest, tsApiFrame *apiFrame, teFrameType type, uint8 *buff, int len)
 {
@@ -778,8 +891,10 @@ bool sendToAir(uint16 txmode, uint16 unicastDest, tsApiFrame *apiFrame, teFrameT
 
     if (st != ZPS_E_SUCCESS)
     {
-        //we dont care about the failure anymore, because handling this failure will delay or
-        //even block the following waiting data. So just let it go and focus on the next data.
+        /*
+          we dont care about the failure anymore, because handling this failure will delay or
+          even block the following waiting data. So just let it go and focus on the next data.
+        */
         DBG_vPrintf(TRACE_EP, "Send failed: 0x%x, drop it... \r\n", st);
         PDUM_eAPduFreeAPduInstance(hapdu_ins);
         return FALSE;

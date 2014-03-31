@@ -23,7 +23,7 @@
 				</dictionary>
 				<dictionary>
 					<key>org.eclipse.cdt.make.core.buildArguments</key>
-					<value>JENNIC_CHIP=JN5168 JENNIC_CHIP_FAMILY=JN516x PDM_BUILD_TYPE=_EEPROM CERTIFICATES=DEVELOPMENT_CERTS</value>
+					<value>JENNIC_CHIP=JN5168 JENNIC_CHIP_FAMILY=JN516x PDM_BUILD_TYPE=_EEPROM CERTIFICATES=DEVELOPMENT_CERTS TARGET=COO</value>
 				</dictionary>
 				<dictionary>
 					<key>org.eclipse.cdt.make.core.buildCommand</key>
@@ -31,7 +31,7 @@
 				</dictionary>
 				<dictionary>
 					<key>org.eclipse.cdt.make.core.buildLocation</key>
-					<value>${project_loc}/COO/Build/</value>
+					<value>${project_loc}/Build/</value>
 				</dictionary>
 				<dictionary>
 					<key>org.eclipse.cdt.make.core.cleanBuildTarget</key>

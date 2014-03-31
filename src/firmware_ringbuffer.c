@@ -1,13 +1,13 @@
-/*    
+/*
  * firmware_ringbuffer.c
- * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
- *   
- * Copyright (c) NXP B.V. 2012.   
+ * Firmware for SeeedStudio Mesh Bee(Zigbee) module
+ *
+ * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
  * Author     : Jack Shao
- * Create Time: 2013/10 
- * Change Log :   
- *   
+ * Create Time: 2013/10
+ * Change Log :
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -18,7 +18,7 @@
  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.  
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -62,7 +62,7 @@ uint32 ringbuffer_data_size(struct ringbuffer *r)
     else return r->size - (r->begin - r->end) + 1;
 }
 
-
+//push data into buffer : in stack
 void ringbuffer_push(struct ringbuffer *r, const void *data, uint32 size)
 {
     if (ringbuffer_free_space(r) < size) return;
@@ -99,6 +99,7 @@ void ringbuffer_push(struct ringbuffer *r, const void *data, uint32 size)
     }
 }
 
+//get buffer data : out stack
 void ringbuffer_pop(struct ringbuffer *r, void *data, uint32 size)
 {
     if (ringbuffer_data_size(r) < size) return;

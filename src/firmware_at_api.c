@@ -1,13 +1,13 @@
-/*    
+/*
  * firmware_at_api.c
- * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
- *   
- * Copyright (c) NXP B.V. 2012.   
+ * Firmware for SeeedStudio Mesh Bee(Zigbee) module
+ *
+ * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
  * Author     : Jack Shao
- * Create Time: 2013/10 
- * Change Log :   
- *   
+ * Create Time: 2013/10
+ * Change Log : Oliver Wang Modify 2014/03
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -18,7 +18,7 @@
  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.  
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include <stdio.h>
@@ -50,13 +50,14 @@ int AT_enterDataMode(uint16 *regAddr);
 //int AT_joinNetworkWithIndex(uint16 *regAddr); //in zigbee_join.c
 //int AT_setBaudRateUart1(uint16 *regAddr); //in uart.c
 //int AT_listNetworkScaned(uint16 *regAddr); //in zigbee_join.c
-int AT_listAllNodes(uint16 *regAddr); 
+int AT_listAllNodes(uint16 *regAddr);
 int AT_showInfo(uint16 *regAddr);
 int AT_enterApiMode(uint16 *regAddr);
 int AT_triggerOTAUpgrade(uint16 *regAddr);
-int AT_abortOTAUpgrade(uint16 *regAddr); 
-int AT_OTAStatusPoll(uint16 *regAddr); 
-int AT_TestTest(uint16 *regAddr); 
+int AT_abortOTAUpgrade(uint16 *regAddr);
+int AT_OTAStatusPoll(uint16 *regAddr);
+int AT_TestTest(uint16 *regAddr);
+int AT_vQueryRemoteSensorData(uint16 *regAddr);
 
 static uint16 attt_dummy_reg = 0;
 
@@ -65,63 +66,67 @@ static AT_Command_t atCommands[] =
 {
     //reboot
     { "RB", NULL, FALSE, 0, 0, NULL, AT_reboot },
-    
+
     //power up action, for coo:powerup re-form the network; for rou:powerup re-scan networks
-    { "PA", &g_sDevice.config.powerUpAction, FALSE, 1, 1, NULL, AT_powerUpActionSet }, 
+    { "PA", &g_sDevice.config.powerUpAction, FALSE, 1, 1, NULL, AT_powerUpActionSet },
 
 #ifndef TARGET_COO
     //for rou&end, auto join the first network in scan result list
-    { "AJ", &g_sDevice.config.autoJoinFirst, FALSE, 1, 1, NULL, NULL }, 
+    { "AJ", &g_sDevice.config.autoJoinFirst, FALSE, 1, 1, NULL, NULL },
 
     // re-scan radio channels to find networks
-    { "RS", NULL, FALSE, 0, 0, NULL, AT_reScanNetwork }, 
+    { "RS", NULL, FALSE, 0, 0, NULL, AT_reScanNetwork },
 
     // list all network scaned
-    { "LN", NULL, FALSE, 0, 0, NULL, AT_listNetworkScaned }, 
+    { "LN", NULL, FALSE, 0, 0, NULL, AT_listNetworkScaned },
 
     //network index which is selected to join,MAX_SINGLE_CHANNEL_NETWORKS = 8
-    { "JN", &g_sDevice.config.networkToJoin, FALSE, 3, MAX_SINGLE_CHANNEL_NETWORKS, NULL, AT_joinNetworkWithIndex }, 
+    { "JN", &g_sDevice.config.networkToJoin, FALSE, 3, MAX_SINGLE_CHANNEL_NETWORKS, NULL, AT_joinNetworkWithIndex },
 #endif
     // list all nodes of the whole network, this will take a little more time
-    { "LA", NULL, FALSE, 0, 0, NULL, AT_listAllNodes }, 
+    { "LA", NULL, FALSE, 0, 0, NULL, AT_listAllNodes },
 
     //tx mode, 0: broadcast; 1:unicast
-    { "TM", &g_sDevice.config.txMode, FALSE, 1, 1, NULL, NULL }, 
+    { "TM", &g_sDevice.config.txMode, FALSE, 1, 1, NULL, NULL },
 
     //unicast dst addr
-    { "DA", &g_sDevice.config.unicastDstAddr, TRUE, 4, 65535, NULL, NULL }, 
+    { "DA", &g_sDevice.config.unicastDstAddr, TRUE, 4, 65535, NULL, NULL },
 
     //baud rate for uart1
-    { "BR", &g_sDevice.config.baudRateUart1, FALSE, 1, 10, AT_printBaudRate, AT_setBaudRateUart1 }, 
+    { "BR", &g_sDevice.config.baudRateUart1, FALSE, 1, 10, AT_printBaudRate, AT_setBaudRateUart1 },
+
+    //Query remote sensor data	oliver add
+    { "QD", NULL, FALSE, 0, 0, NULL, AT_vQueryRemoteSensorData},
+
 #if 0//defined(TARGET_END)
     //for end: whether enter sleep mode
     { "SL", &g_sDevice.config.sleepMode, 1, 1, FALSE, 0, FALSE },
 
     //for end: wake up duration
-    { "WD", &g_sDevice.config.wakeupDuration, 3, 999, FALSE, 0, FALSE }, 
+    { "WD", &g_sDevice.config.wakeupDuration, 3, 999, FALSE, 0, FALSE },
 #endif
-    //show the infomation of node                              
-    { "IF", NULL, FALSE, 0, 0, NULL, AT_showInfo },  
+    //show the infomation of node
+    { "IF", NULL, FALSE, 0, 0, NULL, AT_showInfo },
 
-    //enter api mode immediatelly                              
-    { "AP", NULL, FALSE, 0, 0, NULL, AT_enterApiMode }, 
+    //enter api mode immediatelly
+    { "AP", NULL, FALSE, 0, 0, NULL, AT_enterApiMode },
 
-    //exit at mode into data mode                               
-    { "EX", NULL, FALSE, 0, 0, NULL, AT_enterDataMode }, 
+    //exit at mode into data mode
+    { "EX", NULL, FALSE, 0, 0, NULL, AT_enterDataMode },
 #ifdef OTA_SERVER
     //ota trigger, trigger upgrade for unicastDstAddr
     { "OT", NULL, FALSE, 0, 0, NULL, AT_triggerOTAUpgrade },
-    
+
     //ota rate, client req period
     { "OR", &g_sDevice.config.reqPeriodMs, FALSE, 5, 60000, NULL, NULL },
 
     //ota abort
     { "OA", NULL, FALSE, 0, 0, NULL, AT_abortOTAUpgrade },
-    
+
     //ota status poll
     { "OS", NULL, FALSE, 0, 0, NULL, AT_OTAStatusPoll },
 #endif
-    { "TT", &attt_dummy_reg, FALSE, 1, 5, AT_printTT, AT_TestTest }, 
+    { "TT", &attt_dummy_reg, FALSE, 1, 5, AT_printTT, AT_TestTest },
 
 };
 
@@ -140,7 +145,7 @@ static AT_Command_t atCommands[] =
  *
  * RETURNS:
  * uint8: sum value
- * 
+ *
  ****************************************************************************/
 uint8 calCheckSum(uint8 *in, int len)
 {
@@ -168,7 +173,7 @@ uint8 calCheckSum(uint8 *in, int len)
  *
  * RETURNS:
  * uint16: frame length
- * 
+ *
  ****************************************************************************/
 uint16 assembleApiFrame(tsApiFrame *frm, teFrameType type, uint8 *payload, uint16 payloadLen)
 {
@@ -176,7 +181,7 @@ uint16 assembleApiFrame(tsApiFrame *frm, teFrameType type, uint8 *payload, uint1
     frm->frameType  = type;
     frm->payloadLen = payloadLen;
     memcpy(frm->payload.data, payload, payloadLen);
-    
+
     frm->checksum   = calCheckSum((uint8 * )frm, 4 + payloadLen);
 
     return 4 + payloadLen + 1;
@@ -190,33 +195,33 @@ uint16 assembleApiFrame(tsApiFrame *frm, teFrameType type, uint8 *payload, uint1
  * de-assemble a tsApiFrame from a buffer
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * uint16: data length that consumed from the buffer stream
- * 
+ *
  ****************************************************************************/
 uint16 deassembleApiFrame(uint8 *buffer, int len, tsApiFrame *frm, bool *valid)
 {
     uint8 *ptr = buffer;
-    
+
     while (*ptr != PREAMBLE && len-- > 0) ptr++;
     if (len < 4)
     {
         *valid = FALSE;
         return ptr - buffer;
     }
-    memcpy((uint8 * )frm, ptr, 4); 
-    ptr += 4; 
+    memcpy((uint8 * )frm, ptr, 4);
+    ptr += 4;
     len -= 4;
     if (len < (frm->payloadLen+1))
     {
         *valid = FALSE;
         return ptr - buffer;
     }
-    memcpy(frm->payload.data, ptr, frm->payloadLen); 
-    ptr += frm->payloadLen; 
-    frm->checksum = *ptr; 
+    memcpy(frm->payload.data, ptr, frm->payloadLen);
+    ptr += frm->payloadLen;
+    frm->checksum = *ptr;
     ptr += 1;
     if (calCheckSum((uint8*)frm,4+frm->payloadLen) == frm->checksum)
     {
@@ -236,11 +241,11 @@ uint16 deassembleApiFrame(uint8 *buffer, int len, tsApiFrame *frm, bool *valid)
  * copy the payload part of a tsApiFrame into a buffer.
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 void copyApiFrame(tsApiFrame *frm, uint8 *dst)
 {
@@ -259,11 +264,11 @@ void copyApiFrame(tsApiFrame *frm, uint8 *dst)
  * search a AT command starter from a stream
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * bool: find or not
- * 
+ *
  ****************************************************************************/
 bool searchAtStarter(uint8 *buffer, int len)
 {
@@ -273,7 +278,7 @@ bool searchAtStarter(uint8 *buffer, int len)
         if (*buffer == '+')
         {
             plusCnt++;
-            if (plusCnt == 3) 
+            if (plusCnt == 3)
                 return TRUE;
         }else
         {
@@ -292,18 +297,18 @@ bool searchAtStarter(uint8 *buffer, int len)
  * tool function for cutting a new-line ended string from a stream
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * int: position of first '\r' or '\r\n' character
- * 
+ *
  ****************************************************************************/
 int adjustLen(uint8 *buf, int len)
 {
     int alen = 0;
     while (len-- > 0)
     {
-        if (*buf == '\r' || *buf == '\r\n') break; 
+        if (*buf == '\r' || *buf == '\r\n') break;
         alen++;
         buf++;
     }
@@ -318,11 +323,11 @@ int adjustLen(uint8 *buf, int len)
  * tool function for internal use
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 int getDecParamData(uint8 *buf, int len, uint16 *result, int size)
 {
@@ -331,8 +336,8 @@ int getDecParamData(uint8 *buf, int len, uint16 *result, int size)
 
     // we start to read at pos 5 as 0-1 = AT and 2-3 = CMD
     if (len == ATHEADERLEN) return NOTHING;
-    if (len < ATHEADERLEN) return ERR; 
-    int pos = ATHEADERLEN; 
+    if (len < ATHEADERLEN) return ERR;
+    int pos = ATHEADERLEN;
 
     while (size-- > 0 && pos < len)
     {
@@ -356,11 +361,11 @@ int getDecParamData(uint8 *buf, int len, uint16 *result, int size)
  * tool function for internal use
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 int getHexParamData(uint8 *buf, int len, uint16 *result, int size)
 {
@@ -369,24 +374,24 @@ int getHexParamData(uint8 *buf, int len, uint16 *result, int size)
 
     // we start to read at pos 5 as 0-1 = AT and 2-3 = CMD
     if (len == ATHEADERLEN) return NOTHING;
-    if (len < ATHEADERLEN || size > 4) return ERR; 
-    
-    
+    if (len < ATHEADERLEN || size > 4) return ERR;
+
+
     char tmp[5];
-    memcpy(tmp, buf + ATHEADERLEN, size); 
+    memcpy(tmp, buf + ATHEADERLEN, size);
     tmp[size] = '\0';
-    
+
     char *low = strlwr(tmp);
 
     int len2 = MIN(size, (len - ATHEADERLEN));
     int i = 0;
-    for ( i = 0; i < len2 ; i++) 
+    for ( i = 0; i < len2 ; i++)
     {
         char *pos = strchr(ar, *(low + i));
         if (pos == NULL) return ERR;
-        value = value*16 + (pos-ar); 
+        value = value*16 + (pos-ar);
     }
-    
+
     *result = value;
     return OK;
 }
@@ -397,31 +402,31 @@ int getHexParamData(uint8 *buf, int len, uint16 *result, int size)
 * NAME: processSerialCmd
 *
 * DESCRIPTION:
-* 
+*
 *
 * PARAMETERS: Name         RW  Usage
-*             
+*
 *
 * RETURNS:
 * void
-* 
+*
 ****************************************************************************/
 int processSerialCmd(uint8 *buf, int len)
 {
     int result = ERR;
 
     uint16 paraValue;   // the ID used in the EEPROM
-    
+
     len = adjustLen(buf, len);
     if (len < ATHEADERLEN)
-        return ERRNCMD; 
+        return ERRNCMD;
 
     // read the AT
     if (strncasecmp("AT", buf, 2) == 0)
      {
         // read the command
         int cnt = sizeof(atCommands) / sizeof(AT_Command_t);
-        
+
         int i = 0;
         for (i = 0; i < cnt; i++)
         {
@@ -432,27 +437,27 @@ int processSerialCmd(uint8 *buf, int len)
                 {
                     if (atCommands[i].function != NULL)
                     {
-                        result = atCommands[i].function(atCommands[i].configAddr); 
+                        result = atCommands[i].function(atCommands[i].configAddr);		//like ATLA
                     }
                     return result;
                 }
-                
-                if (atCommands[i].isHex) 
+
+                if (atCommands[i].isHex)
                 {
-                    result = getHexParamData(buf, len, &paraValue, atCommands[i].paramDigits); 
+                    result = getHexParamData(buf, len, &paraValue, atCommands[i].paramDigits);
                 }else
                 {
                     result = getDecParamData(buf, len, &paraValue, atCommands[i].paramDigits);
                 }
-                
-                if (result == NOTHING) 
+
+                if (result == NOTHING)
                 {
-                    if (atCommands[i].printFunc != NULL) 
+                    if (atCommands[i].printFunc != NULL)
                         atCommands[i].printFunc(atCommands[i].configAddr);
                     else if (atCommands[i].isHex)
-                        uart_printf("%04x\r\n", *(atCommands[i].configAddr)); 
+                        uart_printf("%04x\r\n", *(atCommands[i].configAddr));
                     else
-                        uart_printf("%d\r\n", *(atCommands[i].configAddr)); 
+                        uart_printf("%d\r\n", *(atCommands[i].configAddr));
                     return OK;
                 }
                 else if (result == OK)
@@ -460,12 +465,12 @@ int processSerialCmd(uint8 *buf, int len)
                     if (paraValue <= atCommands[i].maxValue)
                     {
                         *(atCommands[i].configAddr) = paraValue;
-                        PDM_vSaveRecord(&g_sDevicePDDesc); 
-                        if (atCommands[i].function != NULL) 
+                        PDM_vSaveRecord(&g_sDevicePDDesc);
+                        if (atCommands[i].function != NULL)
                         {
-                            result = atCommands[i].function(atCommands[i].configAddr); 
+                            result = atCommands[i].function(atCommands[i].configAddr);
                         }
-                        return result; 
+                        return result;
                     } else
                     {
                         return OUTRNG;
@@ -474,7 +479,7 @@ int processSerialCmd(uint8 *buf, int len)
             }
         }
     }
-    return ERRNCMD; 
+    return ERRNCMD;
 }
 
 /****************************************************************************
@@ -482,18 +487,18 @@ int processSerialCmd(uint8 *buf, int len)
  * NAME: AT_reboot
  *
  * DESCRIPTION:
- * 
+ *
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 int AT_reboot(uint16 *regAddr)
 {
-    vAHI_SwReset(); 
+    vAHI_SwReset();
     return OK;
 }
 
@@ -505,15 +510,15 @@ int AT_reboot(uint16 *regAddr)
  * function be executed after ATPA cmd is processed
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 int AT_powerUpActionSet(uint16 *regAddr)
 {
-    uart_printf("Power-up action register has been set.\r\n"); 
+    uart_printf("Power-up action register has been set.\r\n");
     uart_printf("You may reboot the device by reset button or ATRB cmd.\r\n");
     return OK;
 }
@@ -523,19 +528,19 @@ int AT_powerUpActionSet(uint16 *regAddr)
  * NAME: AT_enterDataMode
  *
  * DESCRIPTION:
- * 
+ *
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 int AT_enterDataMode(uint16 *regAddr)
 {
     g_sDevice.eMode = E_MODE_DATA;
-    PDM_vSaveRecord(&g_sDevicePDDesc); 
+    PDM_vSaveRecord(&g_sDevicePDDesc);
     return OK;
 }
 
@@ -544,14 +549,14 @@ int AT_enterDataMode(uint16 *regAddr)
  * NAME: AT_enterApiMode
  *
  * DESCRIPTION:
- * 
+ *
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 int AT_enterApiMode(uint16 *regAddr)
 {
@@ -564,58 +569,58 @@ int AT_enterApiMode(uint16 *regAddr)
  * NAME: AT_showInfo
  *
  * DESCRIPTION:
- * 
+ *
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 int AT_showInfo(uint16 *regAddr)
 {
-    uart_printf("1.AT commands supported:\r\n"); 
-    
-    int cnt = sizeof(atCommands) / sizeof(AT_Command_t); 
+    uart_printf("1.AT commands supported:\r\n");
+
+    int cnt = sizeof(atCommands) / sizeof(AT_Command_t);
     int i = 0;
     for (i = 0; i < cnt; i++)
     {
-        uart_printf("AT%s ", atCommands[i].name); 
+        uart_printf("AT%s ", atCommands[i].name);
         if ((i+1) % 8 == 0)
         {
-            uart_printf("\r\n"); 
+            uart_printf("\r\n");
         }
     }
 
-    uart_printf("\r\n\r\n2.Node information:\r\n"); 
-    
-    uart_printf("FW Version       : 0x%04x \r\n", SW_VER); 
+    uart_printf("\r\n\r\n2.Node information:\r\n");
 
-    uart_printf("Short Addr       : 0x%04x \r\n", ZPS_u16AplZdoGetNwkAddr()); 
+    uart_printf("FW Version       : 0x%04x \r\n", SW_VER);
 
-    uart_printf("Mac Addr         : 0x%08x%08x \r\n", 
+    uart_printf("Short Addr       : 0x%04x \r\n", ZPS_u16AplZdoGetNwkAddr());
+
+    uart_printf("Mac Addr         : 0x%08x%08x \r\n",
                   (uint32)(ZPS_u64AplZdoGetIeeeAddr() >> 32),
                   (uint32)(ZPS_u64AplZdoGetIeeeAddr()));
 
-    uart_printf("RadioChnl        : %d \r\n", ZPS_u8AplZdoGetRadioChannel()); 
-    
+    uart_printf("RadioChnl        : %d \r\n", ZPS_u8AplZdoGetRadioChannel());
+
     char *txt;
     switch (ZPS_eAplZdoGetDeviceType())
     {
     case ZPS_ZDO_DEVICE_COORD:
-        txt = "Co-ordinator \r\n"; 
+        txt = "Co-ordinator \r\n";
         break;
     case ZPS_ZDO_DEVICE_ROUTER:
-        txt = "Router \r\n"; 
-        break; 
+        txt = "Router \r\n";
+        break;
     case ZPS_ZDO_DEVICE_ENDDEVICE:
-        txt = "EndDevice \r\n"; 
+        txt = "EndDevice \r\n";
         break;
     default:
         break;
     }
-    uart_printf("Device Type      : %s",txt); 
+    uart_printf("Device Type      : %s",txt);
 
     //#define E_AHI_UART_RATE_4800       0
     //#define E_AHI_UART_RATE_9600       1
@@ -623,18 +628,18 @@ int AT_showInfo(uint16 *regAddr)
     //#define E_AHI_UART_RATE_38400      3
     //#define E_AHI_UART_RATE_76800      //76800's not a well-used baudrate, we take 57600 instead.
     //#define E_AHI_UART_RATE_115200     5
-    uint32 br[6] = { 4800, 9600, 19200, 38400, 57600, 115200, 0 }; 
+    uint32 br[6] = { 4800, 9600, 19200, 38400, 57600, 115200, 0 };
     uint8 brIdx = g_sDevice.config.baudRateUart1;
     if (brIdx > 5)  brIdx = 6;
-    uart_printf("UART1's BaudRate : %d \r\n", br[brIdx]); 
+    uart_printf("UART1's BaudRate : %d \r\n", br[brIdx]);
 
-    uart_printf("Unicast Dest Addr: 0x%04x \r\n", g_sDevice.config.unicastDstAddr); 
-    
+    uart_printf("Unicast Dest Addr: 0x%04x \r\n", g_sDevice.config.unicastDstAddr);
+
     //
     txt = "\r\n\r\n3.Belonging to:\r\n";
-    uart_printf(txt); 
+    uart_printf(txt);
 
-    uart_printf("PANID: 0x%04x \tEXPANID: 0x%08x%08x\r\n", 
+    uart_printf("PANID: 0x%04x \tEXPANID: 0x%08x%08x\r\n",
                   ZPS_u16AplZdoGetNetworkPanId(),
                   (uint32)(ZPS_u64AplZdoGetNetworkExtendedPanId() >> 32),
                   (uint32)(ZPS_u64AplZdoGetNetworkExtendedPanId()));
@@ -647,30 +652,30 @@ int AT_showInfo(uint16 *regAddr)
  * NAME: AT_triggerOTAUpgrade
  *
  * DESCRIPTION:
- * 
+ *
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 int AT_triggerOTAUpgrade(uint16 *regAddr)
-{ 
+{
     if (!g_sDevice.supportOTA)
     {
         uart_printf("Node does not support OTA.\r\n");
         return ERR;
     }
-    
+
     uint8 au8Values[OTA_MAGIC_NUM_LEN];
     uint32 u32TotalImage = 0;
 
 
     //first, check external flash to detect image header
-    APP_vOtaFlashLockRead(OTA_MAGIC_OFFSET, OTA_MAGIC_NUM_LEN, au8Values); 
-    
+    APP_vOtaFlashLockRead(OTA_MAGIC_OFFSET, OTA_MAGIC_NUM_LEN, au8Values);
+
     if (memcmp(magicNum, au8Values, OTA_MAGIC_NUM_LEN) == 0)
     {
         uart_printf("Found valid image at external flash.\r\n");
@@ -688,10 +693,10 @@ int AT_triggerOTAUpgrade(uint16 *regAddr)
         uart_printf("invalid image file.\r\n");
         return ERR;
     }
-    
+
     //calculate crc
     g_sDevice.otaCrc = imageCrc(u32TotalImage);
-    uart_printf("Image CRC: 0x%08x.\r\n", g_sDevice.otaCrc); 
+    uart_printf("Image CRC: 0x%08x.\r\n", g_sDevice.otaCrc);
 
     //second, notify client node
     tsFrmOtaNtf ntf;
@@ -701,9 +706,9 @@ int AT_triggerOTAUpgrade(uint16 *regAddr)
     g_sDevice.otaTotalBytes = ntf.totalBytes;
     g_sDevice.otaTotalBlocks = (g_sDevice.otaTotalBytes % OTA_BLOCK_SIZE == 0)?
     (g_sDevice.otaTotalBytes / OTA_BLOCK_SIZE):
-    (g_sDevice.otaTotalBytes / OTA_BLOCK_SIZE + 1); 
-    
-    uart_printf("Total bytes: %d, client req period: %dms \r\n", ntf.totalBytes, ntf.reqPeriodMs); 
+    (g_sDevice.otaTotalBytes / OTA_BLOCK_SIZE + 1);
+
+    uart_printf("Total bytes: %d, client req period: %dms \r\n", ntf.totalBytes, ntf.reqPeriodMs);
 
     if (sendToAir(UNICAST, g_sDevice.config.unicastDstAddr,
                   &frm, FRM_OTA_NTF, (uint8 * )(&ntf), sizeof(ntf)))
@@ -721,14 +726,14 @@ int AT_triggerOTAUpgrade(uint16 *regAddr)
  * NAME: AT_abortOTAUpgrade
  *
  * DESCRIPTION:
- * 
+ *
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 int AT_abortOTAUpgrade(uint16 *regAddr)
 {
@@ -751,14 +756,14 @@ int AT_abortOTAUpgrade(uint16 *regAddr)
  * NAME: AT_OTAStatusPoll
  *
  * DESCRIPTION:
- * 
+ *
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 int AT_OTAStatusPoll(uint16 *regAddr)
 {
@@ -783,14 +788,14 @@ int AT_OTAStatusPoll(uint16 *regAddr)
  * NAME: AT_listAllNodes
  *
  * DESCRIPTION:
- * 
+ *
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 int AT_listAllNodes(uint16 *regAddr)
 {
@@ -811,14 +816,14 @@ int AT_listAllNodes(uint16 *regAddr)
  * NAME: AT_printTT
  *
  * DESCRIPTION:
- * 
+ *
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 int AT_printTT(uint16 *regAddr)
 {
@@ -831,14 +836,14 @@ int AT_printTT(uint16 *regAddr)
  * NAME: AT_TestTest
  *
  * DESCRIPTION:
- * 
+ *
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 int AT_TestTest(uint16 *regAddr)
 {
@@ -846,7 +851,7 @@ int AT_TestTest(uint16 *regAddr)
     vAHI_TimerDisable(E_AHI_TIMER_1);
     //disable spi for external flash
     vAHI_SpiDisable();
-    
+
     //now test the IOs
     bAHI_DoEnableOutputs(TRUE);  //DO0 & DO1
     vAHI_DioSetDirection((1 << 16) | (1 << 1) | (1 << 13) | (1 << DIO_ASSOC) | (1 << DIO_ON_SLEEP) | (1 << 12),
@@ -858,7 +863,7 @@ int AT_TestTest(uint16 *regAddr)
     uint16 detail = *regAddr;
 
     if (detail)
-        uart_printf("\r\n\r\n--------------- DIO TEST ----------------\r\n"); 
+        uart_printf("\r\n\r\n--------------- DIO TEST ----------------\r\n");
     if (val & (1 << 13))
     {
         if (detail)
@@ -868,67 +873,67 @@ int AT_TestTest(uint16 *regAddr)
     else
     {
         if (detail)
-            uart_printf("Do1 = 0, read 0, PASS\r\n"); 
+            uart_printf("Do1 = 0, read 0, PASS\r\n");
     }
 
     if (val & (1 << DIO_ASSOC))
     {
         if (detail)
-            uart_printf("RSSI = 1, read 1, PASS\r\n"); 
+            uart_printf("RSSI = 1, read 1, PASS\r\n");
     }
     else
     {
         if (detail)
-            uart_printf("RSSI = 1, read 0, FAIL\r\n"); 
+            uart_printf("RSSI = 1, read 0, FAIL\r\n");
         ok = FALSE;
     }
 
     if (val & (1 << DIO_ON_SLEEP))
     {
         if (detail)
-            uart_printf("Do0 = 0, read 1, FAIL\r\n"); 
+            uart_printf("Do0 = 0, read 1, FAIL\r\n");
         ok = FALSE;
     }
     else
     {
-        if (detail) 
+        if (detail)
             uart_printf("Do0 = 0, read 0, PASS\r\n");
     }
 
     if (val & (1 << 12))
     {
         if (detail)
-            uart_printf("D18 = 1, read 1, PASS\r\n"); 
+            uart_printf("D18 = 1, read 1, PASS\r\n");
     }
     else
     {
         if (detail)
-            uart_printf("D18 = 1, read 0, FAIL\r\n"); 
+            uart_printf("D18 = 1, read 0, FAIL\r\n");
         ok = FALSE;
     }
 
     if (val & (1 << 16))
     {
         if (detail)
-            uart_printf("D17 = 0, read 1, FAIL\r\n"); 
+            uart_printf("D17 = 0, read 1, FAIL\r\n");
         ok = FALSE;
     }
     else
     {
         if (detail)
-            uart_printf("D17 = 0, read 0, PASS\r\n"); 
+            uart_printf("D17 = 0, read 0, PASS\r\n");
     }
 
 
     if (val & (1 << 1))
     {
         if (detail)
-            uart_printf("D0 = 1, read 1, PASS\r\n"); 
+            uart_printf("D0 = 1, read 1, PASS\r\n");
     }
     else
     {
         if (detail)
-            uart_printf("D0 = 1, read 0, FAIL\r\n"); 
+            uart_printf("D0 = 1, read 0, FAIL\r\n");
         ok = FALSE;
     }
 
@@ -938,88 +943,122 @@ int AT_TestTest(uint16 *regAddr)
     val = u32AHI_DioReadInput();
 
     if (detail)
-        uart_printf("\r\n\r\n--------------- DIO TEST 2----------------\r\n"); 
+        uart_printf("\r\n\r\n--------------- DIO TEST 2----------------\r\n");
     if (val & (1 << 13))
     {
         if (detail)
-            uart_printf("Do1 = 1, read 1, PASS\r\n"); 
+            uart_printf("Do1 = 1, read 1, PASS\r\n");
     }
     else
     {
         if (detail)
-            uart_printf("Do1 = 1, read 0, FAIL\r\n"); 
+            uart_printf("Do1 = 1, read 0, FAIL\r\n");
         ok = FALSE;
     }
 
     if (val & (1 << DIO_ASSOC))
     {
         if (detail)
-            uart_printf("RSSI = 0, read 1, FAIL\r\n"); 
+            uart_printf("RSSI = 0, read 1, FAIL\r\n");
         ok = FALSE;
     }
     else
     {
         if (detail)
-            uart_printf("RSSI = 0, read 0, PASS\r\n"); 
+            uart_printf("RSSI = 0, read 0, PASS\r\n");
     }
 
     if (val & (1 << DIO_ON_SLEEP))
     {
         if (detail)
-            uart_printf("Do0 = 1, read 1, PASS\r\n"); 
+            uart_printf("Do0 = 1, read 1, PASS\r\n");
     }
     else
     {
         if (detail)
-            uart_printf("Do0 = 1, read 0, FAIL\r\n"); 
-        ok = FALSE; 
+            uart_printf("Do0 = 1, read 0, FAIL\r\n");
+        ok = FALSE;
     }
 
     if (val & (1 << 12))
     {
         if (detail)
-            uart_printf("D18 = 0, read 1, FAIL\r\n"); 
-        ok = FALSE; 
+            uart_printf("D18 = 0, read 1, FAIL\r\n");
+        ok = FALSE;
     }
     else
     {
         if (detail)
-            uart_printf("D18 = 0, read 0, PASS\r\n"); 
+            uart_printf("D18 = 0, read 0, PASS\r\n");
     }
 
     if (val & (1 << 16))
     {
         if (detail)
-            uart_printf("D17 = 1, read 1, PASS\r\n"); 
+            uart_printf("D17 = 1, read 1, PASS\r\n");
     }
     else
     {
         if (detail)
-            uart_printf("D17 = 1, read 0, FAIL\r\n"); 
-        ok = FALSE; 
+            uart_printf("D17 = 1, read 0, FAIL\r\n");
+        ok = FALSE;
     }
 
     if (val & (1 << 1))
     {
         if (detail)
-            uart_printf("D0 = 0, read 1, FAIL\r\n"); 
-        ok = FALSE; 
+            uart_printf("D0 = 0, read 1, FAIL\r\n");
+        ok = FALSE;
     }
     else
     {
         if (detail)
-            uart_printf("D0 = 0, read 0, PASS\r\n "); 
+            uart_printf("D0 = 0, read 0, PASS\r\n ");
     }
-    
+
     if (!detail)
     {
         uart_printf("%s\r\n ", ok? "PASS":"FAIL");
     }
-    
+
     //soft reset to restore io functions
     while (uart_get_tx_status_busy());
-    
-    vAHI_SwReset(); 
-    
+
+    vAHI_SwReset();
+
     return OK;
+}
+
+/****************************************************************************
+ *
+ * NAME: AT_queryRemoteData
+ *
+ * DESCRIPTION:
+ *
+ *
+ * PARAMETERS: Name         RW  Usage
+ *
+ *
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
+int AT_vQueryRemoteSensorData(uint16 *regAddr)
+{
+	tsApiFrame frm;
+	uint16 QueryType = QUERY_INNER_TEMP;
+
+	//clean memory
+	memset(&frm, 0, sizeof(tsApiFrame));
+
+	bool ret = sendToAir(UNICAST, g_sDevice.config.unicastDstAddr, &frm, FRM_QUERY,
+						(uint8*)(&QueryType), sizeof(uint16));
+	if(!ret)
+	{
+		return ERR;
+	}
+	else
+	{
+		return OK;
+	}
 }

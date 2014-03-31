@@ -1,13 +1,13 @@
-/*    
+/*
  * firmware_at_api.h
- * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
- *   
- * Copyright (c) NXP B.V. 2012.   
+ * Firmware for SeeedStudio Mesh Bee(Zigbee) module
+ *
+ * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
  * Author     : Jack Shao
- * Create Time: 2013/10 
- * Change Log :   
- *   
+ * Create Time: 2013/10
+ * Change Log :
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -18,7 +18,7 @@
  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.  
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef __AT_API_H__
@@ -32,6 +32,7 @@ typedef enum
 {
     FRM_CTRL,
     FRM_QUERY,
+    FRM_QUERY_RESP,		//oliver add
     FRM_DATA,
     FRM_OTA_NTF,
     FRM_OTA_REQ,
@@ -44,7 +45,15 @@ typedef enum
     FRM_OTA_ST_RESP,
     FRM_TOPO_REQ,
     FRM_TOPO_RESP
-}teFrameType; 
+}teFrameType;
+
+//Query type
+typedef enum
+{
+	QUERY_INNER_TEMP = 10,				//on-chip temperature
+	QUERY_INNER_VOL = 11				//on-chip voltage
+	/*your sensor data type here*/
+}teQueryType;
 
 //CTRL
 typedef struct
@@ -54,7 +63,7 @@ typedef struct
 }tsFrmControl;
 
 //OTA
-typedef struct 
+typedef struct
 {
     uint32              totalBytes;
     uint16              reqPeriodMs;
@@ -85,29 +94,29 @@ typedef struct
     uint32              nodeMacAddr0;  //cant sent 64bit interger due to align issue
     uint32              nodeMacAddr1;
     uint16              nodeFWVer;
-}tsFrmTOPOResp; 
+}tsFrmTOPOResp;
 
 //API
 typedef struct __apiFrame
 {
     uint8               preamble;
-    uint8               frameType; 
-    uint16              payloadLen; 
+    uint8               frameType;
+    uint16              payloadLen;
     union
     {
         uint8           data[RXFIFOLEN];
-        tsFrmControl    frmCtrl; 
+        tsFrmControl    frmCtrl;
         tsFrmOtaNtf     frmOtaNtf;
         tsFrmOtaReq     frmOtaReq;
-        tsFrmOtaResp    frmOtaResp; 
-        tsFrmOtaStatusResp    frmOtaStResp; 
+        tsFrmOtaResp    frmOtaResp;
+        tsFrmOtaStatusResp    frmOtaStResp;
         tsFrmTOPOResp   frmTopoResp;
     }payload;
-    uint8               checksum; 
-}tsApiFrame; 
+    uint8               checksum;
+}tsApiFrame;
 
 //AT
-typedef int (*AT_Command_Function_t)(uint16 *); 
+typedef int (*AT_Command_Function_t)(uint16 *);
 typedef int (*AT_Command_Print_t)(uint16 *);
 
 typedef int8 byte;
@@ -121,7 +130,7 @@ typedef struct
     const uint16  maxValue;     // maximum value of the parameter
     AT_Command_Print_t    printFunc;  //the print function of this reg
     AT_Command_Function_t function; // the function which does the real work on change
-}  AT_Command_t; 
+}  AT_Command_t;
 
 enum ErrorCode
 {
@@ -132,13 +141,13 @@ enum ErrorCode
     OUTRNG,
     OKREBOOT,
     ERRNCMD
-}; 
+};
 
 
 
 uint8 calCheckSum(uint8 *in, int len);
 uint16 assembleApiFrame(tsApiFrame *frm, teFrameType type, uint8 *payload, uint16 payloadLen);
-uint16 deassembleApiFrame(uint8 *buffer, int len, tsApiFrame *frm, bool *valid); 
+uint16 deassembleApiFrame(uint8 *buffer, int len, tsApiFrame *frm, bool *valid);
 void copyApiFrame(tsApiFrame *frm, uint8 *dst);
 bool searchAtStarter(uint8 *buffer, int len);
 int processSerialCmd(uint8 *buf, int len);

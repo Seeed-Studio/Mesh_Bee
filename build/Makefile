@@ -165,7 +165,7 @@ APPSRC += firmware_ringbuffer.c
 APPSRC += firmware_at_api.c
 APPSRC += firmware_uart.c
 APPSRC += firmware_ota.c
-
+APPSRC += firmware_hal.c
 ####
 APP_ZPSCFG = MeshBee.zpscfg
 
