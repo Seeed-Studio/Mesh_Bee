@@ -29,6 +29,7 @@
 #include "firmware_at_api.h"
 #include "firmware_ota.h"
 #include "zigbee_endpoint.h"
+#include "firmware_hal.h"
 
 
 #ifndef TRACE_ATAPI
@@ -36,20 +37,19 @@
 #endif
 
 #define PREAMBLE        0xed
+/* API frame delimiter */
+#define API_DELIMITER 			0x7e
+
+
 #define ATHEADERLEN     4
 
 //AT reg print functions
-//int AT_printBaudRate(uint16 *regAddr); //in uart.c
 int AT_printTT(uint16 *regAddr);
 
 //AT cmd postProcess funtions:
 int AT_reboot(uint16 *regAddr);
 int AT_powerUpActionSet(uint16 *regAddr);
 int AT_enterDataMode(uint16 *regAddr);
-//int AT_reScanNetwork(uint16 *regAddr); //in zigbee_join.c
-//int AT_joinNetworkWithIndex(uint16 *regAddr); //in zigbee_join.c
-//int AT_setBaudRateUart1(uint16 *regAddr); //in uart.c
-//int AT_listNetworkScaned(uint16 *regAddr); //in zigbee_join.c
 int AT_listAllNodes(uint16 *regAddr);
 int AT_showInfo(uint16 *regAddr);
 int AT_enterApiMode(uint16 *regAddr);
@@ -58,6 +58,11 @@ int AT_abortOTAUpgrade(uint16 *regAddr);
 int AT_OTAStatusPoll(uint16 *regAddr);
 int AT_TestTest(uint16 *regAddr);
 int AT_vQueryRemoteSensorData(uint16 *regAddr);
+
+/* Oliver */
+int API_tsQueryLocalTemper(tsApiSpec *apiSpec, uint16 *regAddr);
+int API_tsQueryRemoteTemper(tsApiSpec *apiSpec, uint16 *regAddr);
+int API_tsTestPrint(tsApiSpec *apiSpec, uint16 *regAddr);
 
 static uint16 attt_dummy_reg = 0;
 
@@ -99,16 +104,16 @@ static AT_Command_t atCommands[] =
     { "QD", NULL, FALSE, 0, 0, NULL, AT_vQueryRemoteSensorData},
 
 #if 0//defined(TARGET_END)
-    //for end: whether enter sleep mode
+    //for end device: whether enter sleep mode
     { "SL", &g_sDevice.config.sleepMode, 1, 1, FALSE, 0, FALSE },
 
     //for end: wake up duration
     { "WD", &g_sDevice.config.wakeupDuration, 3, 999, FALSE, 0, FALSE },
 #endif
-    //show the infomation of node
+    //show the information of node
     { "IF", NULL, FALSE, 0, 0, NULL, AT_showInfo },
 
-    //enter api mode immediatelly
+    //enter API mode immediately
     { "AP", NULL, FALSE, 0, 0, NULL, AT_enterApiMode },
 
     //exit at mode into data mode
@@ -129,6 +134,25 @@ static AT_Command_t atCommands[] =
     { "TT", &attt_dummy_reg, FALSE, 1, 5, AT_printTT, AT_TestTest },
 
 };
+
+/*
+   AT command in API mode
+   Notes:
+         1.AT_Command_ApiMode_t returns a tsApiSpec,then response to require device;
+		 2.Two branch(ApiMode/none-ApiMode) can gather together in the future;
+*/
+static AT_Command_ApiMode_t atCommandsApiMode[] =
+{
+	/* Query local on-chip temperature */
+	{ "QL", NULL, FALSE, 0, 0, API_tsQueryLocalTemper},
+
+    /* Query remote on-chip temperature */
+	{ "QR", NULL, FALSE, 0, 0, API_tsQueryRemoteTemper},
+
+	/* Test */
+	{ "TS", NULL, FALSE, 0 ,0, API_tsTestPrint}
+};
+
 
 
 
@@ -158,6 +182,57 @@ uint8 calCheckSum(uint8 *in, int len)
     return sum;
 }
 
+/****************************************************************************
+ *
+ * NAME: u16DecodeApiSpec
+ *
+ * DESCRIPTION:
+ * length = cmdData  [delimiter length apiIdentifier cmdData checkSum]
+ * Pay attention: 4 bytes align
+ * RETURNS:
+ * position of start delimiter
+ *
+ ****************************************************************************/
+PUBLIC uint16 u16DecodeApiSpec(uint8 *buffer, int len, tsApiSpec *spec, bool *valid)
+{
+	uint8 *ptr = buffer;
+	while (*ptr != API_START_DELIMITER && len-- > 0) ptr++;
+	if (len < 4)
+	{
+	    *valid = FALSE;
+	    return ptr - buffer;
+	}
+
+	/* read startDelimiter/length/apiIdentifier */
+	memcpy((uint8*)spec, ptr, 3);    //4 bytes align,read 8 bytes
+
+    ptr += 3;
+    len -= 3;
+    if (len < (spec->length + 1))
+    {
+        *valid = FALSE;
+        return ptr - buffer;
+    }
+
+    /* read payload */
+    memcpy((uint8*)spec + 3, ptr, spec->length);
+    ptr += spec->length;
+
+    /* read checkSum */
+    spec->checkSum = *ptr;
+    ptr++;
+
+    /* verify checkSum */
+    if (calCheckSum((uint8*)spec+3,spec->length) == spec->checkSum)
+    {
+        *valid = TRUE;
+    }
+    else
+    {
+        *valid = FALSE;
+    }
+    return ptr-buffer;
+}
 /****************************************************************************
  *
  * NAME: assembleApiFrame
@@ -433,6 +508,7 @@ int processSerialCmd(uint8 *buf, int len)
             // do we have a known command
             if (strncasecmp(buf + 2, atCommands[i].name, 2) == 0)
             {
+            	/* There is no parameter */
                 if (atCommands[i].paramDigits == 0)
                 {
                     if (atCommands[i].function != NULL)
@@ -444,12 +520,13 @@ int processSerialCmd(uint8 *buf, int len)
 
                 if (atCommands[i].isHex)
                 {
+                	/* convert hex to int atoi*/
                     result = getHexParamData(buf, len, &paraValue, atCommands[i].paramDigits);
                 }else
                 {
                     result = getDecParamData(buf, len, &paraValue, atCommands[i].paramDigits);
                 }
-
+                /* apply value */
                 if (result == NOTHING)
                 {
                     if (atCommands[i].printFunc != NULL)
@@ -560,8 +637,12 @@ int AT_enterDataMode(uint16 *regAddr)
  ****************************************************************************/
 int AT_enterApiMode(uint16 *regAddr)
 {
-    uart_printf("API mode not supported yet.\r\n");
-    return ERR;
+    //return ERR;
+	/* oliver modify */
+	g_sDevice.eMode = E_MODE_API;
+	PDM_vSaveRecord(&g_sDevicePDDesc);
+	uart_printf("Enter API mode.\r\n");
+	return OK;
 }
 
 /****************************************************************************
@@ -628,7 +709,7 @@ int AT_showInfo(uint16 *regAddr)
     //#define E_AHI_UART_RATE_38400      3
     //#define E_AHI_UART_RATE_76800      //76800's not a well-used baudrate, we take 57600 instead.
     //#define E_AHI_UART_RATE_115200     5
-    uint32 br[6] = { 4800, 9600, 19200, 38400, 57600, 115200, 0 };
+    uint32 br[7] = { 4800, 9600, 19200, 38400, 57600, 115200, 0};
     uint8 brIdx = g_sDevice.config.baudRateUart1;
     if (brIdx > 5)  brIdx = 6;
     uart_printf("UART1's BaudRate : %d \r\n", br[brIdx]);
@@ -1062,3 +1143,148 @@ int AT_vQueryRemoteSensorData(uint16 *regAddr)
 		return OK;
 	}
 }
+
+
+
+/*------------------------------------------------------API Mode------------------------------------------------------------*/
+
+/****************************************************************************
+*
+* NAME: int16ProcessApiCmd
+*
+* DESCRIPTION:
+* Process Api Spec Frame in API mode
+*
+* PARAMETERS: Name         RW  Usage
+*             buf          R   input
+*             len          R   length of buf
+* RETURNS:
+* int
+* apiSpec, returned tsApiSpec Frame
+*
+****************************************************************************/
+int API_tsQueryLocalTemper(tsApiSpec *inputApiSpec, uint16 *regAddr)
+{
+	tsApiSpec apiSpec;
+	memset(&apiSpec, 0, sizeof(apiSpec));
+
+	tsLocalAtResp localAtResp;
+	memset(&localAtResp, 0 ,sizeof(tsLocalAtResp));
+
+	/* apiSpec encode */
+	apiSpec.startDelimiter = API_START_DELIMITER;
+	apiSpec.length = sizeof(apiSpec.payload);           //Note: union length != tsLocalAtReq length
+	apiSpec.teApiIdentifier = API_LOCAL_AT_RESP;
+
+	/* Sample Chip Temperature */
+	uint16 adSampleVal = vHAL_AdcSampleRead(E_AHI_ADC_SRC_TEMP);
+	int16 i16ChipTemperature = i16HAL_GetChipTemp(adSampleVal);
+
+	/*
+	  If the JN516x device operates at temperatures in excess of 90¡ãC, it may be necessary
+	  to call this function to maintain the frequ ency tolerance of the clock to within the
+	  40ppm limit specified by the IEEE 802.15. 4 standard.
+	*/
+	vHAL_PullXtal((int32)i16ChipTemperature);
+
+	/* tsLocalAtResp encode */
+	strcpy((char*)localAtResp.atCmd, "ATQL");		//force trans
+	localAtResp.eStatus = AT_OK;
+	localAtResp.frameId = inputApiSpec->payload.localAtResp.frameId;
+	memcpy(localAtResp.value, (uint8*)(&i16ChipTemperature), sizeof(int16));
+
+	apiSpec.payload.localAtResp = localAtResp;
+	apiSpec.checkSum = calCheckSum((uint8*)&localAtResp, sizeof(tsLocalAtResp));
+
+	/* Send response Packets */
+	uart_tx_data((uint8*)&apiSpec, sizeof(tsApiSpec));
+
+	return OK;
+}
+
+int API_tsQueryRemoteTemper(tsApiSpec *apiSpec, uint16 *regAddr)
+{
+	return OK;
+}
+
+/* For test */
+int API_tsTestPrint(tsApiSpec *apiSpec, uint16 *regAddr)
+{
+	uart_printf("rev one.\r\n");
+	uart_printf("S:0x%0x\n",apiSpec->startDelimiter);
+	uart_printf("A:0x%0x\n",apiSpec->teApiIdentifier);
+	uart_printf("len:%d\n",apiSpec->length);
+	uart_printf("sum:%d\n",apiSpec->checkSum);
+	return OK;
+}
+
+int ProcessApiCmd(tsApiSpec* apiSpec)
+{
+	int result = ERR;
+	tsLocalAtReq *localAtReq;		//can not define ptr in switch
+	switch(apiSpec->teApiIdentifier)
+	{
+	    case API_TEST:
+	    	localAtReq = &(apiSpec->payload.localAtReq);
+            if(0 == strncasecmp("AT", localAtReq->atCmd, 2))
+            {
+            	int cnt = sizeof(atCommandsApiMode)/sizeof(AT_Command_ApiMode_t);
+            	int i = 0;
+            	for(; i < cnt; i++)
+            	{
+                  if(0 == strncasecmp(localAtReq->atCmd + 2, atCommandsApiMode[i].name, 2))
+                  {
+                	  /* None-parameter command */
+                	  if(0 == atCommandsApiMode[i].paramDigits)
+                	  {
+                	      if(NULL != atCommandsApiMode[i].function)
+                	  	  {
+                	  	      result = atCommandsApiMode[i].function(apiSpec, atCommandsApiMode[i].configAddr);
+                	  	  }
+                	  }
+                  }
+            	}
+            }
+		break;
+	    /* Local AT Require */
+	    case API_LOCAL_AT_REQ:
+	    	localAtReq = &(apiSpec->payload.localAtReq);
+
+	    	/* Match commands */
+	    	if(0 == strncasecmp("AT", localAtReq->atCmd, 2))
+	    	{
+	    		/* Read command name */
+	    		int cnt1 = sizeof(atCommandsApiMode)/sizeof(AT_Command_ApiMode_t);
+
+	    		int j = 0;
+	    		for(; j < cnt1; j++)
+	    		{
+	    			if(0 == strncasecmp(localAtReq->atCmd + 2, atCommandsApiMode[j].name, 2))
+	    			{
+	    				/* None-parameter command */
+	    				if(0 == atCommandsApiMode[j].paramDigits)
+	    				{
+	    					if(NULL != atCommandsApiMode[j].function)
+	    					{
+	    						result = atCommandsApiMode[j].function(apiSpec, atCommandsApiMode[j].configAddr);
+	    					}
+	    				}
+	    			}
+	    		}
+	    	}
+	    	break;
+	    /* remote AT Require */
+	    case API_REMOTE_AT_REQ:
+
+	        break;
+	    /* TX Require */
+	    case API_TX_REQ:
+
+	        break;
+	    /* default:do nothing */
+	    default:
+	        break;
+	}
+	return OK;
+}
+

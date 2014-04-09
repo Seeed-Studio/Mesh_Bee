@@ -24,6 +24,7 @@
 /****************************************************************************/
 /***        Include files                                                 ***/
 /****************************************************************************/
+#include "stdlib.h"	//oliver add
 
 #include "common.h"
 
@@ -32,7 +33,7 @@
 #include "zigbee_node.h"
 #include "firmware_at_api.h"
 #include "firmware_ota.h"
-
+#include "firmware_hal.h"
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
@@ -49,7 +50,7 @@
 /***        Local Function Prototypes                                     ***/
 /****************************************************************************/
 void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent);
-
+PRIVATE int vSynApiSpecFrame(uint8 *buf, int len);
 
 /****************************************************************************/
 /***        Exported Variables                                            ***/
@@ -133,34 +134,42 @@ OS_TASK(APP_taskMyEndPoint)
  *
  * DESCRIPTION:
  * a thread handle uart1(user data port) rx'ed data
+ * node state machine,driving by UART data input
+ * State:  E_MODE_AT    E_MODE_DATA     E_MODE_API
+ *
+ * Note:
+ *      In a Mesh topology network,if you use AT mode,there would be no way to
+ * determine which sensor send what data,the data from different nodes would come
+ * out of the base node's UART in a jumbled mess.so,API mode is the best choice.
  *
  * RETURNS:
  * void
  *
  ****************************************************************************/
 static uint8 tmp[RXFIFOLEN];
-
+uint8 discard[RXFIFOLEN];
 OS_TASK(APP_taskHandleUartRx)
 {
     uint32 dataCnt = 0;
     uint32 popCnt = 0;
 
-    //calculate data size of the ring buffer
+    /* calculate data size of the ring buffer */
     OS_eEnterCriticalSection(mutexRxRb);
     dataCnt = ringbuffer_data_size(&rb_rx_uart);
     OS_eExitCriticalSection(mutexRxRb);
 
-    //if there is no data,return
+    /* if there is no data,return */
     if (dataCnt == 0)  return;
 
     DBG_vPrintf(TRACE_EP, "-HandleUartRx- \r\n");
 
-
+    /* state machine */
     switch (g_sDevice.eMode)
     {
-    case E_MODE_DATA:
+    /*  Default:Data Mode,node will restore the previous mode */
+	case E_MODE_DATA:
 
-        //read some data out
+        /* read some data from ringbuffer */
         popCnt = MIN(dataCnt, THRESHOLD_READ);
 
         OS_eEnterCriticalSection(mutexRxRb);
@@ -172,7 +181,7 @@ OS_TASK(APP_taskHandleUartRx)
         else if ((dataCnt - popCnt) > 0)
             vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(1));
 
-        //AT filter to find AT delimiter
+        /* AT filter to find AT delimiter */
         if (searchAtStarter(tmp, popCnt))
         {
             g_sDevice.eMode = E_MODE_AT;
@@ -180,14 +189,16 @@ OS_TASK(APP_taskHandleUartRx)
             uart_printf("Enter AT mode.\r\n");
             clear_ringbuffer(&rb_rx_uart);
         }
-        //if not containing AT, send out the data
-        else if (g_sDevice.eState == E_NETWORK_RUN) //if send, make sure network has been created.
+        /* if not containing AT, send out the data */
+        else if (g_sDevice.eState == E_NETWORK_RUN)    //Make sure network has been created.
         {
             tsApiFrame frm;
             sendToAir(g_sDevice.config.txMode, g_sDevice.config.unicastDstAddr,
                       &frm, FRM_DATA, tmp, popCnt);
         }
         break;
+
+    /* AT command mode */
     case E_MODE_AT:
         popCnt = MIN(dataCnt, RXFIFOLEN);
 
@@ -209,6 +220,7 @@ OS_TASK(APP_taskHandleUartRx)
             return;
         }
 
+        /* Process AT command */
         int ret = processSerialCmd(tmp, popCnt);
 
         char *resp;
@@ -226,14 +238,58 @@ OS_TASK(APP_taskHandleUartRx)
         ringbuffer_pop(&rb_rx_uart, tmp, popCnt);
         OS_eExitCriticalSection(mutexRxRb);
         break;
-    case E_MODE_API:
 
-        break;
+    /* API Mode */
+    case E_MODE_API:
+    	/* calc the minimal */
+    	popCnt = MIN(dataCnt, RXFIFOLEN);
+
+    	OS_eEnterCriticalSection(mutexRxRb);
+    	ringbuffer_read(&rb_rx_uart, tmp, popCnt);
+    	OS_eExitCriticalSection(mutexRxRb);
+
+    	/* Instance a apiSpec */
+    	tsApiSpec apiSpec;
+    	bool bValid = FALSE;
+    	memset(&apiSpec, 0, sizeof(tsApiSpec));
+
+    	/* Deassemble apiSpec frame */
+    	uint16 procSize =  u16DecodeApiSpec(tmp, popCnt, &apiSpec, &bValid);
+    	if(!bValid)
+    	{
+    		/*
+    		  Invalid frame,discard from ringbuffer
+    		  Any data received prior to the start delimiter will be discarded.
+    		  If the frame is not received correctly or if the checksum fails,
+    		  discard too.
+    		*/
+    		//uart_printf("invalid frame,discard %d.\r\n",procSize);
+    		OS_eEnterCriticalSection(mutexRxRb);
+    		ringbuffer_pop(&rb_rx_uart,discard,procSize);
+    		OS_eExitCriticalSection(mutexRxRb);
+
+    		/* reActivate Task 1ms later*/
+    		vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(1));
+    	}
+    	else
+    	{
+    		/* Process API frame */
+    		ProcessApiCmd(&apiSpec);
+
+    		/* Discard already processed part */
+    		OS_eEnterCriticalSection(mutexRxRb);
+    		ringbuffer_pop(&rb_rx_uart,discard,procSize);
+    		OS_eExitCriticalSection(mutexRxRb);
+    	}
+    	break;
     default:
         break;
     }
 
 }
+
+
+
 
 /****************************************************************************
  *
@@ -588,12 +644,15 @@ void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
     //analyze the frame, to see wether a control frame etc.
     switch (apiFrame.frameType)
     {
+    /* Control frame */
     case FRM_CTRL:
         break;
+    /* Query register/on-chip value frame */
     case FRM_QUERY:
     	v_ProcessQueryCmd(&apiFrame, u16SrcAddr);
     	PDUM_eAPduFreeAPduInstance(hapdu_ins);			//The network will be down(stack flow) if you don't free the APDU
         break;
+    /* Query response frame */
     case FRM_QUERY_RESP:
     	OS_eEnterCriticalSection(mutexTxRb);
     	u16FreeSpace = ringbuffer_free_space(&rb_tx_uart);
@@ -605,7 +664,7 @@ void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
         }
         else
         {
-        	/*test no problem
+        	/*tested, no problem
         	tsDataStream dataStream;
         	memset(&dataStream, 0, sizeof(tsDataStream));
         	if(apiFrame.payloadLen == sizeof(tsDataStream))
@@ -621,6 +680,7 @@ void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
         	PDUM_eAPduFreeAPduInstance(hapdu_ins);
         }
     	break;
+    /* Data frame */
     case FRM_DATA:
         {
             OS_eEnterCriticalSection(mutexTxRb);
@@ -838,7 +898,7 @@ void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
  * NAME: sendToAir
  *
  * DESCRIPTION:
- * send data wich radio by broadcasting or unicasting
+ * send data with radio by broadcasting or unicasting
  *
  * PARAMETERS: Name         RW  Usage
  *             txmode       R   ENUM: BROADCAST ,UNICAST

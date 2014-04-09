@@ -7,6 +7,8 @@
  * Author     : Jack Shao
  * Create Time: 2013/10
  * Change Log :
+ * [2014/03/20 oliver]add api mode.
+ * [2014/04/09 oliver]take endian into consideration,divide unicastAddr into two parts.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -27,6 +29,15 @@
 #include <jendefs.h>
 #include "firmware_uart.h"
 #include "firmware_ota.h"
+
+/* macro define */
+
+#define AT_PARAM_LEN      8 		//maximal size of AT parameter
+#define AT_PARAM_HEX_LEN  20		//maximal size of AT response hex value
+#define API_DATA_LEN      20		//maximal size of each API data frame
+#define AT_CMD_LEN        8			//AT command length
+
+#define API_START_DELIMITER  0x7e	//API special frame start delimiter
 
 typedef enum
 {
@@ -54,6 +65,28 @@ typedef enum
 	QUERY_INNER_VOL = 11				//on-chip voltage
 	/*your sensor data type here*/
 }teQueryType;
+
+/* API mode AT return enum */
+typedef enum
+{
+	AT_OK = 0,
+	AT_ERR = 1,
+	INVALID_CMD = 2,
+	INVALID_PARAM = 3
+}teAtRetVal;
+
+typedef enum
+{
+	/* API identifier */
+	API_LOCAL_AT_REQ = 0x08,
+	API_LOCAL_AT_RESP = 0x88,
+	API_REMOTE_AT_REQ = 0x17,
+	API_REMOTE_AT_RESP = 0x97,
+    API_TX_REQ = 0x01,          //Tx a packet to special short address
+    API_TX_RESP = 0x03,
+	API_RX_PACKET = 0x81,        //received a packet from air,send to UART
+	API_TEST = 0x8f				//Test
+}teApiIdentifier;
 
 //CTRL
 typedef struct
@@ -96,7 +129,7 @@ typedef struct
     uint16              nodeFWVer;
 }tsFrmTOPOResp;
 
-//API
+//API frame, external layer structure
 typedef struct __apiFrame
 {
     uint8               preamble;
@@ -115,10 +148,86 @@ typedef struct __apiFrame
     uint8               checksum;
 }tsApiFrame;
 
+
+/*--------API mode structure--------*/
+
+/* API mode local AT Command require */
+typedef struct
+{
+	uint8 frameId;              //identifies the UART data frame to correlate with subsequent ACK
+	uint8 atCmd[AT_CMD_LEN];    //AT Command name,four ASCII char
+	uint8 value[AT_PARAM_LEN];  //if present,indicates the requested parameter value to set
+							    //the given register,if no character present,register is queried
+}__attribute__ ((packed)) tsLocalAtReq;
+
+
+/* API mode local AT Command response */
+typedef struct
+{
+	uint8 frameId;				    //identifies the UART data frame to correlate with subsequent ACK
+	uint8 atCmd[AT_CMD_LEN];		//AT Command name,four ASCII char
+	uint8 eStatus;				    //OK,ERROR,Invalid command,Invalid Parameter
+	uint8 value[AT_PARAM_HEX_LEN];  //value returned in hex format
+}__attribute__ ((packed)) tsLocalAtResp;
+
+
+/* API mode remote AT Command require */
+typedef struct
+{
+	uint8 frameId;
+	uint8 unicastAddrH;
+	uint8 unicastAddrL;
+	uint8 atCmd[AT_CMD_LEN];
+	uint8 value[AT_PARAM_LEN];
+}__attribute__ ((packed)) tsRemoteAtReq;
+
+
+/* API mode remote AT command response */
+typedef struct
+{
+	uint8 frameId;
+	uint8 unicastAddrH;
+	uint8 unicastAddrL;
+	uint8 atCmd[AT_CMD_LEN];
+	uint8 eStatus;
+	uint8 value[AT_PARAM_HEX_LEN];
+}__attribute__ ((packed)) tsRemoteAtResp;
+
+
+/* Tx data packet */
+typedef struct
+{
+	uint8 frameId;
+	uint8 unicastAddrH;
+	uint8 unicastAddrL;
+	uint8 option;
+	uint8 data[API_DATA_LEN];
+}__attribute__ ((packed)) tsTxDataPacket;
+
+
+/* API-specific structure */
+typedef struct
+{
+	uint8 startDelimiter;
+	uint8 length;           // length = sizeof(payload)
+	uint8 teApiIdentifier;
+	union
+	{
+		/*diff app frame*/
+		tsLocalAtReq localAtReq;
+		tsLocalAtResp localAtResp;
+		tsRemoteAtReq remoteAtReq;
+		tsRemoteAtResp remoteAtResp;
+		tsTxDataPacket txDataPacket;
+	}payload;
+	uint8 checkSum;
+}__attribute__ ((packed)) tsApiSpec;
+/*---------------End---------------*/
+
 //AT
 typedef int (*AT_Command_Function_t)(uint16 *);
 typedef int (*AT_Command_Print_t)(uint16 *);
-
+typedef int (*AT_CommandApiMode_Func_t)(tsApiSpec*, uint16*);
 typedef int8 byte;
 
 typedef struct
@@ -131,6 +240,17 @@ typedef struct
     AT_Command_Print_t    printFunc;  //the print function of this reg
     AT_Command_Function_t function; // the function which does the real work on change
 }  AT_Command_t;
+
+/* AT_Command in API mode oliver */
+typedef struct
+{
+	const char	*name;		//AT command name
+	uint16		*configAddr;	//config address
+	const bool	isHex;
+	const int 	paramDigits;
+	const uint16 maxValue;
+	AT_CommandApiMode_Func_t function;
+}AT_Command_ApiMode_t;
 
 enum ErrorCode
 {
@@ -148,8 +268,10 @@ enum ErrorCode
 uint8 calCheckSum(uint8 *in, int len);
 uint16 assembleApiFrame(tsApiFrame *frm, teFrameType type, uint8 *payload, uint16 payloadLen);
 uint16 deassembleApiFrame(uint8 *buffer, int len, tsApiFrame *frm, bool *valid);
+uint16 u16DecodeApiSpec(uint8 *buffer, int len, tsApiSpec *spec, bool *valid);		//oliver add for API mode
 void copyApiFrame(tsApiFrame *frm, uint8 *dst);
 bool searchAtStarter(uint8 *buffer, int len);
 int processSerialCmd(uint8 *buf, int len);
+int ProcessApiCmd(tsApiSpec* apiSpec);
 
 #endif /* __AT_API_H__ */

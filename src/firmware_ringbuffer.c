@@ -130,6 +130,7 @@ void ringbuffer_pop(struct ringbuffer *r, void *data, uint32 size)
     if (need_clear) clear_ringbuffer(r);
 }
 
+/* read without pop out */
 void ringbuffer_read(struct ringbuffer *r, void *data, uint32 size)
 {
     if (ringbuffer_data_size(r) < size) return;

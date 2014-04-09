@@ -6,7 +6,7 @@
  * Spread by SeeedStudio
  * Author     : Jack Shao
  * Create Time: 2013/10
- * Change Log :
+ * Change Log : Oliver Wang Modify 2014/03
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -568,7 +568,6 @@ OS_TASK(APP_AgeOutChildren)
 #endif
 }
 
-
 /****************************************************************************
  *
  * NAME: APP_RadioRecal
@@ -587,6 +586,7 @@ OS_TASK(APP_RadioRecal)
     {
         DBG_vPrintf(TRACE_NODE, "Recalibrate the radio\r\n");
         uint8 eStatus = eAHI_AttemptCalibration();
+
         if (eStatus)
         {
             DBG_vPrintf(TRACE_NODE, "Recalibration already underway");
@@ -599,8 +599,6 @@ OS_TASK(APP_RadioRecal)
     }
 #endif
 }
-
-
 
 /****************************************************************************/
 /***        Exported Functions                                            ***/
@@ -680,6 +678,7 @@ PUBLIC void deleteStackPDM()
  * void
  *
  ****************************************************************************/
+
 PUBLIC void node_vInitialise(void)
 {
     PDM_eLoadRecord(&g_sDevicePDDesc, REC_ID1, &g_sDevice, sizeof(g_sDevice), FALSE);

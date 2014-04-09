@@ -1,13 +1,13 @@
-/*    
+/*
  * zigbee_main.c
- * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
- *   
- * Copyright (c) NXP B.V. 2012.   
+ * Firmware for SeeedStudio Mesh Bee(Zigbee) module
+ *
+ * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
  * Author     : Jack Shao
- * Create Time: 2013/10 
- * Change Log :   
- *   
+ * Create Time: 2013/10
+ * Change Log : Oliver Wang Modify 2014/03
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -18,7 +18,7 @@
  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.  
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 /****************************************************************************/
@@ -163,7 +163,7 @@ PUBLIC void vAppMain(void)
         vAHI_WatchdogStop();
         //while (1);
     }
-    
+
     u32AppApiInit(NULL, NULL, NULL, NULL, NULL, NULL);
 
     vAHI_HighPowerModuleEnable(TRUE, TRUE);                                        // Enable high power mode
@@ -223,6 +223,18 @@ PRIVATE void vInitialiseApp(void)
 #endif
 
     DBG_vPrintf(TRACE_START, "Initialising %s node... \r\n", role);
+
+    /* print working mode */
+    char *mode = "";
+    switch(g_sDevice.eMode)
+    {
+      case E_MODE_DATA: mode = "DATA"; break;
+      case E_MODE_AT: mode = "AT"; break;
+      case E_MODE_API: mode = "API"; break;
+      default:break;
+    }
+    DBG_vPrintf(TRACE_START, "Current Mode: %s\n",mode);
+
     node_vInitialise();
 }
 

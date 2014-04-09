@@ -96,7 +96,7 @@ PUBLIC void vHAL_AdcSampleInit(tsAdcParam *param)
 	/* Wait until the regulator becomes stable. */
 	while(!bAHI_APRegulatorEnabled());
 
-	DBG_vPrintf(TRACE_HAL, "\nHAL:ADC is successfully initialized.\r\n");
+	DBG_vPrintf(TRACE_HAL, "HAL:ADC is successfully initialized.\r\n");
 }
 /****************************************************************************
  *
