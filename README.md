@@ -11,7 +11,8 @@ your development. The developing environment and tools from NXP are all free.
 
 Mesh Bee will bring you lots of fun.
 
-### firmware architecture
+### Firmware architecture
+
 This is the Mesh Bee software architecture,its arduino-ful user programming space
 is magic.We will teach makers how to use it in the future.
 
