@@ -1,9 +1,5 @@
 Mesh Bee
 ------------
-This is the Mesh Bee software architecture,its arduino-ful user programming space
-is magic.We will teach makers how to use it in the future.
-
-![image](https://github.com/Seeed-Studio/Mesh_Bee/blob/MeshBee_v1002/img_folder/MeshBeeArchitecture.jpg)
 
 Mesh Bee is a 2.4GHz wireless transceiver from seeed studio. It's based on NXP's newly JN516x series 
 wireless microcontroller chip and supports ZigBee Pro network stack. The factory firmware wraps the 
@@ -14,6 +10,12 @@ the firmware on your requirements. You can use JN516x's ARM core to control thin
 your development. The developing environment and tools from NXP are all free.
 
 Mesh Bee will bring you lots of fun.
+
+### firmware architecture
+This is the Mesh Bee software architecture,its arduino-ful user programming space
+is magic.We will teach makers how to use it in the future.
+
+![image](https://github.com/Seeed-Studio/Mesh_Bee/blob/MeshBee_v1002/img_folder/MeshBeeArchitecture.jpg)
 
 ### Usage
 
