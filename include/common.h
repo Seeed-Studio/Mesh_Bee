@@ -175,5 +175,7 @@ extern PDM_tsRecordDescriptor g_sDevicePDDesc;
 /***        Exported Functions                                            ***/
 /****************************************************************************/
 PUBLIC void vResetATimer(OS_thSWTimer hSWTimer, uint32 u32Ticks);
+PUBLIC void ups_init(void); 
+
 
 #endif /* GLOBAL_DEF_H_ */

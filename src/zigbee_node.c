@@ -744,6 +744,7 @@ PUBLIC void node_vInitialise(void)
 #ifdef OTA_CLIENT
         if (g_sDevice.otaDownloading > 0) OS_eActivateTask(APP_taskOTAReq);
 #endif
+                
     }
     // else perform any actions required on initial start-up
     else
@@ -783,6 +784,11 @@ PUBLIC void node_vInitialise(void)
     //init pwm for rssi
     vAHI_TimerEnable(E_AHI_TIMER_1, 4, FALSE, FALSE, TRUE);
     vAHI_TimerStartRepeat(E_AHI_TIMER_1, 1000, 1);
+
+    //init user space
+    DBG_vPrintf(TRUE, "Init user programming space...\r\n"); 
+    ups_init(); 
+    
 }
 
 

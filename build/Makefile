@@ -166,6 +166,9 @@ APPSRC += firmware_at_api.c
 APPSRC += firmware_uart.c
 APPSRC += firmware_ota.c
 APPSRC += firmware_hal.c
+APPSRC += suli.c
+APPSRC += firmware_ups.c
+APPSRC += ups_arduino_sketch.c
 ####
 APP_ZPSCFG = MeshBee.zpscfg
 
