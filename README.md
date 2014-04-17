@@ -1,17 +1,23 @@
 Mesh Bee
 ------------
-This is the Mesh Bee software architecture,its arduino-ful user programming space
-is magic.We will teach makers how to use it in the future.
-
-![image](http://www.seeedstudio.com/wiki/images/a/a9/MeshBeeArchitecture.jpg)
 
 ![image](http://www.seeedstudio.com/wiki/images/6/6b/QQ20140327-1.png)
 
-Mesh Bee is a 2.4GHz wireless transceiver from seeed studio. It's based on NXP's newly JN516x series wireless microcontroller chip and supports ZigBee Pro network stack. The factory firmware wraps the complicated ZigBee stack operation into a few easy to use serial commands, and drives Mesh Bee into a transparent serial communication node that can be part of a simple point-to-point connection or a complex mesh network. Moreover, Mesh Bee is totally open hardware and open sourced, which means that you can customize the firmware on your requirements. You can use JN516x's ARM core to control things and JenOS to simplify your development. The developing environment and tools from NXP are all free. 
+Mesh Bee is a 2.4GHz wireless transceiver from seeed studio. It's based on NXP's newly JN516x series wireless microcontroller chip and supports **ZigBee Pro** network stack. The factory firmware wraps the complicated ZigBee stack operation into a few easy to use serial commands, and drives Mesh Bee into a transparent serial communication node that can be part of a simple point-to-point connection or a complex mesh network. Moreover, Mesh Bee is totally open hardware and open sourced, which means that you can customize the firmware on your requirements. You can use JN516x's ARM core to control things and JenOS to simplify your development. The developing environment and tools from NXP are all free. 
 
 Mesh Bee will bring you lots of fun.
 
-### Usage
+#### Software Architecture
+
+This is the software architecture of Mesh Bee.  
+
+You can develop a stand-alone application in AUPS. The user application consists of two arduino-style functions at the top level: setup & loop, which act just like arduino's.
+
+We introduced Suli too. Suli means Seeed Unified Library Interface. We'll switch to Suli for our future module driver/library release. That means our suli-compatible library/driver will adapt all platforms that suli supporting. Please glance over https://github.com/Seeed-Studio/Suli for more information. 
+
+![image](https://raw.githubusercontent.com/CasyWang/Mesh_Bee/MeshBee_v1002/doc/MeshBeeArchitecture.jpg)
+
+#### Usage
 
 1. Install the SDK toolchain;
 2. Download this repo and put all files into a directory A (example);
@@ -21,7 +27,7 @@ Mesh Bee will bring you lots of fun.
 
 The details are descripted at [this](http://www.seeedstudio.com/wiki/Mesh_Bee) wiki page, please launch there and find your need.
 
-### Contribution
+#### Contribution
 
 Contributing to this software is warmly welcomed. You can do this basically by
 [forking](https://help.github.com/articles/fork-a-repo), committing modifications and then [pulling requests](https://help.github.com/articles/using-pull-requests) (follow the links above for operating guide). Adding change log and your contact into file header is encouraged.  
