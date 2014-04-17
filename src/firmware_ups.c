@@ -55,7 +55,7 @@
 /****************************************************************************/
 /***        Local Variables                                               ***/
 /****************************************************************************/
-PRIVATE uint32 _loopInterval = 1000;
+PRIVATE uint32 _loopInterval = 0;
 
 /****************************************************************************/
 /***        External Variables                                            ***/
@@ -103,7 +103,7 @@ void ups_init(void)
  * void
  * 
  ****************************************************************************/
-void setLoopInterval(uint32 ms)
+void setLoopIntervalMs(uint32 ms)
 {
     _loopInterval = ms;
 }
@@ -120,7 +120,13 @@ void setLoopInterval(uint32 ms)
 OS_TASK(Arduino_Loop)
 {
     arduino_loop();
-    OS_eStartSWTimer(Arduino_LoopTimer, APP_TIME_MS(_loopInterval), NULL); 
+    if(_loopInterval > 0)
+    {
+		OS_eStartSWTimer(Arduino_LoopTimer, APP_TIME_MS(_loopInterval), NULL); 
+    } else
+    {
+		OS_eActivateTask(Arduino_Loop); 
+    }
 }
 
 /****************************************************************************/

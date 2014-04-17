@@ -1,6 +1,8 @@
 /*
  * suli.c
  * Seeed Unified Library Interface for Mesh Bee
+ * 
+ * About Suli: https://github.com/Seeed-Studio/Suli
  *
  * 2013 Copyright (c) Seeed Technology Inc.  All right reserved.
  * Author     : Jack Shao
@@ -43,7 +45,8 @@
 /****************************************************************************/
 /***        Local Function Prototypes                                     ***/
 /****************************************************************************/
-
+void modp_dtoa2(double value, char *str, int prec);
+static void strreverse(char *begin, char *end);
 
 /****************************************************************************/
 /***        Exported Variables                                            ***/
@@ -57,6 +60,8 @@
 volatile uint32 timer0_overflow_count = 0;
 volatile uint32 timer0_millis = 0; 
 
+static const double pow10[] = { 1, 10, 100, 1000, 10000, 100000, 1000000,
+                                10000000, 100000000, 1000000000 }; 
 
 /****************************************************************************/
 /***        External Variables                                            ***/
@@ -170,8 +175,7 @@ void suli_pin_write(IO_T *pio, int16 state)
  */
 int16 suli_pin_read(IO_T *pio)
 {
-    uint32 val = u32AHI_DioReadInput();
-    return (val & (1 << (*pio)))> 0 ? HAL_PIN_HIGH: HAL_PIN_LOW;
+    return ((u32AHI_DioReadInput() >> (*pio)) & 0x1);
 }
 
 
@@ -185,25 +189,32 @@ int16 suli_pin_read(IO_T *pio)
  * state: type of pulse to read: either HIGH or LOW. (int)
  * timeout (optional): the number of microseconds to wait for the pulse to start; default is one second (unsigned long)
  */
- 
- 
-uint32 suli_pulse_insuli_pulse_in(IO_T *pio, uint8 state, uint32 timeout)
+uint32 suli_pulse_in(IO_T *pio, uint8 state, uint32 timeout)
 {
-    uint32 timer_cnt = suli_micros();
+    #define LOOP_CYCLES   38
+    uint32 width = 0;
+    uint32 numloops = 0;
+    uint32 maxloops = timeout * 32 / (LOOP_CYCLES-5); 
 
-    while(suli_pin_read(pio) != state) 
+    while(suli_pin_read(pio) == state)
     {
-        if(timeout > 0 && (suli_micros() - timer_cnt) > timeout) return 0; 
+        if (numloops++ == maxloops)
+			return 0;
     }
 
-    timer_cnt = suli_micros(); 
-    uint32 cur_time = timer_cnt; 
-    while(suli_pin_read(pio) == state) 
+    while(suli_pin_read(pio) != state)
     {
-        cur_time = suli_micros();
-        if(timeout > 0 && (cur_time - timer_cnt) > timeout) return 0; 
+        if (numloops++ == maxloops)
+			return 0;
     }
-    return cur_time - timer_cnt;
+
+    while(((u32AHI_DioReadInput() >> (*pio)) & 0x1) == state) 
+    {
+        if (numloops++ == maxloops)
+			return 0;
+		width++;
+    }
+    return (width * LOOP_CYCLES + 32) / 32; 
 }
 
 
@@ -261,15 +272,17 @@ void suli_analog_init(ANALOG_T * aio, PIN_T pin)
  */
 int16 suli_analog_read(ANALOG_T *aio)
 {    
-    vAHI_AdcEnable(E_AHI_ADC_SINGLE_SHOT, E_AHI_AP_INPUT_RANGE_2, *aio);  //2*vref = 6.6v
+    vAHI_AdcEnable(E_AHI_ADC_SINGLE_SHOT, E_AHI_AP_INPUT_RANGE_2, *aio);  //2*vref = 1.2*2 = 2.4V
     vAHI_AdcStartSample();
     // Wait until ADC data is available
     while(bAHI_AdcPoll());
     
     uint16 val = u16AHI_AdcRead();
     
+    return val;
+    
     //convert the output to 5V - 1024
-    return (int16)((val >> 6) * 6.6f / 5.0f);   //16bit -> 10bit
+    //return (int16)(val * 6.6f / 5.0f);   
 }
 
 
@@ -467,11 +480,49 @@ void suli_uart_send(void * uart_device, int16 uart_num, uint8 *data, uint16 len)
 /*
  * seed a byte to uart
  */
-void suli_uart_send_byte(void * uart_device, int16 uart_num, uint8 data)
+void suli_uart_send_byte(void *uart_device, int16 uart_num, uint8 data)
 {
-    uart_tx_data(&data, 1); 
+    uart_tx_data(&data, 1);
 }
 
+/*
+ * write a float
+ * num - number to write
+ * decimal - x decimal point
+ */
+void suli_uart_write_float(void *uart_device, int16 uart_num, float data, uint8 prec)
+{
+    char buff[32];
+    modp_dtoa2((double)data, buff, prec);
+    uart_tx_data(buff, strlen(buff)); 
+}
+
+/*
+ * write an integer
+ * num - number to write
+ */
+void suli_uart_write_int(void *uart_device, int16 uart_num, int32 num)
+{
+    suli_uart_printf(uart_device, uart_num, "%ld", num);
+}
+
+
+/*
+ * send formatted string to uart 
+ * max length after formateed: 80 
+ */
+void suli_uart_printf(void *uart_device, int16 uart_num, const char *fmt, ...)
+{
+    char buff[82];
+    va_list args;
+    int n;
+
+    va_start(args, fmt);
+    n = vsnprintf(buff, 80, fmt, args);
+    va_end(args);
+
+    uart_tx_data(buff, n);
+}
 
 /*
  * read a byte from uart
@@ -517,6 +568,137 @@ OS_ISR(Suli_isrTimer0)
 {
     u8AHI_TimerFired(E_AHI_TIMER_0);  //read to clear the interrupt flag
     timer0_overflow_count++;
+}
+
+static void strreverse(char *begin, char *end)
+{
+    char aux;
+    while(end > begin) aux = *end,*end-- = *begin,*begin++ = aux;
+}
+
+void modp_dtoa2(double value, char *str, int prec)
+{
+    /* Hacky test for NaN
+     * under -fast-math this won't work, but then you also won't
+     * have correct nan values anyways.  The alternative is
+     * to link with libmath (bad) or hack IEEE double bits (bad)
+     */
+    if(!(value == value))
+    {
+        str[0] = 'n'; str[1] = 'a'; str[2] = 'n'; str[3] = '\0';
+        return;
+    }
+
+    /* if input is larger than thres_max, revert to exponential */
+    const double thres_max = (double)(0x7FFFFFFF);
+
+    int count;
+    double diff = 0.0;
+    char *wstr = str;
+
+    if(prec < 0)
+    {
+        prec = 0;
+    } else if(prec > 9)
+    {
+        /* precision of >= 10 can lead to overflow errors */
+        prec = 9;
+    }
+
+
+    /* we'll work in positive values and deal with the
+       negative sign issue later */
+    int neg = 0;
+    if(value < 0)
+    {
+        neg = 1;
+        value = -value;
+    }
+
+
+    int whole = (int)value;
+    double tmp = (value - whole) * pow10[prec];
+    uint32 frac = (uint32)(tmp);
+    diff = tmp - frac;
+
+    if(diff > 0.5)
+    {
+        ++frac;
+        /* handle rollover, e.g.  case 0.99 with prec 1 is 1.0  */
+        if(frac >= pow10[prec])
+        {
+            frac = 0;
+            ++whole;
+        }
+    } else if(diff == 0.5 && ((frac == 0) || (frac & 1)))
+    {
+        /* if halfway, round up if odd, OR
+           if last digit is 0.  That last part is strange */
+        ++frac;
+    }
+
+    /* for very large numbers switch back to native sprintf for exponentials.
+       anyone want to write code to replace this? */
+    /*
+      normal printf behavior is to print EVERY whole number digit
+      which can be 100s of characters overflowing your buffers == bad
+    */
+    if(value > thres_max)
+    {
+        sprintf(str, "%e", neg ? -value : value);
+        return;
+    }
+
+    if(prec == 0)
+    {
+        diff = value - whole;
+        if(diff > 0.5)
+        {
+            /* greater than 0.5, round up, e.g. 1.6 -> 2 */
+            ++whole;
+        } else if(diff == 0.5 && (whole & 1))
+        {
+            /* exactly 0.5 and ODD, then round up */
+            /* 1.5 -> 2, but 2.5 -> 2 */
+            ++whole;
+        }
+
+        //vvvvvvvvvvvvvvvvvvv  Diff from modp_dto2
+    } else if(frac)
+    {
+        count = prec;
+        // now do fractional part, as an unsigned number
+        // we know it is not 0 but we can have leading zeros, these
+        // should be removed
+        while(!(frac % 10))
+        {
+            --count;
+            frac /= 10;
+        }
+        //^^^^^^^^^^^^^^^^^^^  Diff from modp_dto2
+
+        // now do fractional part, as an unsigned number
+        do
+        {
+            --count;
+            *wstr++ = (char)(48 + (frac % 10));
+        } while(frac /= 10);
+        // add extra 0s
+        while(count-- > 0) *wstr++ = '0';
+        // add decimal
+        *wstr++ = '.';
+    }
+
+    // do whole part
+    // Take care of sign
+    // Conversion. Number is reversed.
+    do *wstr++ = (char)(48 + (whole % 10)); while(whole /= 10);
+    if(neg)
+    {
+        *wstr++ = '-';
+    }
+    *wstr = '\0';
+    strreverse(str, wstr - 1);
 }
 
 /****************************************************************************/
