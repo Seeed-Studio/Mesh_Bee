@@ -1328,6 +1328,7 @@ int API_i32UdsProcessApiCmd(tsApiSpec* apiSpec)
 {
 	int cnt = 0, i = 0;
 	int result = ERR;
+	int size = 0;
 	uint8 tmp[sizeof(tsApiSpec)] = {0};
 	uint16 txMode;
 	tsLocalAtReq *localAtReq;
@@ -1361,8 +1362,8 @@ int API_i32UdsProcessApiCmd(tsApiSpec* apiSpec)
                 }
             }
         	/* UART ACK,if frameId ==0,No ACK */
-            vCopyApiSpec(&retApiSpec, tmp);
-        	uart_tx_data(tmp, 3 + sizeof(tsLocalAtResp) + 1);       //pay attention to this
+            size = vCopyApiSpec(&retApiSpec, tmp);
+        	uart_tx_data(tmp, size);       //pay attention to this
 	    	break;
 	    /*
 	      remote AT Require:
@@ -1376,14 +1377,14 @@ int API_i32UdsProcessApiCmd(tsApiSpec* apiSpec)
             	txMode = BROADCAST;
 
             /* Send to AirPort */
-            vCopyApiSpec(apiSpec, tmp);
-	    	bool ret = API_bSendToAirPort(txMode, apiSpec->payload.remoteAtReq.unicastAddr, tmp, 3 + sizeof(tsRemoteAtReq) + 1);
+            size = vCopyApiSpec(apiSpec, tmp);
+	    	bool ret = API_bSendToAirPort(txMode, apiSpec->payload.remoteAtReq.unicastAddr, tmp, size);
 	    	if(!ret)
 	    		result = ERR;
 	    	else
 	    		result = OK;
+
 	    	/* Now, don't reply here */
-	    	uart_printf("cast:%d\n",apiSpec->payload.remoteAtReq.unicastAddr);
 	        break;
 	    /* TX Require */
 	    case API_TX_REQ:
@@ -1415,6 +1416,7 @@ int API_i32UdsProcessApiCmd(tsApiSpec* apiSpec)
 int API_i32AptsProcessStackEvent(ZPS_tsAfEvent sStackEvent)
 {
     int cnt =0, i =0;
+    int size = 0;
     int result = ERR;
     uint8 tmp[sizeof(tsApiSpec)] = {0};
     PDUM_thAPduInstance hapdu_ins;
@@ -1476,8 +1478,8 @@ int API_i32AptsProcessStackEvent(ZPS_tsAfEvent sStackEvent)
               }
           }
           /* ACK unicast to u16SrcAddr */
-          vCopyApiSpec(&respApiSpec, tmp);
-          bool ret = API_bSendToAirPort(UNICAST, u16SrcAddr, tmp, 3 + sizeof(tsRemoteAtResp) + 1);
+          size = vCopyApiSpec(&respApiSpec, tmp);
+          bool ret = API_bSendToAirPort(UNICAST, u16SrcAddr, tmp, size);
           if(!ret)
           {
         	  result = ERR;
@@ -1493,8 +1495,8 @@ int API_i32AptsProcessStackEvent(ZPS_tsAfEvent sStackEvent)
         1.directly send to UART DataPort,user can handle this response frame
       */
       case API_REMOTE_AT_RESP:
-    	  vCopyApiSpec(&apiSpec, tmp);
-    	  uart_tx_data(tmp, 3+sizeof(tsRemoteAtResp)+1);
+    	  size = vCopyApiSpec(&apiSpec, tmp);
+    	  uart_tx_data(tmp, size);
     	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
           break;
 

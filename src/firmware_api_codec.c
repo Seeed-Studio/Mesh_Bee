@@ -88,11 +88,19 @@ uint16 u16DecodeApiSpec(uint8 *buffer, int len, tsApiSpec *spec, bool *valid)
  *
  *
  ****************************************************************************/
-void vCopyApiSpec(tsApiSpec *spec, uint8 *dst)
+int vCopyApiSpec(tsApiSpec *spec, uint8 *dst)
 {
+	int size = 0;
     memcpy(dst, (uint8 * )spec, 3);
     dst += 3;
+    size += 3;
+
     memcpy(dst, &(spec->payload), spec->length);
     dst += spec->length;
+    size += spec->length;
+
     memcpy(dst, &(spec->checkSum), 1);
+    size += 1;
+
+    return size;
 }
