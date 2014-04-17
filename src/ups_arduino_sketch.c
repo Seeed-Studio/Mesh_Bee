@@ -26,22 +26,82 @@
 #include "firmware_ups.h"
 #include "suli.h"
 
-PIN_T led_pin = 9; 
-IO_T led_io; 
+
+/****************************************************************************/
+/***       example 1 - for test suli - with xbee carrier board            ***/
+/****************************************************************************/
+/*
+#include "ACC_Adxl345_Suli.h"
+IO_T led_io;
+IO_T input0_io; 
+IO_T input1_io; 
+IO_T xbee_carrier_power_ctl_io;
+ANALOG_T input0_aio; 
+ANALOG_T input1_aio;
 uint8 led_st  = HAL_PIN_LOW; 
 
 void arduino_setup(void)
 {
-    suli_pin_init(&led_io, led_pin); 
+    suli_pin_init(&led_io, D9); 
     suli_pin_dir(&led_io, HAL_PIN_OUTPUT);
+
+    suli_pin_init(&input0_io, D0);
+    suli_pin_dir(&input0_io, HAL_PIN_INPUT);
+    
+    suli_pin_init(&input1_io, D1); 
+    suli_pin_dir(&input1_io, HAL_PIN_INPUT);
+    
+    //suli_analog_init(&input1_aio, A4); 
+    //suli_analog_init(&input0_aio, A3);
+
+    suli_pin_init(&xbee_carrier_power_ctl_io, D12); 
+    suli_pin_dir(&xbee_carrier_power_ctl_io, HAL_PIN_OUTPUT); 
+    suli_pin_write(&xbee_carrier_power_ctl_io, 0);  //gate the mosfet to power the vcc_out2 of xbee_carrier_board
+    
+    suli_i2c_init(NULL);
+    
+    acc_adxl345_init(NULL);
+
+    setLoopIntervalMs(10); 
 }
-
-
 
 void arduino_loop(void)
 {
     suli_pin_write(&led_io, led_st);
     led_st = ~led_st;
+    suli_uart_printf(NULL, NULL, "millis: %lu \r\n", suli_millis());
+    suli_uart_printf(NULL, NULL, "micros: %lu \r\n", suli_micros());
+    //suli_uart_printf(NULL, NULL, "input pin 0: %d \r\n", suli_pin_read(&input0_io)); 
+    //suli_uart_printf(NULL, NULL, "input pin 1: %d \r\n", suli_pin_read(&input1_io));
+    //suli_uart_printf(NULL, NULL, "input pin 1: %d \r\n", suli_analog_read(&input1_aio)); 
+    //suli_uart_printf(NULL, NULL, "input pin 0: %d \r\n", suli_analog_read(&input0_aio));
+
+    //suli_uart_printf(NULL, NULL, "input pin 1 pulse: %lu us \r\n", suli_pulse_in(&input1_io, HAL_PIN_HIGH, 1000000)); 
+    
+    //suli_delay_ms(suli_analog_read(&input1_aio)); 
+    //suli_delay_us(suli_analog_read(&input1_aio)); 
+    
+    float ax,ay,az;
+    acc_adxl345_read_acc(&ax, &ay, &az);
+
+    suli_uart_printf(NULL, NULL, "ax: ");
+    suli_uart_print_float(NULL, NULL, ax);
+    suli_uart_printf(NULL, NULL, ", ay: ");
+    suli_uart_print_float(NULL, NULL, ay);
+    suli_uart_printf(NULL, NULL, ", az: "); 
+    suli_uart_print_float(NULL, NULL, az); 
+    suli_uart_printf(NULL, NULL, "\r\n"); 
 }
+*/
+
+
+
+void arduino_setup(void)
+{ }
+
+void arduino_loop(void)
+{ }
+
+
 
 

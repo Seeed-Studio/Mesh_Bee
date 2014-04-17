@@ -27,7 +27,7 @@
 
 #include "common.h"
 
-PUBLIC void setLoopInterval(uint32 ms);
+PUBLIC void setLoopIntervalMs(uint32 ms);
 
 
 

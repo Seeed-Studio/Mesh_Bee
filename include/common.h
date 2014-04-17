@@ -25,6 +25,7 @@
 #define GLOBAL_DEF_H_
 
 #include <jendefs.h>
+#include <math.h>
 #include "dbg.h"
 #include "dbg_uart.h"
 #include "os.h"
