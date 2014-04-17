@@ -39,6 +39,38 @@
 
 #define API_START_DELIMITER  0x7e	//API special frame start delimiter
 
+#define OPTION_CAST_MASK     0x40    //option unicast or broadcast MASK
+#define OPTION_ACK_MASK      0x80    //option ACK or not MASK
+
+/*
+  API mode index
+  Note: Concept of AT command instruction set and apiIdentifier
+*/
+typedef enum
+{
+	ATRB = 0x30,  //reboot
+	ATPA = 0x32,  //power up action, for coo:powerup re-form the network; for rou:powerup re-scan networks
+	ATAJ = 0x34,  //for rou&end, auto join the first network in scan result list
+	ATRS = 0x36,  //re-scan radio channels to find networks
+	ATLN = 0x38,  //list all network scaned
+    ATJN = 0x40,  //network index which is selected to join,MAX_SINGLE_CHANNEL_NETWORKS = 8
+    ATLA = 0x42,  //list all nodes of the whole network, this will take a little more time
+    ATTM = 0x44,  //tx mode, 0: broadcast; 1:unicast
+    ATDA = 0x46,  //unicast dst addr
+    ATBR = 0x48,  //baud rate for uart1
+    ATQT = 0x50,  //query on-chip temperature
+    ATQV = 0x52,  //query on-chip voltage
+    ATIF = 0x54,  //show information of the node
+    ATAP = 0x56,  //enter API mode
+    ATEX = 0x58,  //exit API mode,end data mode
+    ATOT = 0x60,  //ota trigger, trigger upgrade for unicastDstAddr
+    ATOR = 0x62,  //ota rate, client req period
+    ATOA = 0x64,  //ota abort
+    ATOS = 0x66,  //ota status poll
+    ATTP = 0x68,   //for test
+    ATIO = 0x70
+}teAtIndex;
+
 typedef enum
 {
     FRM_CTRL,
@@ -155,7 +187,7 @@ typedef struct __apiFrame
 typedef struct
 {
 	uint8 frameId;              //identifies the UART data frame to correlate with subsequent ACK
-	uint8 atCmd[AT_CMD_LEN];    //AT Command name,four ASCII char
+	uint8 atCmdId;              //AT Command index
 	uint8 value[AT_PARAM_LEN];  //if present,indicates the requested parameter value to set
 							    //the given register,if no character present,register is queried
 }__attribute__ ((packed)) tsLocalAtReq;
@@ -165,7 +197,7 @@ typedef struct
 typedef struct
 {
 	uint8 frameId;				    //identifies the UART data frame to correlate with subsequent ACK
-	uint8 atCmd[AT_CMD_LEN];		//AT Command name,four ASCII char
+	uint8 atCmdId;		            //AT Command index
 	uint8 eStatus;				    //OK,ERROR,Invalid command,Invalid Parameter
 	uint8 value[AT_PARAM_HEX_LEN];  //value returned in hex format
 }__attribute__ ((packed)) tsLocalAtResp;
@@ -175,10 +207,10 @@ typedef struct
 typedef struct
 {
 	uint8 frameId;
-	uint8 unicastAddrH;
-	uint8 unicastAddrL;
-	uint8 atCmd[AT_CMD_LEN];
+	uint8 option;                //0x01 Disable ACK,default: 0x00 Enable ACK
+	uint8 atCmdId;
 	uint8 value[AT_PARAM_LEN];
+	uint16 unicastAddr;          //from small to large
 }__attribute__ ((packed)) tsRemoteAtReq;
 
 
@@ -186,11 +218,10 @@ typedef struct
 typedef struct
 {
 	uint8 frameId;
-	uint8 unicastAddrH;
-	uint8 unicastAddrL;
-	uint8 atCmd[AT_CMD_LEN];
+	uint8 atCmdId;
 	uint8 eStatus;
 	uint8 value[AT_PARAM_HEX_LEN];
+	uint16 unicastAddr;
 }__attribute__ ((packed)) tsRemoteAtResp;
 
 
@@ -198,10 +229,9 @@ typedef struct
 typedef struct
 {
 	uint8 frameId;
-	uint8 unicastAddrH;
-	uint8 unicastAddrL;
-	uint8 option;
+	uint8 option;             //indicate broadcast or unicast
 	uint8 data[API_DATA_LEN];
+	uint16 unicastAddr;
 }__attribute__ ((packed)) tsTxDataPacket;
 
 
@@ -218,16 +248,17 @@ typedef struct
 		tsLocalAtResp localAtResp;
 		tsRemoteAtReq remoteAtReq;
 		tsRemoteAtResp remoteAtResp;
-		tsTxDataPacket txDataPacket;
+		tsTxDataPacket txDataPacket;            //No ACK, like UDP
 	}payload;
 	uint8 checkSum;
 }__attribute__ ((packed)) tsApiSpec;
+
 /*---------------End---------------*/
 
 //AT
 typedef int (*AT_Command_Function_t)(uint16 *);
 typedef int (*AT_Command_Print_t)(uint16 *);
-typedef int (*AT_CommandApiMode_Func_t)(tsApiSpec*, uint16*);
+typedef int (*AT_CommandApiMode_Func_t)(tsApiSpec*, tsApiSpec*, uint16*);
 typedef int8 byte;
 
 typedef struct
@@ -241,17 +272,20 @@ typedef struct
     AT_Command_Function_t function; // the function which does the real work on change
 }  AT_Command_t;
 
-/* AT_Command in API mode oliver */
+
+/* AT_Command in API mode */
 typedef struct
 {
-	const char	*name;		//AT command name
-	uint16		*configAddr;	//config address
+	const char	*name;		            //AT command name
+	uint8       atCmdIndex;             //AT command index
+	uint16		*configAddr;            //config address
 	const bool	isHex;
 	const int 	paramDigits;
 	const uint16 maxValue;
-	AT_CommandApiMode_Func_t function;
+	AT_CommandApiMode_Func_t function;  //AT commands call back function
 }AT_Command_ApiMode_t;
 
+/* return code */
 enum ErrorCode
 {
     OK,
@@ -263,7 +297,9 @@ enum ErrorCode
     ERRNCMD
 };
 
-
+/****************************************************************************/
+/***        Global Function Prototypes                                    ***/
+/****************************************************************************/
 
 uint8 calCheckSum(uint8 *in, int len);
 uint16 assembleApiFrame(tsApiFrame *frm, teFrameType type, uint8 *payload, uint16 payloadLen);
@@ -271,7 +307,8 @@ uint16 deassembleApiFrame(uint8 *buffer, int len, tsApiFrame *frm, bool *valid);
 uint16 u16DecodeApiSpec(uint8 *buffer, int len, tsApiSpec *spec, bool *valid);		//oliver add for API mode
 void copyApiFrame(tsApiFrame *frm, uint8 *dst);
 bool searchAtStarter(uint8 *buffer, int len);
-int processSerialCmd(uint8 *buf, int len);
-int ProcessApiCmd(tsApiSpec* apiSpec);
-
+int API_i32AtProcessSerialCmd(uint8 *buf, int len);
+int API_i32UdsProcessApiCmd(tsApiSpec* apiSpec);
+int API_i32AptsProcessStackEvent(ZPS_tsAfEvent sStackEvent);
+bool API_bSendToAirPort(uint16 txMode, uint16 unicastDest, uint8 *buf, int len);
 #endif /* __AT_API_H__ */

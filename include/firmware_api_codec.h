@@ -1,12 +1,10 @@
 /*
- * ups_arduino_sketch.c
- * User programming space, arduino sketch file
- * Firmware for SeeedStudio Mesh Bee(Zigbee) module
+ * firmware_api_codec.h
+ * API codec library for MCU mode(arduino-ful MCU mode)
  *
- * Copyright (c) NXP B.V. 2012.
- * Spread by SeeedStudio
+ * Copyright (c) Seeed Studio. 2014.
  * Author     : Oliver Wang
- * Create Time: 2014/3
+ * Create Time: 2014/04
  * Change Log :
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
@@ -22,30 +20,22 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "common.h"
-#include "firmware_ups.h"
-#include "suli.h"
+#ifndef FIRMWARE_API_CODEC_H_
+#define FIRMWARE_API_CODEC_H_
 
-PIN_T led_pin = 9;
-IO_T led_io;
-uint8 led_st  = HAL_PIN_LOW;
-
-void arduino_setup(void)
-{
-	/*
-    suli_pin_init(&led_io, led_pin);
-    suli_pin_dir(&led_io, HAL_PIN_OUTPUT);
-    */
-}
+/****************************************************************************/
+/***        Include files                                                 ***/
+/****************************************************************************/
+#include <jendefs.h>
+#include "firmware_at_api.h"
 
 
 
-void arduino_loop(void)
-{
-	/*
-    suli_pin_write(&led_io, led_st);
-    led_st = ~led_st;
-    */
-}
+
+/****************************************************************************/
+/***        Public Functions                                              ***/
+/****************************************************************************/
+uint16 u16DecodeApiSpec(uint8 *buffer, int len, tsApiSpec *spec, bool *valid);
 
 
+#endif /* FIRMWARE_API_CODEC_H_ */

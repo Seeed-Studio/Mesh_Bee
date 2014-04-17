@@ -26,19 +26,19 @@
 
 
 /**
- * GPIO TYPE, it means the data type you gpio name, 
- * such as, for Arduino, we use pinMode(pin, INPUT), and pin is int. 
+ * GPIO TYPE, it means the data type you gpio name,
+ * such as, for Arduino, we use pinMode(pin, INPUT), and pin is int.
  * but for mbed, it's gpio_t
  * For porting, you should modify here
  */
 typedef     int     IO_T;                        // IO type
-typedef     int     PIN_T;                      // pin name
-typedef     int     DIR_T;                 // pin direction
+typedef     int     PIN_T;                       // pin name
+typedef     int     DIR_T;                       // pin direction
 
 typedef     unsigned char   ANALOG_T;                        // pin analog
 
 
-/** 
+/**
  * PIN MODE
  * INPUT or OUTPUT
  */
@@ -54,25 +54,25 @@ typedef     unsigned char   ANALOG_T;                        // pin analog
 #define HAL_PIN_LOW     0x00
 
 /**
- * PIN DEFINATIONS 
- * For DIO pins, you can use 0~20 or D0~D20 
- * For DO pins, you can just specify DO0/DO1 
+ * PIN DEFINATIONS
+ * For DIO pins, you can use 0~20 or D0~D20
+ * For DO pins, you can just specify DO0/DO1
  */
 enum
 {
     D0 = 0, D1=1, D2, D3, D4, D5, D6, D7, D8, D9, D10, D11, D12, D13, D14, D15, D16, D17, D18, D19, D20, DO0=33, DO1=34
-}; 
+};
 
 enum
 {
-    A3=0, A4=1, A2=50, A1, TEMP, VOL 
-}; 
+    A3=0, A4=1, A2=50, A1, TEMP, VOL
+};
 
 
 /**
  * DATA TYPE
- * ALL our suly-compatible library will use those data type 
- * (defined in jendefs.h) 
+ * ALL our suly-compatible library will use those data type
+ * (defined in jendefs.h)
  */
 //typedef signed char    int8;
 //typedef unsigned char  uint8;
@@ -82,10 +82,10 @@ enum
 //typedef unsigned long  uint32;
 
 /**
- * SULI INIT 
- * Suli should be inited before any suli_* function call 
- * Arduino & mbed platform linked some hardware initial code 
- * background, so no need to call suli_init. 
+ * SULI INIT
+ * Suli should be inited before any suli_* function call
+ * Arduino & mbed platform linked some hardware initial code
+ * background, so no need to call suli_init.
  */
 void suli_init(void);
 
@@ -101,9 +101,9 @@ int16 suli_pin_read(IO_T *pio);                // read pin
 
 
 /**
- * Reads a pulse (either HIGH or LOW) on a pin. For example, if value is HIGH, 
- * suli_pulse_in() waits for the pin to go HIGH, starts timing, 
- * then waits for the pin to go LOW and stops timing. Returns the length of the pulse in microseconds. 
+ * Reads a pulse (either HIGH or LOW) on a pin. For example, if value is HIGH,
+ * suli_pulse_in() waits for the pin to go HIGH, starts timing,
+ * then waits for the pin to go LOW and stops timing. Returns the length of the pulse in microseconds.
  * Gives up and returns 0 if no pulse starts within a specified time out.
  * para -
  * - pin: pins which you want to read the pulse.
@@ -131,14 +131,14 @@ void suli_delay_ms(uint32 ms);                 // delay ms
 
 
 /*
- * Returns the number of milliseconds since your board began running the current program. 
+ * Returns the number of milliseconds since your board began running the current program.
  * This number will overflow (go back to zero), after approximately 50 days.
 */
 uint32 suli_millis(void);
 
 
 /*
- * Returns the number of microseconds since your board began running the current program. 
+ * Returns the number of microseconds since your board began running the current program.
  * This number will overflow (go back to zero), after approximately 70 minutes.
  * Note: there are 1,000 microseconds in a millisecond and 1,000,000 microseconds in a second.
  */
@@ -148,7 +148,7 @@ uint32 suli_micros(void);
 // I2C
 
 /*
- * I2C interface initialize. 
+ * I2C interface initialize.
  */
 void suli_i2c_init(void * i2c_device);
 

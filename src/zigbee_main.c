@@ -30,6 +30,8 @@
 #include "zigbee_node.h"
 #include "firmware_uart.h"
 
+#include "firmware_at_api.h"
+
 #ifdef RADIO_RECALIBRATION
 #include "recal.h"
 #endif
@@ -201,6 +203,23 @@ void vAppRegisterPWRMCallbacks(void)
  * void
  *
  ****************************************************************************/
+void Format_ATIO(tsApiSpec *apiSpec)
+{
+  apiSpec->startDelimiter = API_START_DELIMITER;
+  apiSpec->length = sizeof(apiSpec->payload);           //Note: union length != tsLocalAtReq length
+  apiSpec->teApiIdentifier = API_LOCAL_AT_REQ;
+
+  tsLocalAtReq localAtReq;
+  memset(&localAtReq, 0, sizeof(tsLocalAtReq));
+
+  localAtReq.frameId = 0xec;
+  localAtReq.atCmdId = ATIO;
+  localAtReq.value[0] = 9;
+  localAtReq.value[1] = 1;
+
+  apiSpec->payload.localAtReq = localAtReq;
+  apiSpec->checkSum = calCheckSum((unsigned char*)&localAtReq, apiSpec->length);
+}
 PRIVATE void vInitialiseApp(void)
 {
     /* initialise JenOS modules */
@@ -223,19 +242,23 @@ PRIVATE void vInitialiseApp(void)
 #endif
 
     DBG_vPrintf(TRACE_START, "Initialising %s node... \r\n", role);
-
-    /* print working mode */
-    char *mode = "";
-    switch(g_sDevice.eMode)
-    {
-      case E_MODE_DATA: mode = "DATA"; break;
-      case E_MODE_AT: mode = "AT"; break;
-      case E_MODE_API: mode = "API"; break;
-      default:break;
-    }
-    DBG_vPrintf(TRACE_START, "Current Mode: %s\n",mode);
-
     node_vInitialise();
+
+    //test
+    DBG_vPrintf(TRACE_START,"tsApiSpec:%d\n",sizeof(tsApiSpec));
+    DBG_vPrintf(TRACE_START,"tsLocalAtReq:%d\n",sizeof(tsLocalAtReq));
+    tsApiSpec apiSpec;
+    DBG_vPrintf(TRACE_START,"payload:%d\n",sizeof(apiSpec.payload));
+
+    Format_ATIO(&apiSpec);
+
+    uint8 *ptr = (uint8*)&apiSpec;
+    int i=0;
+    for(i=0;i<sizeof(tsApiSpec);i++)
+    {
+    	DBG_vPrintf(TRACE_START,"%d\n",ptr[i]);
+    }
+
 }
 
 

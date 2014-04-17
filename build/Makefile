@@ -163,6 +163,7 @@ APPSRC += zigbee_zbp_utilities.c
 
 APPSRC += firmware_ringbuffer.c
 APPSRC += firmware_at_api.c
+APPSRC += firmware_api_codec.c
 APPSRC += firmware_uart.c
 APPSRC += firmware_ota.c
 APPSRC += firmware_hal.c
@@ -232,7 +233,7 @@ vpath % $(APP_SRC_DIR):$(APP_BLD_DIR)/gen:$(SE_SRC_DIRS):$(UTIL_SRC_DIR)
 all: $(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).bin
 
 
-$(APP_BLD_DIR)/gen/os_gen.c $(APP_BLD_DIR)/gen/os_gen.h $(APP_BLD_DIR)/gen/os_irq.S $(APP_BLD_DIR)/gen/os_irq_alignment.S $(APP_BLD_DIR)/gen/os_irq_buserror.S $(APP_BLD_DIR)/gen/os_irq_illegalinstruction.S $(APP_BLD_DIR)/gen/os_irq_stackoverflowexception.S $(APP_BLD_DIR)/gen/os_irq_unimplementedmodule.S: $(APP_SRC_DIR)/MeshBee.oscfgdiag $(OSCONFIG)
+$(APP_BLD_DIR)/gen/os_gen.c $(APP_BLD_DIR)/gen/os_gen.h $(APP_BLD_DIR)/gen/os_irq.S $(APP_BLD_DIR)/gen/os_irq_alignment.S $(APP_BLD_DIR)/gen/os_irq_buserror.S $(APP_BLD_DIR)/gen/os_irq_illegalinstruction.S $(APP_BLD_DIR)/gen/os_irq_stackoverflowexception.S $(APP_BLD_DIR)/gen/os_irq_unimplementedmodule.S: $(APP_SRC_DIR)/MeshBee.oscfgdiag $(OSCONFIG) 
 	$(info Configuring the OS ...)
 	$(OSCONFIG) -f "$(shell cygpath -w "$<")" -o "$(shell cygpath -w "$(APP_BLD_DIR)/gen")" -v $(JENNIC_CHIP)
 	@echo
@@ -262,7 +263,7 @@ $(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).elf: $(APP_BLD_DIR)/
 	$(CC) -Wl,--gc-sections -Wl,-u_AppColdStart -Wl,-u_AppWarmStart $(LDFLAGS) -TAppBuild_JN5168.ld -o $@ -Wl,--start-group $(addprefix $(APP_BLD_DIR)/obj/,$(APPOBJS)) $(addprefix -l,$(LDLIBS)) -Wl,--end-group -Wl,-Map,$(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).map 	 
 	$(SIZE) $@ 
 
-$(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).bin: $(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).elf
+$(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).bin: $(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).elf 
 	$(info Generating binary ...)
 	$(OBJCOPY) -j .version -j .bir -j .flashheader -j .vsr_table -j .vsr_handlers  -j .ro_mac_address -j .ro_ota_header -j .ro_se_lnkKey -j .ro_se_cert -j.ro_se_pvKey -j .ro_se_customData -j .rodata -j .text -j .data -j .bss -j .heap -j .stack -S -O binary $< $@
 	@echo
@@ -278,7 +279,6 @@ $(APP_BLD_DIR)/gen:
 $(APP_BLD_DIR)/obj:
 	$(info Create dir: $(APP_BLD_DIR)/obj)
 	mkdir $@
-
 ###############################################################################
 
 clean:

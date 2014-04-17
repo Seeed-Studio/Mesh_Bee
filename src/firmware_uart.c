@@ -1,13 +1,13 @@
-/*    
+/*
  * firmware_uart.c
- * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
- *   
- * Copyright (c) NXP B.V. 2012.   
+ * Firmware for SeeedStudio Mesh Bee(Zigbee) module
+ *
+ * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
  * Author     : Jack Shao
- * Create Time: 2013/10 
- * Change Log :   
- *   
+ * Create Time: 2013/10
+ * Change Log :
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -18,7 +18,7 @@
  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.  
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "common.h"
@@ -42,11 +42,11 @@ PRIVATE  volatile bool txbusy = FALSE;
  * init uart1
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 void uart_initialize()
 {
@@ -58,7 +58,7 @@ void uart_initialize()
     AT_setBaudRateUart1(&g_sDevice.config.baudRateUart1);
     vAHI_UartSetControl(UART_COMM, E_AHI_UART_EVEN_PARITY, E_AHI_UART_PARITY_DISABLE, E_AHI_UART_WORD_LEN_8, E_AHI_UART_1_STOP_BIT, FALSE);
     vAHI_UartSetInterrupt(UART_COMM, FALSE, FALSE, TRUE, TRUE, E_AHI_UART_FIFO_LEVEL_1);
-    DBG_vPrintf(TRACE_UART, "UART1 enabled, baud rate: %d \r\n", g_sDevice.config.baudRateUart1); 
+    DBG_vPrintf(TRACE_UART, "UART1 enabled, baud rate: %d \r\n", g_sDevice.config.baudRateUart1);
 }
 
 /****************************************************************************
@@ -73,7 +73,7 @@ void uart_initialize()
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 int AT_setBaudRateUart1(uint16 *regAddr)
 {
@@ -87,16 +87,16 @@ int AT_setBaudRateUart1(uint16 *regAddr)
     if (*regAddr == 4)
     {
       vAHI_UartSetBaudDivisor(UART_COMM, 23);  //57600bps
-      vAHI_UartSetClocksPerBit(UART_COMM, 11); 
+      vAHI_UartSetClocksPerBit(UART_COMM, 11);
     }
     else if (*regAddr == 5)
     {
-      vAHI_UartSetBaudDivisor(UART_COMM, 10);  
+      vAHI_UartSetBaudDivisor(UART_COMM, 10);
       vAHI_UartSetClocksPerBit(UART_COMM, 13);
     }
     else //others are acurate
     {
-      vAHI_UartSetClocksPerBit(UART_COMM, 15); 
+      vAHI_UartSetClocksPerBit(UART_COMM, 15);
       vAHI_UartSetBaudRate(UART_COMM, *regAddr);
     }
     return 0;
@@ -113,11 +113,11 @@ int AT_setBaudRateUart1(uint16 *regAddr)
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 int AT_printBaudRate(uint16 *regAddr)
 {
-    uart_printf("%d\r\n", *regAddr); 
+    uart_printf("%d\r\n", *regAddr);
     uart_printf("--------\r\n");
     uart_printf("Note: 0-4800, 1-9600, 2-19200, 3-38400, 4-57600, 5-115200\r\n");
     return 0;
@@ -128,8 +128,9 @@ int AT_printBaudRate(uint16 *regAddr)
  * NAME: APP_isrUART1
  *
  * DESCRIPTION:
- * ISR for uart1
- * 
+ * UART data server(UDS)
+ * put received data into ringbuffer, or transfer data
+ *
  ****************************************************************************/
 OS_ISR(APP_isrUART1)
 {
@@ -148,13 +149,13 @@ OS_ISR(APP_isrUART1)
         if (avlb_cnt > 0)
         {
             uint8 tmp[RXFIFOLEN];
-            
+
             u16AHI_UartBlockReadData(UART_COMM, tmp, avlb_cnt); //anyhow we read to empty to clear interrupt flag
                                                                 //if not do so, ISR will occur again and again
             OS_eEnterCriticalSection(mutexRxRb);
             free_cnt = ringbuffer_free_space(&rb_rx_uart);
             OS_eExitCriticalSection(mutexRxRb);
-            cnt = MIN(free_cnt, avlb_cnt); 
+            cnt = MIN(free_cnt, avlb_cnt);
             DBG_vPrintf(TRACE_UART, "avlb_cnt: %u, free_cnt: %u \r\n", avlb_cnt, free_cnt);
             if (cnt > 0)
             {
@@ -162,10 +163,12 @@ OS_ISR(APP_isrUART1)
                 ringbuffer_push(&rb_rx_uart, tmp, cnt);
                 avlb_cnt = ringbuffer_data_size(&rb_rx_uart);
                 OS_eExitCriticalSection(mutexRxRb);
-                
-                //the following logic is to improve the effectivity of every ZigBee packet frame
-                //by avoiding sending packet that is too short
-                if (avlb_cnt >= THRESHOLD_READ) 
+
+                /*
+                  the following mechanism is to improve the effective of every ZigBee packet frame
+                  by avoiding sending packet that is too short
+                */
+                if (avlb_cnt >= THRESHOLD_READ)
                     OS_eActivateTask(APP_taskHandleUartRx);
                 else
                 {
@@ -187,11 +190,11 @@ OS_ISR(APP_isrUART1)
  * get uart1 tx status
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * bool: TRUE - busy
- * 
+ *
  ****************************************************************************/
 bool uart_get_tx_status_busy()
 {
@@ -206,11 +209,11 @@ bool uart_get_tx_status_busy()
  * trigger the first tx action, the next actions will be trigger at ISR
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 void uart_trigger_tx()
 {
@@ -286,9 +289,9 @@ int uart_printf(const char *fmt, ...)
     va_start(args, fmt);
     n = vsnprintf(buff, 80, fmt, args);
     va_end(args);
-    
+
     uart_tx_data(buff, n);
-    
+
     return n;
 }
 

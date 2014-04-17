@@ -706,6 +706,17 @@ PUBLIC void node_vInitialise(void)
     DBG_vPrintf(TRACE_NODE, "PDM: Capacity %d\r\n", u8PDM_CalculateFileSystemCapacity());
     DBG_vPrintf(TRACE_NODE, "PDM: Occupancy %d\r\n", u8PDM_GetFileSystemOccupancy());
 
+    /* print working mode */
+    char *mode = "";
+    switch(g_sDevice.eMode)
+    {
+      case E_MODE_DATA: mode = "DATA"; break;
+      case E_MODE_AT: mode = "AT"; break;
+      case E_MODE_API: mode = "API"; break;
+      default:break;
+    }
+    DBG_vPrintf(TRACE_START, "Current Mode: %s\r\n",mode);
+
     //Init UART
     ringbuf_vInitialize();
     uart_initialize();
@@ -717,6 +728,21 @@ PUBLIC void node_vInitialise(void)
     tsParm.bRefSelect = E_AHI_AP_INTREF;
 
     vHAL_AdcSampleInit(&tsParm);   						//sample on-chip temperature
+
+    //light on on/sleep led.
+    vAHI_DioSetDirection(0, (1 << DIO_ON_SLEEP));
+    vAHI_DioSetOutput((1 << DIO_ON_SLEEP), 0);
+
+    //init the association led pin
+    vAHI_DioSetDirection(0, (1 << DIO_ASSOC));
+
+    //init pwm for rssi
+    vAHI_TimerEnable(E_AHI_TIMER_1, 4, FALSE, FALSE, TRUE);
+    vAHI_TimerStartRepeat(E_AHI_TIMER_1, 1000, 1);
+
+    /* init user space */
+    DBG_vPrintf(TRUE,"Init user programming space...\r\n");
+    ups_init();
 
     /*
       If the device state has been restored from eep, re-start the stack
@@ -744,7 +770,6 @@ PUBLIC void node_vInitialise(void)
 #ifdef OTA_CLIENT
         if (g_sDevice.otaDownloading > 0) OS_eActivateTask(APP_taskOTAReq);
 #endif
-                
     }
     // else perform any actions required on initial start-up
     else
@@ -773,22 +798,6 @@ PUBLIC void node_vInitialise(void)
 #endif
 
     OS_eActivateTask(APP_taskNWK);
-
-    //light on on/sleep led.
-    vAHI_DioSetDirection(0, (1 << DIO_ON_SLEEP));
-    vAHI_DioSetOutput((1 << DIO_ON_SLEEP), 0);
-
-    //init the association led pin
-    vAHI_DioSetDirection(0, (1 << DIO_ASSOC));
-
-    //init pwm for rssi
-    vAHI_TimerEnable(E_AHI_TIMER_1, 4, FALSE, FALSE, TRUE);
-    vAHI_TimerStartRepeat(E_AHI_TIMER_1, 1000, 1);
-
-    //init user space
-    DBG_vPrintf(TRUE, "Init user programming space...\r\n"); 
-    ups_init(); 
-    
 }
 
 

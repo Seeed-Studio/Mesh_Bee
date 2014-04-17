@@ -111,11 +111,13 @@ typedef enum
     E_SUB_REJOINNING
 }teSubState;
 
+/* Node main state */
 typedef enum
 {
-    E_MODE_DATA,
-    E_MODE_AT,
-    E_MODE_API
+    E_MODE_DATA,    //Transparent serial port
+    E_MODE_AT,      //MeshBee console
+    E_MODE_API,     //Wireless Bee
+    E_MODE_MCU      //Arduino-ful MCU
 }teMode;
 
 enum teTxMode
@@ -175,7 +177,6 @@ extern PDM_tsRecordDescriptor g_sDevicePDDesc;
 /***        Exported Functions                                            ***/
 /****************************************************************************/
 PUBLIC void vResetATimer(OS_thSWTimer hSWTimer, uint32 u32Ticks);
-PUBLIC void ups_init(void); 
-
+PUBLIC void ups_init();
 
 #endif /* GLOBAL_DEF_H_ */

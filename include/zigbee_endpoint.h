@@ -64,7 +64,6 @@ typedef enum
 void ringbuf_vInitialize();
 void clientOtaFinishing();
 bool sendToAir(uint16 txmode, uint16 unicastDest, tsApiFrame *apiFrame,  teFrameType type, uint8 *buff, int len);
-
 /****************************************************************************/
 /***        External Variables                                            ***/
 /****************************************************************************/

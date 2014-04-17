@@ -30,7 +30,8 @@
 #include "firmware_ota.h"
 #include "zigbee_endpoint.h"
 #include "firmware_hal.h"
-
+#include "firmware_api_codec.h"
+#include "suli.h"
 
 #ifndef TRACE_ATAPI
 #define TRACE_ATAPI TRUE
@@ -42,6 +43,15 @@
 
 
 #define ATHEADERLEN     4
+
+/****************************************************************************/
+/***        Include files                                                 ***/
+/****************************************************************************/
+int API_Reboot(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr);    //Reboot Callback
+int API_QueryOnChipTemper(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr);
+int API_TestPrint(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr);
+int API_i32SetGpio(tsApiSpec *reqApiSpec, tsApiSpec *respApiSpec, uint16 *regAddr);
+
 
 //AT reg print functions
 int AT_printTT(uint16 *regAddr);
@@ -57,12 +67,9 @@ int AT_triggerOTAUpgrade(uint16 *regAddr);
 int AT_abortOTAUpgrade(uint16 *regAddr);
 int AT_OTAStatusPoll(uint16 *regAddr);
 int AT_TestTest(uint16 *regAddr);
-int AT_vQueryRemoteSensorData(uint16 *regAddr);
+int AT_vQueryOnChipTemper(uint16 *regAddr);
 
-/* Oliver */
-int API_tsQueryLocalTemper(tsApiSpec *apiSpec, uint16 *regAddr);
-int API_tsQueryRemoteTemper(tsApiSpec *apiSpec, uint16 *regAddr);
-int API_tsTestPrint(tsApiSpec *apiSpec, uint16 *regAddr);
+
 
 static uint16 attt_dummy_reg = 0;
 
@@ -100,8 +107,8 @@ static AT_Command_t atCommands[] =
     //baud rate for uart1
     { "BR", &g_sDevice.config.baudRateUart1, FALSE, 1, 10, AT_printBaudRate, AT_setBaudRateUart1 },
 
-    //Query remote sensor data	oliver add
-    { "QD", NULL, FALSE, 0, 0, NULL, AT_vQueryRemoteSensorData},
+    //Query On-Chip temperature
+    { "QT", NULL, FALSE, 0, 0, NULL, AT_vQueryOnChipTemper},
 
 #if 0//defined(TARGET_END)
     //for end device: whether enter sleep mode
@@ -143,14 +150,17 @@ static AT_Command_t atCommands[] =
 */
 static AT_Command_ApiMode_t atCommandsApiMode[] =
 {
-	/* Query local on-chip temperature */
-	{ "QL", NULL, FALSE, 0, 0, API_tsQueryLocalTemper},
+    /* Reboot */
+	{"ATRB", ATRB, NULL, FALSE, 0, 0, API_Reboot},
 
-    /* Query remote on-chip temperature */
-	{ "QR", NULL, FALSE, 0, 0, API_tsQueryRemoteTemper},
+	/* Query local on-chip temperature */
+	{ "ATQT", ATQT ,NULL, FALSE, 0, 0, API_QueryOnChipTemper},
 
 	/* Test */
-	{ "TS", NULL, FALSE, 0 ,0, API_tsTestPrint}
+	{ "ATTP", ATTP, NULL, FALSE, 0 ,0, API_TestPrint},
+
+	/* Set digital output */
+	{"ATIO", ATIO, NULL, FALSE, 0, 0, API_i32SetGpio}
 };
 
 
@@ -182,57 +192,7 @@ uint8 calCheckSum(uint8 *in, int len)
     return sum;
 }
 
-/****************************************************************************
- *
- * NAME: u16DecodeApiSpec
- *
- * DESCRIPTION:
- * length = cmdData  [delimiter length apiIdentifier cmdData checkSum]
- * Pay attention: 4 bytes align
- * RETURNS:
- * position of start delimiter
- *
- ****************************************************************************/
-PUBLIC uint16 u16DecodeApiSpec(uint8 *buffer, int len, tsApiSpec *spec, bool *valid)
-{
-	uint8 *ptr = buffer;
-	while (*ptr != API_START_DELIMITER && len-- > 0) ptr++;
-	if (len < 4)
-	{
-	    *valid = FALSE;
-	    return ptr - buffer;
-	}
 
-	/* read startDelimiter/length/apiIdentifier */
-	memcpy((uint8*)spec, ptr, 3);    //4 bytes align,read 8 bytes
-
-    ptr += 3;
-    len -= 3;
-    if (len < (spec->length + 1))
-    {
-        *valid = FALSE;
-        return ptr - buffer;
-    }
-
-    /* read payload */
-    memcpy((uint8*)spec + 3, ptr, spec->length);
-    ptr += spec->length;
-
-    /* read checkSum */
-    spec->checkSum = *ptr;
-    ptr++;
-
-    /* verify checkSum */
-    if (calCheckSum((uint8*)spec+3,spec->length) == spec->checkSum)
-    {
-        *valid = TRUE;
-    }
-    else
-    {
-        *valid = FALSE;
-    }
-    return ptr-buffer;
-}
 /****************************************************************************
  *
  * NAME: assembleApiFrame
@@ -472,92 +432,7 @@ int getHexParamData(uint8 *buf, int len, uint16 *result, int size)
 }
 
 
-/****************************************************************************
-*
-* NAME: processSerialCmd
-*
-* DESCRIPTION:
-*
-*
-* PARAMETERS: Name         RW  Usage
-*
-*
-* RETURNS:
-* void
-*
-****************************************************************************/
-int processSerialCmd(uint8 *buf, int len)
-{
-    int result = ERR;
 
-    uint16 paraValue;   // the ID used in the EEPROM
-
-    len = adjustLen(buf, len);
-    if (len < ATHEADERLEN)
-        return ERRNCMD;
-
-    // read the AT
-    if (strncasecmp("AT", buf, 2) == 0)
-     {
-        // read the command
-        int cnt = sizeof(atCommands) / sizeof(AT_Command_t);
-
-        int i = 0;
-        for (i = 0; i < cnt; i++)
-        {
-            // do we have a known command
-            if (strncasecmp(buf + 2, atCommands[i].name, 2) == 0)
-            {
-            	/* There is no parameter */
-                if (atCommands[i].paramDigits == 0)
-                {
-                    if (atCommands[i].function != NULL)
-                    {
-                        result = atCommands[i].function(atCommands[i].configAddr);		//like ATLA
-                    }
-                    return result;
-                }
-
-                if (atCommands[i].isHex)
-                {
-                	/* convert hex to int atoi*/
-                    result = getHexParamData(buf, len, &paraValue, atCommands[i].paramDigits);
-                }else
-                {
-                    result = getDecParamData(buf, len, &paraValue, atCommands[i].paramDigits);
-                }
-                /* apply value */
-                if (result == NOTHING)
-                {
-                    if (atCommands[i].printFunc != NULL)
-                        atCommands[i].printFunc(atCommands[i].configAddr);
-                    else if (atCommands[i].isHex)
-                        uart_printf("%04x\r\n", *(atCommands[i].configAddr));
-                    else
-                        uart_printf("%d\r\n", *(atCommands[i].configAddr));
-                    return OK;
-                }
-                else if (result == OK)
-                {
-                    if (paraValue <= atCommands[i].maxValue)
-                    {
-                        *(atCommands[i].configAddr) = paraValue;
-                        PDM_vSaveRecord(&g_sDevicePDDesc);
-                        if (atCommands[i].function != NULL)
-                        {
-                            result = atCommands[i].function(atCommands[i].configAddr);
-                        }
-                        return result;
-                    } else
-                    {
-                        return OUTRNG;
-                    }
-                }
-            }
-        }
-    }
-    return ERRNCMD;
-}
 
 /****************************************************************************
  *
@@ -1124,167 +999,541 @@ int AT_TestTest(uint16 *regAddr)
  * void
  *
  ****************************************************************************/
-int AT_vQueryRemoteSensorData(uint16 *regAddr)
+int AT_vQueryOnChipTemper(uint16 *regAddr)
 {
-	tsApiFrame frm;
-	uint16 QueryType = QUERY_INNER_TEMP;
+  /* Sample Chip Temperature */
+  uint16 adSampleVal = vHAL_AdcSampleRead(E_AHI_ADC_SRC_TEMP);
+  int16 i16ChipTemperature = i16HAL_GetChipTemp(adSampleVal);
 
-	//clean memory
-	memset(&frm, 0, sizeof(tsApiFrame));
+  /*
+	If the JN516x device operates at temperatures in excess of 90¡ãC, it may be necessary
+	to call this function to maintain the frequ ency tolerance of the clock to within the
+	40ppm limit specified by the IEEE 802.15. 4 standard.
+  */
+  vHAL_PullXtal((int32)i16ChipTemperature);
 
-	bool ret = sendToAir(UNICAST, g_sDevice.config.unicastDstAddr, &frm, FRM_QUERY,
-						(uint8*)(&QueryType), sizeof(uint16));
-	if(!ret)
-	{
-		return ERR;
-	}
-	else
-	{
-		return OK;
-	}
+  uart_printf("On-Chip Temperature:%d C.\r\n",i16ChipTemperature);
+  return OK;
 }
 
 
 
 /*------------------------------------------------------API Mode------------------------------------------------------------*/
+/****************************************************************************
+*
+* NAME: API_Reboot
+*
+* DESCRIPTION:
+* Warm Reboot
+*
+* PARAMETERS: Name         RW  Usage
+*
+* RETURNS:
+*
+****************************************************************************/
+int API_Reboot(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr)
+{
+  vAHI_SwReset();
+  return OK;
+}
 
 /****************************************************************************
 *
-* NAME: int16ProcessApiCmd
+* NAME: API_QueryOnChipTemper
 *
 * DESCRIPTION:
-* Process Api Spec Frame in API mode
+* Query On-Chip temperature
+* API support layer,support both local and remote mode
+* Always return OK, Node never handle error, telling user to do;
 *
 * PARAMETERS: Name         RW  Usage
-*             buf          R   input
-*             len          R   length of buf
+*
 * RETURNS:
 * int
 * apiSpec, returned tsApiSpec Frame
 *
 ****************************************************************************/
-int API_tsQueryLocalTemper(tsApiSpec *inputApiSpec, uint16 *regAddr)
+int API_QueryOnChipTemper(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr)
 {
-	tsApiSpec apiSpec;
-	memset(&apiSpec, 0, sizeof(apiSpec));
+  /* Sample Chip Temperature */
+  uint16 adSampleVal = vHAL_AdcSampleRead(E_AHI_ADC_SRC_TEMP);
+  int16 i16ChipTemperature = i16HAL_GetChipTemp(adSampleVal);
 
+  /*
+  	If the JN516x device operates at temperatures in excess of 90¡ãC, it may be necessary
+  	to call this function to maintain the frequ ency tolerance of the clock to within the
+  	40ppm limit specified by the IEEE 802.15. 4 standard.
+  */
+  vHAL_PullXtal((int32)i16ChipTemperature);
+
+  /* Response after execute AT Command */
+  retApiSpec->startDelimiter = API_START_DELIMITER;
+  retApiSpec->length = sizeof(retApiSpec->payload);           //Note: union length != tsLocalAtReq length
+
+  /* If here comes the local req */
+  if(API_LOCAL_AT_REQ == inputApiSpec->teApiIdentifier)
+  {
+	retApiSpec->teApiIdentifier = API_LOCAL_AT_RESP;
+    /* tsLocalAtResp package */
 	tsLocalAtResp localAtResp;
-	memset(&localAtResp, 0 ,sizeof(tsLocalAtResp));
+	memset(&localAtResp, 0, sizeof(tsLocalAtResp));
+	localAtResp.atCmdId = ATQT;
+    localAtResp.eStatus = AT_OK;
+    localAtResp.frameId = inputApiSpec->payload.localAtReq.frameId;
+    /* This rules were specified by */
+    localAtResp.value[0] = (uint8)i16ChipTemperature;    //test 4-16-1
 
-	/* apiSpec encode */
-	apiSpec.startDelimiter = API_START_DELIMITER;
-	apiSpec.length = sizeof(apiSpec.payload);           //Note: union length != tsLocalAtReq length
-	apiSpec.teApiIdentifier = API_LOCAL_AT_RESP;
+    /* Test */
+    retApiSpec->payload.localAtResp = localAtResp;
+    /* Calculate checkSum */
+    retApiSpec->checkSum = calCheckSum((uint8*)&localAtResp, sizeof(tsLocalAtResp));
+  }
+  else if(API_REMOTE_AT_REQ == inputApiSpec->teApiIdentifier)
+  {
+    retApiSpec->teApiIdentifier = API_REMOTE_AT_RESP;
+    tsRemoteAtResp remoteAtResp;
+    memset(&remoteAtResp, 0, sizeof(tsRemoteAtResp));
+    remoteAtResp.atCmdId = ATQT;
+    remoteAtResp.eStatus = AT_OK;
+    remoteAtResp.frameId = inputApiSpec->payload.remoteAtReq.frameId;
+    memcpy(remoteAtResp.value, (uint8*)(&i16ChipTemperature), sizeof(int16));    //pay attention: overflow
+    remoteAtResp.unicastAddr = inputApiSpec->payload.remoteAtReq.unicastAddr;    //unicastAddr
 
-	/* Sample Chip Temperature */
-	uint16 adSampleVal = vHAL_AdcSampleRead(E_AHI_ADC_SRC_TEMP);
-	int16 i16ChipTemperature = i16HAL_GetChipTemp(adSampleVal);
+    retApiSpec->payload.remoteAtResp = remoteAtResp;
+    retApiSpec->checkSum = calCheckSum((uint8*)&remoteAtResp, sizeof(tsRemoteAtResp));
+  }
 
-	/*
-	  If the JN516x device operates at temperatures in excess of 90¡ãC, it may be necessary
-	  to call this function to maintain the frequ ency tolerance of the clock to within the
-	  40ppm limit specified by the IEEE 802.15. 4 standard.
-	*/
-	vHAL_PullXtal((int32)i16ChipTemperature);
-
-	/* tsLocalAtResp encode */
-	strcpy((char*)localAtResp.atCmd, "ATQL");		//force trans
-	localAtResp.eStatus = AT_OK;
-	localAtResp.frameId = inputApiSpec->payload.localAtResp.frameId;
-	memcpy(localAtResp.value, (uint8*)(&i16ChipTemperature), sizeof(int16));
-
-	apiSpec.payload.localAtResp = localAtResp;
-	apiSpec.checkSum = calCheckSum((uint8*)&localAtResp, sizeof(tsLocalAtResp));
-
-	/* Send response Packets */
-	uart_tx_data((uint8*)&apiSpec, sizeof(tsApiSpec));
-
-	return OK;
+  return OK;
 }
 
-int API_tsQueryRemoteTemper(tsApiSpec *apiSpec, uint16 *regAddr)
+/****************************************************************************
+*
+* NAME: API_i32SetGpio
+*
+* DESCRIPTION:
+* Set GPIO
+*
+* PARAMETERS: Name         RW  Usage
+*
+* RETURNS:
+* int
+* apiSpec, returned tsApiSpec Frame
+*
+****************************************************************************/
+int API_i32SetGpio(tsApiSpec *reqApiSpec, tsApiSpec *respApiSpec, uint16 *regAddr)
 {
-	return OK;
+	 uint8 pio;
+	 uint8 state;
+	 IO_T  io;
+
+	respApiSpec->startDelimiter = API_START_DELIMITER;
+	respApiSpec->length = sizeof(respApiSpec->payload);           //Note: union length != tsLocalAtReq length
+
+	/* If here comes the local req */
+	if(API_LOCAL_AT_REQ == reqApiSpec->teApiIdentifier)
+	{
+        tsLocalAtReq localAtReq;
+        memset(&localAtReq, 0, sizeof(tsLocalAtReq));
+        localAtReq = reqApiSpec->payload.localAtReq;
+        pio = localAtReq.value[0];
+        state = localAtReq.value[1];
+
+        /* Set GPIO through suli */
+        suli_pin_init(&io, pio);
+        suli_pin_dir(&io, HAL_PIN_OUTPUT);
+        suli_pin_write(&io, state);
+
+        respApiSpec->teApiIdentifier = API_LOCAL_AT_RESP;
+        /* tsLocalAtResp package */
+        tsLocalAtResp localAtResp;
+        memset(&localAtResp, 0, sizeof(tsLocalAtResp));
+        localAtResp.atCmdId = ATIO;
+        localAtResp.eStatus = AT_OK;
+        localAtResp.frameId = reqApiSpec->payload.localAtReq.frameId;
+
+        /* Test */
+        respApiSpec->payload.localAtResp = localAtResp;
+        /* Calculate checkSum */
+        respApiSpec->checkSum = calCheckSum((uint8*)&localAtResp, respApiSpec->length);
+	}
+	else if(API_REMOTE_AT_REQ == reqApiSpec->teApiIdentifier)
+	{
+		respApiSpec->teApiIdentifier = API_REMOTE_AT_RESP;
+		tsRemoteAtResp remoteAtResp;
+		memset(&remoteAtResp, 0, sizeof(tsRemoteAtResp));
+		remoteAtResp.atCmdId = ATIO;
+		remoteAtResp.eStatus = AT_OK;
+		remoteAtResp.frameId = reqApiSpec->payload.remoteAtReq.frameId;
+
+		remoteAtResp.unicastAddr = reqApiSpec->payload.remoteAtReq.unicastAddr;    //unicastAddr
+
+		respApiSpec->payload.remoteAtResp = remoteAtResp;
+		respApiSpec->checkSum = calCheckSum((uint8*)&remoteAtResp, respApiSpec->length);
+	}
 }
+
 
 /* For test */
-int API_tsTestPrint(tsApiSpec *apiSpec, uint16 *regAddr)
+int API_TestPrint(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr)
 {
 	uart_printf("rev one.\r\n");
-	uart_printf("S:0x%0x\n",apiSpec->startDelimiter);
-	uart_printf("A:0x%0x\n",apiSpec->teApiIdentifier);
-	uart_printf("len:%d\n",apiSpec->length);
-	uart_printf("sum:%d\n",apiSpec->checkSum);
+	uart_printf("S:0x%0x\n",inputApiSpec->startDelimiter);
+	uart_printf("A:0x%0x\n",inputApiSpec->teApiIdentifier);
+	uart_printf("len:%d\n",inputApiSpec->length);
+	uart_printf("sum:%d\n",inputApiSpec->checkSum);
 	return OK;
 }
 
-int ProcessApiCmd(tsApiSpec* apiSpec)
+
+/****************************************************************************
+*
+* NAME: processSerialCmd
+*
+* DESCRIPTION:
+*
+*
+* PARAMETERS: Name         RW  Usage
+*
+*
+* RETURNS:
+* void
+*
+****************************************************************************/
+int API_i32AtProcessSerialCmd(uint8 *buf, int len)
 {
+    int result = ERR;
+
+    uint16 paraValue;   // the ID used in the EEPROM
+
+    len = adjustLen(buf, len);
+    if (len < ATHEADERLEN)
+        return ERRNCMD;
+
+    // read the AT
+    if (strncasecmp("AT", buf, 2) == 0)
+     {
+        // read the command
+        int cnt = sizeof(atCommands) / sizeof(AT_Command_t);
+
+        int i = 0;
+        for (i = 0; i < cnt; i++)
+        {
+            // do we have a known command
+            if (strncasecmp(buf + 2, atCommands[i].name, 2) == 0)
+            {
+            	/* There is no parameter */
+                if (atCommands[i].paramDigits == 0)
+                {
+                    if (atCommands[i].function != NULL)
+                    {
+                        result = atCommands[i].function(atCommands[i].configAddr);		//like ATLA
+                    }
+                    return result;
+                }
+
+                if (atCommands[i].isHex)
+                {
+                	/* convert hex to int atoi*/
+                    result = getHexParamData(buf, len, &paraValue, atCommands[i].paramDigits);
+                }else
+                {
+                    result = getDecParamData(buf, len, &paraValue, atCommands[i].paramDigits);
+                }
+                /* apply value */
+                if (result == NOTHING)
+                {
+                    if (atCommands[i].printFunc != NULL)
+                        atCommands[i].printFunc(atCommands[i].configAddr);
+                    else if (atCommands[i].isHex)
+                        uart_printf("%04x\r\n", *(atCommands[i].configAddr));
+                    else
+                        uart_printf("%d\r\n", *(atCommands[i].configAddr));
+                    return OK;
+                }
+                else if (result == OK)
+                {
+                    if (paraValue <= atCommands[i].maxValue)
+                    {
+                    	/* set value */
+                        *(atCommands[i].configAddr) = paraValue;
+                        PDM_vSaveRecord(&g_sDevicePDDesc);
+                        if (atCommands[i].function != NULL)
+                        {
+                            result = atCommands[i].function(atCommands[i].configAddr);
+                        }
+                        return result;
+                    } else
+                    {
+                        return OUTRNG;
+                    }
+                }
+            }
+        }
+    }
+    return ERRNCMD;
+}
+
+/****************************************************************************
+*
+* NAME: API_u8ProcessApiCmd
+*
+* DESCRIPTION:
+* API support layer entry,Processing Api Spec Frame
+*
+* PARAMETERS: Name         RW  Usage
+*             apiSpec      R   Api Spec Frame
+* RETURNS:
+* uint8 ErrorCode
+*
+*
+****************************************************************************/
+int API_i32UdsProcessApiCmd(tsApiSpec* apiSpec)
+{
+	int cnt = 0, i = 0, j = 0;
 	int result = ERR;
-	tsLocalAtReq *localAtReq;		//can not define ptr in switch
+	uint16 txMode;
+	tsLocalAtReq *localAtReq;
+    tsApiSpec retApiSpec;
+    memset(&retApiSpec, 0, sizeof(tsApiSpec));
+
+	/* Process according to ApiIdentifier */
 	switch(apiSpec->teApiIdentifier)
 	{
-	    case API_TEST:
-	    	localAtReq = &(apiSpec->payload.localAtReq);
-            if(0 == strncasecmp("AT", localAtReq->atCmd, 2))
-            {
-            	int cnt = sizeof(atCommandsApiMode)/sizeof(AT_Command_ApiMode_t);
-            	int i = 0;
-            	for(; i < cnt; i++)
-            	{
-                  if(0 == strncasecmp(localAtReq->atCmd + 2, atCommandsApiMode[i].name, 2))
-                  {
-                	  /* None-parameter command */
-                	  if(0 == atCommandsApiMode[i].paramDigits)
-                	  {
-                	      if(NULL != atCommandsApiMode[i].function)
-                	  	  {
-                	  	      result = atCommandsApiMode[i].function(apiSpec, atCommandsApiMode[i].configAddr);
-                	  	  }
-                	  }
-                  }
-            	}
-            }
-		break;
-	    /* Local AT Require */
+	    /*
+	      Local AT Require:
+          1.Execute Cmd;
+          2.UART DataPort ACK[tsLocalAtResp]
+	    */
 	    case API_LOCAL_AT_REQ:
 	    	localAtReq = &(apiSpec->payload.localAtReq);
 
-	    	/* Match commands */
-	    	if(0 == strncasecmp("AT", localAtReq->atCmd, 2))
-	    	{
-	    		/* Read command name */
-	    		int cnt1 = sizeof(atCommandsApiMode)/sizeof(AT_Command_ApiMode_t);
-
-	    		int j = 0;
-	    		for(; j < cnt1; j++)
-	    		{
-	    			if(0 == strncasecmp(localAtReq->atCmd + 2, atCommandsApiMode[j].name, 2))
-	    			{
-	    				/* None-parameter command */
-	    				if(0 == atCommandsApiMode[j].paramDigits)
-	    				{
-	    					if(NULL != atCommandsApiMode[j].function)
-	    					{
-	    						result = atCommandsApiMode[j].function(apiSpec, atCommandsApiMode[j].configAddr);
-	    					}
-	    				}
-	    			}
-	    		}
-	    	}
+            cnt = sizeof(atCommandsApiMode)/sizeof(AT_Command_ApiMode_t);
+            for(i = 0; i < cnt; i++)
+            {
+                if(atCommandsApiMode[i].atCmdIndex == localAtReq->atCmdId)
+                {
+                    if(0 == atCommandsApiMode[i].paramDigits)
+                    {
+                        if(NULL != atCommandsApiMode[i].function)
+                        {
+                            result = atCommandsApiMode[i].function(apiSpec, &retApiSpec, atCommandsApiMode[i].configAddr);
+                            break;
+                        }
+                    }
+                }
+            }
+        	/* UART ACK,if frameId ==0,No ACK */
+        	uart_tx_data((uint8*)&retApiSpec, sizeof(tsApiSpec));
 	    	break;
-	    /* remote AT Require */
+	    /*
+	      remote AT Require:
+	      1.Directly send to AirPort.
+	    */
 	    case API_REMOTE_AT_REQ:
+	    	/* Option CastBit[8:2] */
+            if(0 == (apiSpec->payload.remoteAtReq.option) & OPTION_CAST_MASK)
+            	txMode = UNICAST;
+            else
+            	txMode = BROADCAST;
 
+            /* Send to AirPort */
+	    	bool ret = API_bSendToAirPort(txMode, apiSpec->payload.remoteAtReq.unicastAddr, (uint8*)(&apiSpec), sizeof(tsApiSpec));
+	    	if(!ret)
+	    		result = ERR;
+	    	else
+	    		result = OK;
+	    	/* Now, don't reply here */
 	        break;
 	    /* TX Require */
 	    case API_TX_REQ:
+            /* Modify ApiIdentifier to API_RX_PACKET,let APTS process */
+	    	apiSpec->teApiIdentifier = API_RX_PACKET;
 
 	        break;
 	    /* default:do nothing */
 	    default:
 	        break;
 	}
-	return OK;
+	return result;
 }
 
+/****************************************************************************
+*
+* NAME: API_u8UdsProcessStackEvent
+*
+* DESCRIPTION:
+* API support layer,Processing frame from AirPort
+*
+* PARAMETERS: Name          RW   Usage
+*             ZPS_tsAfEvent R    StackEvent
+* RETURNS:
+* uint8 ErrorCode
+*
+*
+****************************************************************************/
+int API_i32AptsProcessStackEvent(ZPS_tsAfEvent sStackEvent)
+{
+    int cnt =0, i =0;
+    int result = ERR;
+    PDUM_thAPduInstance hapdu_ins;
+    uint16 u16PayloadSize;
+    uint8 *payload_addr;
+
+    /* Get information from Stack Event */
+    hapdu_ins = sStackEvent.uEvent.sApsDataIndEvent.hAPduInst;         //APDU
+    u16PayloadSize = PDUM_u16APduInstanceGetPayloadSize(hapdu_ins);    //Payload size
+    payload_addr = PDUM_pvAPduInstanceGetPayload(hapdu_ins);           //Get Payload's address
+
+    /* Decode apiSpec frame,Now,UART and AirPort have the same structure */
+    bool bValid = FALSE;
+    tsApiSpec apiSpec;
+    memset(&apiSpec, 0, sizeof(tsApiSpec));
+
+    /* Decode frame from AirPort */
+    u16DecodeApiSpec(payload_addr, u16PayloadSize, &apiSpec, &bValid);
+    if (!bValid)
+    {
+        DBG_vPrintf(TRACE_NODE, "Not a valid frame, discard it.\r\n");
+        PDUM_eAPduFreeAPduInstance(hapdu_ins);
+        return ERR;
+    }
+
+    /* Get frame source address */
+    uint16 u16SrcAddr = sStackEvent.uEvent.sApsDataIndEvent.uSrcAddress.u16Addr;
+
+    tsRemoteAtReq *remoteAtReq;
+    tsApiSpec respApiSpec;
+    memset(&respApiSpec, 0, sizeof(tsApiSpec));
+
+    /* Handle Tree,Call API support layer */
+    switch(apiSpec.teApiIdentifier)
+    {
+      /*
+        Remote AT require:
+        1.Execute cmd
+        2.AirPort ACK[tsRemoteAtResp]
+      */
+      case API_REMOTE_AT_REQ:
+    	  /* Free APDU at first */
+    	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
+
+          remoteAtReq = &(apiSpec.payload.remoteAtReq);
+          cnt = sizeof(atCommandsApiMode)/sizeof(AT_Command_ApiMode_t);
+          for(i = 0; i < cnt; i++)
+          {
+              if(atCommandsApiMode[i].atCmdIndex == remoteAtReq->atCmdId)
+              {
+            	  if(0 == atCommandsApiMode[i].paramDigits)
+            	  {
+            		  if(NULL != atCommandsApiMode[i].function)
+            		  {
+            			  result = atCommandsApiMode[i].function(&apiSpec, &respApiSpec, atCommandsApiMode[i].configAddr);
+            		      break;
+            		  }
+            	  }
+              }
+          }
+          /* ACK unicast to u16SrcAddr */
+          bool ret = API_bSendToAirPort(UNICAST, u16SrcAddr, (uint8*)&respApiSpec, sizeof(tsApiSpec));
+          if(!ret)
+          {
+        	  result = ERR;
+          }
+          else
+          {
+        	  result = OK;
+          }
+          break;
+
+      /*
+        Remote AT response:
+        1.directly send to UART DataPort,user can handle this response frame
+      */
+      case API_REMOTE_AT_RESP:
+    	  uart_tx_data((uint8*)&apiSpec, sizeof(tsApiSpec));
+    	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
+          break;
+
+      /* Data */
+      case API_RX_PACKET:
+
+    	  break;
+      /* default:do nothing */
+      default:
+    	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
+    	  break;
+      }
+    return OK;
+}
+
+/****************************************************************************
+*
+* NAME: API_bSendToAirPort
+*
+* DESCRIPTION:
+* API support layer,Call APS(application support sub-layer) to send data
+*
+* PARAMETERS: Name          RW   Usage
+*
+* RETURNS:
+*
+*
+*
+****************************************************************************/
+bool API_bSendToAirPort(uint16 txMode, uint16 unicastDest, uint8 *buf, int len)
+{
+  PDUM_thAPduInstance hapdu_ins = PDUM_hAPduAllocateAPduInstance(apduZCL);
+  /* Invalid instance */
+  if(PDUM_INVALID_HANDLE == hapdu_ins)
+	  return FALSE;
+
+  uint8 *payload_addr = PDUM_pvAPduInstanceGetPayload(hapdu_ins);
+
+  /* Copy buffer into AirPort's APDU */
+  memcpy(payload_addr, buf, len);
+
+  /* Set payload size */
+  PDUM_eAPduInstanceSetPayloadSize(hapdu_ins, len);
+
+  ZPS_teStatus st;          //How to
+  if(BROADCAST == txMode)
+  {
+    DBG_vPrintf(TRACE_EP, "Broadcast %d ...\r\n", len);
+
+    /* APDU will be released by the stack automatically after the APDU is send */
+    st = ZPS_eAplAfBroadcastDataReq(hapdu_ins,
+    		                        TRANS_CLUSTER_ID,
+                                    TRANS_ENDPOINT_ID,
+                                    TRANS_ENDPOINT_ID,
+                                    ZPS_E_BROADCAST_ALL,
+                                    SEC_MODE_FOR_DATA_ON_AIR,
+                                    0,
+                                    NULL);
+  }
+  else if(UNICAST == txMode)
+  {
+    DBG_vPrintf(TRACE_EP, "Unicast %d ...\r\n", len);
+
+    st = ZPS_eAplAfUnicastDataReq(hapdu_ins,
+    		                      TRANS_CLUSTER_ID,
+	                              TRANS_ENDPOINT_ID,
+	                              TRANS_ENDPOINT_ID,
+	                              unicastDest,
+	                              SEC_MODE_FOR_DATA_ON_AIR,
+	                              0,
+	                              NULL);
+  }
+
+  if(ZPS_E_SUCCESS != st)
+  {
+    /*
+      In API support layer,we don't care about the failure, because handling this failure will delay or
+      even block the following waiting data. So just let it go and focus on the next data.You can implement this
+      mechanism in application layer.
+    */
+    DBG_vPrintf(TRACE_EP, "Fail to send: 0x%x, discard it... \r\n", st);
+    PDUM_eAPduFreeAPduInstance(hapdu_ins);
+    return FALSE;
+  }
+  return TRUE;
+}
