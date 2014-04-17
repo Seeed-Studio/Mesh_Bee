@@ -1,6 +1,4 @@
-build/gen/*.c
-build/gen/*.h
-build/gen/*.S
+build/gen/*
 build/obj/*
 ###############
 #  fixed file #

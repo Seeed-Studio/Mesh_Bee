@@ -24,16 +24,16 @@
 /****************************************************************************/
 /***        Include files                                                 ***/
 /****************************************************************************/
-#include "stdlib.h"	//oliver add
-
+#include "stdlib.h"
 #include "common.h"
-
 #include "firmware_uart.h"
 #include "zigbee_endpoint.h"
 #include "zigbee_node.h"
 #include "firmware_at_api.h"
 #include "firmware_ota.h"
 #include "firmware_hal.h"
+#include "firmware_api_codec.h"
+
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
@@ -50,7 +50,6 @@
 /***        Local Function Prototypes                                     ***/
 /****************************************************************************/
 void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent);
-PRIVATE int vSynApiSpecFrame(uint8 *buf, int len);
 
 /****************************************************************************/
 /***        Exported Variables                                            ***/
@@ -106,7 +105,8 @@ OS_TASK(APP_taskMyEndPoint)
                         sStackEvent.uEvent.sApsDataIndEvent.uSrcAddress.u16Addr);
 
             //handle data
-            handleDataIndicatorEvent(sStackEvent);
+            //handleDataIndicatorEvent(sStackEvent);
+            vHandleDataIndicatorEvent(sStackEvent);
         }
         else if (ZPS_EVENT_APS_DATA_CONFIRM == sStackEvent.eType)
         {
@@ -133,21 +133,21 @@ OS_TASK(APP_taskMyEndPoint)
  * NAME: APP_taskHandleUartRx
  *
  * DESCRIPTION:
- * a thread handle uart1(user data port) rx'ed data
- * node state machine,driving by UART data input
- * State:  E_MODE_AT    E_MODE_DATA     E_MODE_API
+ * Stream processing core task, driving by software timer
+ * Main state machine
+ * State:  E_MODE_AT/E_MODE_DATA/E_MODE_API/E_MODE_MCU
  *
  * Note:
  *      In a Mesh topology network,if you use AT mode,there would be no way to
  * determine which sensor send what data,the data from different nodes would come
  * out of the base node's UART in a jumbled mess.so,API mode is the best choice.
- *
+ * All of the mode are format into ApiSpec frame,then processed by apiProcess
  * RETURNS:
  * void
  *
  ****************************************************************************/
 static uint8 tmp[RXFIFOLEN];
-uint8 discard[RXFIFOLEN];
+static uint8 discard[RXFIFOLEN];
 OS_TASK(APP_taskHandleUartRx)
 {
     uint32 dataCnt = 0;
@@ -221,7 +221,7 @@ OS_TASK(APP_taskHandleUartRx)
         }
 
         /* Process AT command */
-        int ret = processSerialCmd(tmp, popCnt);
+        int ret = API_i32AtProcessSerialCmd(tmp, popCnt);
 
         char *resp;
         if (ret == OK)
@@ -248,40 +248,50 @@ OS_TASK(APP_taskHandleUartRx)
     	ringbuffer_read(&rb_rx_uart, tmp, popCnt);
     	OS_eExitCriticalSection(mutexRxRb);
 
-    	/* Instance a apiSpec */
-    	tsApiSpec apiSpec;
-    	bool bValid = FALSE;
-    	memset(&apiSpec, 0, sizeof(tsApiSpec));
-
-    	/* Deassemble apiSpec frame */
-    	uint16 procSize =  u16DecodeApiSpec(tmp, popCnt, &apiSpec, &bValid);
-    	if(!bValid)
+    	/* AT filter to find AT delimiter */
+    	if (searchAtStarter(tmp, popCnt))
     	{
-    		/*
-    		  Invalid frame,discard from ringbuffer
-    		  Any data received prior to the start delimiter will be discarded.
-    		  If the frame is not received correctly or if the checksum fails,
-    		  discard too.
-    		*/
-    		//uart_printf("invalid frame,discard %d.\r\n",procSize);
-    		OS_eEnterCriticalSection(mutexRxRb);
-    		ringbuffer_pop(&rb_rx_uart,discard,procSize);
-    		OS_eExitCriticalSection(mutexRxRb);
-
-    		/* reActivate Task 1ms later*/
-    		vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(1));
+    		g_sDevice.eMode = E_MODE_AT;
+    	    PDM_vSaveRecord(&g_sDevicePDDesc);
+    	    uart_printf("Enter AT mode.\r\n");
+    	    clear_ringbuffer(&rb_rx_uart);
     	}
     	else
     	{
-    		/* Process API frame */
-    		ProcessApiCmd(&apiSpec);
+    		/* Instance an apiSpec */
+    		tsApiSpec apiSpec;
+    		bool bValid = FALSE;
+    		memset(&apiSpec, 0, sizeof(tsApiSpec));
 
+    		/* Deassemble apiSpec frame */
+    		uint16 procSize =  u16DecodeApiSpec(tmp, popCnt, &apiSpec, &bValid);
+    		if(!bValid)
+    		{
+    			/*
+    		      Invalid frame,discard from ringbuffer
+    		      Any data received prior to the start delimiter will be discarded.
+    		      If the frame is not received correctly or if the checksum fails,
+    		      discard too.And Re-Activate Task 1ms later.
+    		    */
+    		     vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(1));
+    		}
+    		else
+    		{
+    			/* Process API frame using API support layer's api */
+    		    API_i32UdsProcessApiCmd(&apiSpec);
+    		}
     		/* Discard already processed part */
     		OS_eEnterCriticalSection(mutexRxRb);
     		ringbuffer_pop(&rb_rx_uart,discard,procSize);
     		OS_eExitCriticalSection(mutexRxRb);
     	}
+
     	break;
+
+    /* Arduino-ful MCU mode */
+    case E_MODE_MCU:break;
+
+    /* default:do nothing */
     default:
         break;
     }
@@ -504,86 +514,7 @@ void clientOtaFinishing()
 #endif
 }
 
-/****************************************************************************
- *
- * NAME: v_ProcessQueryCmd
- *
- * DESCRIPTION:
- * handle Query Command in server-client mode
- *
- * PARAMETERS: Name           RW  Usage
- *             apiFrame       R
- *			   unicastDstAddr R
- * RETURNS:
- * void
- *
- ****************************************************************************/
-void v_ProcessQueryCmd(tsApiFrame* apiFrame, uint16 unicastDstAddr)
-{
-	uint16 adSampleVal = 0;
 
-	tsDataStream dataStream;
-	memset(&dataStream, 0, sizeof(tsDataStream));
-
-	//verify
-	if(apiFrame->payloadLen != sizeof(uint16))
-	{
-		uart_printf("Query command format is incorrect.\r\n");
-		return;
-	}
-
-	uint16 QueryCmd = 0;
-	memcpy(&QueryCmd, (uint16*)apiFrame->payload.data, sizeof(uint16));
-
-	switch(QueryCmd)
-	{
-		case QUERY_INNER_TEMP:
-
-			dataStream.verifyByte = VERIFY_BYTE;
-			dataStream.dataType = INNER_TEMP;
-
-			/* read sensor data several times,modify dataStream size to meet your demands */
-			int i = 0;
-			for(i=0; i<DATA_POINT_NUM; i++)
-			{
-				/* Sample Chip Temperature */
-				uint16 adSampleVal = vHAL_AdcSampleRead(E_AHI_ADC_SRC_TEMP);
-				int16 i16ChipTemperature = i16HAL_GetChipTemp(adSampleVal);
-
-				/*
-				  If the JN516x device operates at temperatures  in excess of 90¡ãC, it may be necessary
-				  to call this function to maintain the frequ ency tolerance of the clock to within the
-				  40ppm limit specified by the IEEE 802.15. 4 standard.
-				*/
-				vHAL_PullXtal((int32)i16ChipTemperature);
-
-				dataStream.datapoint[i] = i16ChipTemperature;
-				dataStream.dataPointCnt++;
-			}
-
-			if(g_sDevice.eState == E_NETWORK_RUN)
-			{
-				tsApiFrame frm;
-				bool ret = sendToAir(UNICAST, unicastDstAddr, &frm, FRM_QUERY_RESP, (uint8*)(&dataStream), sizeof(tsDataStream));
-				if(!ret)
-				{
-					uart_printf("AD:%d send to 0x%04x failed.\n",dataStream.datapoint[0], unicastDstAddr);
-				}
-				else
-				{
-					uint8 tmp[20] = {0};
-					sprintf(tmp, "First AD:%d\n", dataStream.datapoint[0]);
-					uart_printf("%s",tmp);
-				}
-			}
-			break;
-
-		case QUERY_INNER_VOL:
-			break;
-		/*your own sensor query here*/
-		default:break;
-	}
-}
 
 /****************************************************************************
  *
@@ -599,6 +530,28 @@ void v_ProcessQueryCmd(tsApiFrame* apiFrame, uint16 unicastDstAddr)
  * void
  *
  ****************************************************************************/
+void vHandleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
+{
+    uint8 lqi;
+    uint16 pwmWidth;
+
+    /* Adapt RSSI Led */
+    lqi = sStackEvent.uEvent.sApsDataIndEvent.u8LinkQuality;
+
+    pwmWidth = lqi * 500 /110;
+    if(pwmWidth > 500)
+    	pwmWidth = 500;
+    vAHI_TimerStartRepeat(E_AHI_TIMER_1, 500 - pwmWidth, 500 + pwmWidth);
+
+    /* Call API support layer */
+    int ret = API_i32AptsProcessStackEvent(sStackEvent);
+    if(!ret)
+    {
+    	/* report module error */
+    	DBG_vPrintf(TRACE_EP, "APS: process stack event fail.\r\n");
+    }
+}
+
 void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
 {
     PDUM_thAPduInstance hapdu_ins;
@@ -899,7 +852,7 @@ void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
  *
  * DESCRIPTION:
  * send data with radio by broadcasting or unicasting
- *
+ * Package is finished out of this,so,just send it.
  * PARAMETERS: Name         RW  Usage
  *             txmode       R   ENUM: BROADCAST ,UNICAST
  *             unicastDest  R   16bit short address
