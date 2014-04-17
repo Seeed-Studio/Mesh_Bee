@@ -1,13 +1,13 @@
-/*    
+/*
  * zigbee_main.c
- * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
- *   
- * Copyright (c) NXP B.V. 2012.   
+ * Firmware for SeeedStudio Mesh Bee(Zigbee) module
+ *
+ * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
  * Author     : Jack Shao
- * Create Time: 2013/10 
- * Change Log :   
- *   
+ * Create Time: 2013/10
+ * Change Log : Oliver Wang Modify 2014/03
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -18,7 +18,7 @@
  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.  
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 /****************************************************************************/
@@ -29,6 +29,8 @@
 #include "appapi.h"
 #include "zigbee_node.h"
 #include "firmware_uart.h"
+
+#include "firmware_at_api.h"
 
 #ifdef RADIO_RECALIBRATION
 #include "recal.h"
@@ -163,7 +165,7 @@ PUBLIC void vAppMain(void)
         vAHI_WatchdogStop();
         //while (1);
     }
-    
+
     u32AppApiInit(NULL, NULL, NULL, NULL, NULL, NULL);
 
     vAHI_HighPowerModuleEnable(TRUE, TRUE);                                        // Enable high power mode
@@ -201,6 +203,23 @@ void vAppRegisterPWRMCallbacks(void)
  * void
  *
  ****************************************************************************/
+void Format_ATIO(tsApiSpec *apiSpec)
+{
+  apiSpec->startDelimiter = API_START_DELIMITER;
+  apiSpec->length = sizeof(apiSpec->payload);           //Note: union length != tsLocalAtReq length
+  apiSpec->teApiIdentifier = API_LOCAL_AT_REQ;
+
+  tsLocalAtReq localAtReq;
+  memset(&localAtReq, 0, sizeof(tsLocalAtReq));
+
+  localAtReq.frameId = 0xec;
+  localAtReq.atCmdId = ATIO;
+  localAtReq.value[0] = 9;
+  localAtReq.value[1] = 1;
+
+  apiSpec->payload.localAtReq = localAtReq;
+  apiSpec->checkSum = calCheckSum((unsigned char*)&localAtReq, apiSpec->length);
+}
 PRIVATE void vInitialiseApp(void)
 {
     /* initialise JenOS modules */
@@ -224,6 +243,22 @@ PRIVATE void vInitialiseApp(void)
 
     DBG_vPrintf(TRACE_START, "Initialising %s node... \r\n", role);
     node_vInitialise();
+
+    //test
+    DBG_vPrintf(TRACE_START,"tsApiSpec:%d\n",sizeof(tsApiSpec));
+    DBG_vPrintf(TRACE_START,"tsLocalAtReq:%d\n",sizeof(tsLocalAtReq));
+    tsApiSpec apiSpec;
+    DBG_vPrintf(TRACE_START,"payload:%d\n",sizeof(apiSpec.payload));
+
+    Format_ATIO(&apiSpec);
+
+    uint8 *ptr = (uint8*)&apiSpec;
+    int i=0;
+    for(i=0;i<sizeof(tsApiSpec);i++)
+    {
+    	DBG_vPrintf(TRACE_START,"%d\n",ptr[i]);
+    }
+
 }
 
 

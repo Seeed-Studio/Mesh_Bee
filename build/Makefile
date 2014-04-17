@@ -163,9 +163,13 @@ APPSRC += zigbee_zbp_utilities.c
 
 APPSRC += firmware_ringbuffer.c
 APPSRC += firmware_at_api.c
+APPSRC += firmware_api_codec.c
 APPSRC += firmware_uart.c
 APPSRC += firmware_ota.c
-
+APPSRC += firmware_hal.c
+APPSRC += suli.c
+APPSRC += firmware_ups.c
+APPSRC += ups_arduino_sketch.c
 ####
 APP_ZPSCFG = MeshBee.zpscfg
 
@@ -244,17 +248,17 @@ $(APP_BLD_DIR)/gen/zps_gen.c $(APP_BLD_DIR)/gen/zps_gen.h: $(APP_SRC_DIR)/$(APP_
 	$(ZPSCONFIG) -n $(TARGET) -t $(JENNIC_CHIP) -l $(ZPS_NWK_LIB) -a $(ZPS_APL_LIB) -f "$(shell cygpath -w "$<")" -o "$(shell cygpath -w "$(APP_BLD_DIR)/gen")"
 	@echo
 
-%.o: %.S
+%.o: %.S | $(APP_BLD_DIR)/obj
 	$(info Assembling $< ...)
 	$(CC) -c -o $(APP_BLD_DIR)/obj/$@ $(CFLAGS) $(INCFLAGS) $< -MD -MF $(APP_BLD_DIR)/obj/$*.d -MP
 	@echo
 
-%.o: %.c 
+%.o: %.c | $(APP_BLD_DIR)/obj
 	$(info Compiling $< ...)
 	$(CC) -c -o $(APP_BLD_DIR)/obj/$@ $(CFLAGS) $(INCFLAGS) $< -MD -MF $(APP_BLD_DIR)/obj/$*.d -MP
 	@echo
 
-$(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).elf: $(APPOBJS) $(addsuffix.a,$(addprefix $(COMPONENTS_BASE_DIR)/Library/lib,$(APPLDLIBS))) 
+$(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).elf: $(APP_BLD_DIR)/gen $(APPOBJS) $(addsuffix.a,$(addprefix $(COMPONENTS_BASE_DIR)/Library/lib,$(APPLDLIBS)))  | $(APP_BLD_DIR)/output
 	$(info Linking $@ ...)
 	$(CC) -Wl,--gc-sections -Wl,-u_AppColdStart -Wl,-u_AppWarmStart $(LDFLAGS) -TAppBuild_JN5168.ld -o $@ -Wl,--start-group $(addprefix $(APP_BLD_DIR)/obj/,$(APPOBJS)) $(addprefix -l,$(LDLIBS)) -Wl,--end-group -Wl,-Map,$(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).map 	 
 	$(SIZE) $@ 
@@ -264,7 +268,17 @@ $(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).bin: $(APP_BLD_DIR)/
 	$(OBJCOPY) -j .version -j .bir -j .flashheader -j .vsr_table -j .vsr_handlers  -j .ro_mac_address -j .ro_ota_header -j .ro_se_lnkKey -j .ro_se_cert -j.ro_se_pvKey -j .ro_se_customData -j .rodata -j .text -j .data -j .bss -j .heap -j .stack -S -O binary $< $@
 	@echo
 
-	
+$(APP_BLD_DIR)/output:
+	$(info Create dir: $(APP_BLD_DIR)/output)
+	mkdir $@
+
+$(APP_BLD_DIR)/gen:
+	$(info Create dir: $(APP_BLD_DIR)/gen)
+	mkdir $@
+
+$(APP_BLD_DIR)/obj:
+	$(info Create dir: $(APP_BLD_DIR)/obj)
+	mkdir $@
 ###############################################################################
 
 clean:
