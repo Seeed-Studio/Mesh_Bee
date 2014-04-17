@@ -1031,10 +1031,32 @@ int AT_vQueryOnChipTemper(uint16 *regAddr)
 * RETURNS:
 *
 ****************************************************************************/
-int API_Reboot(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr)
+int API_Reboot(tsApiSpec *reqApiSpec, tsApiSpec *respApiSpec, uint16 *regAddr)
 {
-  vAHI_SwReset();
-  return OK;
+	vAHI_SwReset();
+
+	respApiSpec->startDelimiter = API_START_DELIMITER;
+    if(API_LOCAL_AT_REQ == reqApiSpec->teApiIdentifier)
+    {
+    	/* Response */
+    	respApiSpec->length = sizeof(tsLocalAtResp);           //Note: union length != tsLocalAtReq length
+    	respApiSpec->teApiIdentifier = API_LOCAL_AT_RESP;
+    	/* tsLocalAtResp package */
+    	tsLocalAtResp localAtResp;
+    	memset(&localAtResp, 0, sizeof(tsLocalAtResp));
+    	localAtResp.atCmdId = ATRB;
+    	localAtResp.eStatus = AT_OK;
+    	localAtResp.frameId = reqApiSpec->payload.localAtReq.frameId;
+
+    	respApiSpec->payload.localAtResp = localAtResp;
+    	/* Calculate checkSum */
+    	respApiSpec->checkSum = calCheckSum((uint8*)&localAtResp, respApiSpec->length);
+    }
+    else if(API_REMOTE_AT_REQ == reqApiSpec->teApiIdentifier)
+    {
+
+    }
+    return OK;
 }
 
 /****************************************************************************
@@ -1068,11 +1090,11 @@ int API_QueryOnChipTemper(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16
 
   /* Response after execute AT Command */
   retApiSpec->startDelimiter = API_START_DELIMITER;
-  retApiSpec->length = sizeof(retApiSpec->payload);           //Note: union length != tsLocalAtReq length
 
   /* If here comes the local req */
   if(API_LOCAL_AT_REQ == inputApiSpec->teApiIdentifier)
   {
+    retApiSpec->length = sizeof(tsLocalAtResp);
 	retApiSpec->teApiIdentifier = API_LOCAL_AT_RESP;
     /* tsLocalAtResp package */
 	tsLocalAtResp localAtResp;
@@ -1086,21 +1108,22 @@ int API_QueryOnChipTemper(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16
     /* Test */
     retApiSpec->payload.localAtResp = localAtResp;
     /* Calculate checkSum */
-    retApiSpec->checkSum = calCheckSum((uint8*)&localAtResp, sizeof(tsLocalAtResp));
+    retApiSpec->checkSum = calCheckSum((uint8*)&localAtResp, retApiSpec->length);
   }
   else if(API_REMOTE_AT_REQ == inputApiSpec->teApiIdentifier)
   {
+	retApiSpec->length = sizeof(tsRemoteAtResp);
     retApiSpec->teApiIdentifier = API_REMOTE_AT_RESP;
     tsRemoteAtResp remoteAtResp;
     memset(&remoteAtResp, 0, sizeof(tsRemoteAtResp));
     remoteAtResp.atCmdId = ATQT;
     remoteAtResp.eStatus = AT_OK;
     remoteAtResp.frameId = inputApiSpec->payload.remoteAtReq.frameId;
-    memcpy(remoteAtResp.value, (uint8*)(&i16ChipTemperature), sizeof(int16));    //pay attention: overflow
+    remoteAtResp.value[0] = (uint8)i16ChipTemperature;
     remoteAtResp.unicastAddr = inputApiSpec->payload.remoteAtReq.unicastAddr;    //unicastAddr
 
     retApiSpec->payload.remoteAtResp = remoteAtResp;
-    retApiSpec->checkSum = calCheckSum((uint8*)&remoteAtResp, sizeof(tsRemoteAtResp));
+    retApiSpec->checkSum = calCheckSum((uint8*)&remoteAtResp, retApiSpec->length);
   }
 
   return OK;
@@ -1127,7 +1150,6 @@ int API_i32SetGpio(tsApiSpec *reqApiSpec, tsApiSpec *respApiSpec, uint16 *regAdd
 	 IO_T  io;
 
 	respApiSpec->startDelimiter = API_START_DELIMITER;
-	respApiSpec->length = sizeof(respApiSpec->payload);           //Note: union length != tsLocalAtReq length
 
 	/* If here comes the local req */
 	if(API_LOCAL_AT_REQ == reqApiSpec->teApiIdentifier)
@@ -1143,6 +1165,8 @@ int API_i32SetGpio(tsApiSpec *reqApiSpec, tsApiSpec *respApiSpec, uint16 *regAdd
         suli_pin_dir(&io, HAL_PIN_OUTPUT);
         suli_pin_write(&io, state);
 
+        /* Response */
+        respApiSpec->length = sizeof(tsLocalAtResp);           //Note: union length != tsLocalAtReq length
         respApiSpec->teApiIdentifier = API_LOCAL_AT_RESP;
         /* tsLocalAtResp package */
         tsLocalAtResp localAtResp;
@@ -1158,6 +1182,18 @@ int API_i32SetGpio(tsApiSpec *reqApiSpec, tsApiSpec *respApiSpec, uint16 *regAdd
 	}
 	else if(API_REMOTE_AT_REQ == reqApiSpec->teApiIdentifier)
 	{
+		respApiSpec->length = sizeof(sizeof(tsRemoteAtResp));
+		tsRemoteAtReq remoteAtReq;
+		memset(&remoteAtReq, 0, sizeof(tsRemoteAtReq));
+		remoteAtReq = reqApiSpec->payload.remoteAtReq;
+		pio = remoteAtReq.value[0];
+		state = remoteAtReq.value[1];
+
+		/* Set GPIO through suli */
+		suli_pin_init(&io, pio);
+		suli_pin_dir(&io, HAL_PIN_OUTPUT);
+		suli_pin_write(&io, state);
+
 		respApiSpec->teApiIdentifier = API_REMOTE_AT_RESP;
 		tsRemoteAtResp remoteAtResp;
 		memset(&remoteAtResp, 0, sizeof(tsRemoteAtResp));
@@ -1170,6 +1206,7 @@ int API_i32SetGpio(tsApiSpec *reqApiSpec, tsApiSpec *respApiSpec, uint16 *regAdd
 		respApiSpec->payload.remoteAtResp = remoteAtResp;
 		respApiSpec->checkSum = calCheckSum((uint8*)&remoteAtResp, respApiSpec->length);
 	}
+	return OK;
 }
 
 
@@ -1289,8 +1326,9 @@ int API_i32AtProcessSerialCmd(uint8 *buf, int len)
 ****************************************************************************/
 int API_i32UdsProcessApiCmd(tsApiSpec* apiSpec)
 {
-	int cnt = 0, i = 0, j = 0;
+	int cnt = 0, i = 0;
 	int result = ERR;
+	uint8 tmp[sizeof(tsApiSpec)] = {0};
 	uint16 txMode;
 	tsLocalAtReq *localAtReq;
     tsApiSpec retApiSpec;
@@ -1323,7 +1361,8 @@ int API_i32UdsProcessApiCmd(tsApiSpec* apiSpec)
                 }
             }
         	/* UART ACK,if frameId ==0,No ACK */
-        	uart_tx_data((uint8*)&retApiSpec, sizeof(tsApiSpec));
+            vCopyApiSpec(&retApiSpec, tmp);
+        	uart_tx_data(tmp, 3 + sizeof(tsLocalAtResp) + 1);       //pay attention to this
 	    	break;
 	    /*
 	      remote AT Require:
@@ -1331,18 +1370,20 @@ int API_i32UdsProcessApiCmd(tsApiSpec* apiSpec)
 	    */
 	    case API_REMOTE_AT_REQ:
 	    	/* Option CastBit[8:2] */
-            if(0 == (apiSpec->payload.remoteAtReq.option) & OPTION_CAST_MASK)
+            if(0 == ((apiSpec->payload.remoteAtReq.option) & OPTION_CAST_MASK))
             	txMode = UNICAST;
             else
             	txMode = BROADCAST;
 
             /* Send to AirPort */
-	    	bool ret = API_bSendToAirPort(txMode, apiSpec->payload.remoteAtReq.unicastAddr, (uint8*)(&apiSpec), sizeof(tsApiSpec));
+            vCopyApiSpec(apiSpec, tmp);
+	    	bool ret = API_bSendToAirPort(txMode, apiSpec->payload.remoteAtReq.unicastAddr, tmp, 3 + sizeof(tsRemoteAtReq) + 1);
 	    	if(!ret)
 	    		result = ERR;
 	    	else
 	    		result = OK;
 	    	/* Now, don't reply here */
+	    	uart_printf("cast:%d\n",apiSpec->payload.remoteAtReq.unicastAddr);
 	        break;
 	    /* TX Require */
 	    case API_TX_REQ:
@@ -1375,6 +1416,7 @@ int API_i32AptsProcessStackEvent(ZPS_tsAfEvent sStackEvent)
 {
     int cnt =0, i =0;
     int result = ERR;
+    uint8 tmp[sizeof(tsApiSpec)] = {0};
     PDUM_thAPduInstance hapdu_ins;
     uint16 u16PayloadSize;
     uint8 *payload_addr;
@@ -1434,7 +1476,8 @@ int API_i32AptsProcessStackEvent(ZPS_tsAfEvent sStackEvent)
               }
           }
           /* ACK unicast to u16SrcAddr */
-          bool ret = API_bSendToAirPort(UNICAST, u16SrcAddr, (uint8*)&respApiSpec, sizeof(tsApiSpec));
+          vCopyApiSpec(&respApiSpec, tmp);
+          bool ret = API_bSendToAirPort(UNICAST, u16SrcAddr, tmp, 3 + sizeof(tsRemoteAtResp) + 1);
           if(!ret)
           {
         	  result = ERR;
@@ -1450,7 +1493,8 @@ int API_i32AptsProcessStackEvent(ZPS_tsAfEvent sStackEvent)
         1.directly send to UART DataPort,user can handle this response frame
       */
       case API_REMOTE_AT_RESP:
-    	  uart_tx_data((uint8*)&apiSpec, sizeof(tsApiSpec));
+    	  vCopyApiSpec(&apiSpec, tmp);
+    	  uart_tx_data(tmp, 3+sizeof(tsRemoteAtResp)+1);
     	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
           break;
 
@@ -1495,7 +1539,7 @@ bool API_bSendToAirPort(uint16 txMode, uint16 unicastDest, uint8 *buf, int len)
   /* Set payload size */
   PDUM_eAPduInstanceSetPayloadSize(hapdu_ins, len);
 
-  ZPS_teStatus st;          //How to
+  ZPS_teStatus st;
   if(BROADCAST == txMode)
   {
     DBG_vPrintf(TRACE_EP, "Broadcast %d ...\r\n", len);

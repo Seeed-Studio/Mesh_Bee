@@ -32,20 +32,20 @@ uint8 led_st  = HAL_PIN_LOW;
 
 void arduino_setup(void)
 {
-	/*
-    suli_pin_init(&led_io, led_pin);
-    suli_pin_dir(&led_io, HAL_PIN_OUTPUT);
-    */
+
+//    suli_pin_init(&led_io, led_pin);
+//    suli_pin_dir(&led_io, HAL_PIN_OUTPUT);
+
 }
 
 
 
 void arduino_loop(void)
 {
-	/*
-    suli_pin_write(&led_io, led_st);
-    led_st = ~led_st;
-    */
+
+//    suli_pin_write(&led_io, led_st);
+//    led_st = ~led_st;
+
 }
 
 

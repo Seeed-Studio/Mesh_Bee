@@ -20,7 +20,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-
+/****************************************************************************/
+/***        Include files                                                 ***/
+/****************************************************************************/
 #include "firmware_api_codec.h"
 
 /****************************************************************************
@@ -45,7 +47,7 @@ uint16 u16DecodeApiSpec(uint8 *buffer, int len, tsApiSpec *spec, bool *valid)
 	}
 
 	/* read startDelimiter/length/apiIdentifier */
-	memcpy((uint8*)spec, ptr, 3);    //4 bytes align,read 8 bytes
+	memcpy((uint8*)spec, ptr, 3);    //1 bytes align,read 3 bytes
 
     ptr += 3;
     len -= 3;
@@ -59,7 +61,7 @@ uint16 u16DecodeApiSpec(uint8 *buffer, int len, tsApiSpec *spec, bool *valid)
     memcpy((uint8*)spec + 3, ptr, spec->length);
     ptr += spec->length;
 
-    /* read checkSum */
+    /* read checkSum,redundant bytes aren't transfered */
     spec->checkSum = *ptr;
     ptr++;
 
@@ -73,4 +75,24 @@ uint16 u16DecodeApiSpec(uint8 *buffer, int len, tsApiSpec *spec, bool *valid)
         *valid = FALSE;
     }
     return ptr-buffer;
+}
+
+/****************************************************************************
+ *
+ * NAME: vCopyApiSpec
+ *
+ * DESCRIPTION:
+ * Copy the valid bytes of tsApiSpec into dst
+ *
+ * RETURNS:
+ *
+ *
+ ****************************************************************************/
+void vCopyApiSpec(tsApiSpec *spec, uint8 *dst)
+{
+    memcpy(dst, (uint8 * )spec, 3);
+    dst += 3;
+    memcpy(dst, &(spec->payload), spec->length);
+    dst += spec->length;
+    memcpy(dst, &(spec->checkSum), 1);
 }

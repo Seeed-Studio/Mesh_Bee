@@ -7,8 +7,8 @@
  * Author     : Jack Shao
  * Create Time: 2013/10
  * Change Log :
- * [2014/03/20 oliver]add api mode.
- * [2014/04/09 oliver]take endian into consideration,divide unicastAddr into two parts.
+ * [2014/03/20 oliver]add API support layer.
+ *
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -75,7 +75,7 @@ typedef enum
 {
     FRM_CTRL,
     FRM_QUERY,
-    FRM_QUERY_RESP,		//oliver add
+    FRM_QUERY_RESP,
     FRM_DATA,
     FRM_OTA_NTF,
     FRM_OTA_REQ,
@@ -183,7 +183,7 @@ typedef struct __apiFrame
 
 /*--------API mode structure--------*/
 
-/* API mode local AT Command require */
+/* API mode local AT Command require 10 byte */
 typedef struct
 {
 	uint8 frameId;              //identifies the UART data frame to correlate with subsequent ACK
@@ -193,7 +193,7 @@ typedef struct
 }__attribute__ ((packed)) tsLocalAtReq;
 
 
-/* API mode local AT Command response */
+/* API mode local AT Command response 23 */
 typedef struct
 {
 	uint8 frameId;				    //identifies the UART data frame to correlate with subsequent ACK
@@ -203,7 +203,7 @@ typedef struct
 }__attribute__ ((packed)) tsLocalAtResp;
 
 
-/* API mode remote AT Command require */
+/* API mode remote AT Command require 13 */
 typedef struct
 {
 	uint8 frameId;
@@ -214,7 +214,7 @@ typedef struct
 }__attribute__ ((packed)) tsRemoteAtReq;
 
 
-/* API mode remote AT command response */
+/* API mode remote AT command response 25 */
 typedef struct
 {
 	uint8 frameId;
@@ -225,7 +225,7 @@ typedef struct
 }__attribute__ ((packed)) tsRemoteAtResp;
 
 
-/* Tx data packet */
+/* Tx data packet 24 */
 typedef struct
 {
 	uint8 frameId;
@@ -249,7 +249,7 @@ typedef struct
 		tsRemoteAtReq remoteAtReq;
 		tsRemoteAtResp remoteAtResp;
 		tsTxDataPacket txDataPacket;            //No ACK, like UDP
-	}payload;
+	}__attribute__ ((packed)) payload;
 	uint8 checkSum;
 }__attribute__ ((packed)) tsApiSpec;
 

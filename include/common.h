@@ -86,6 +86,12 @@
 #define true                            1
 #define false                           0
 
+/*  */
+#define PACK_STRUCT_BEGIN
+#define PACK_STRUCT_STRUCT __attribute__ ((__packed__))
+#define PACK_STRUCT_END
+#define PACK_STRUCT_FIELD(fld) fld
+#define ALIGNED(n)  __attribute__((aligned (n)))
 /****************************************************************************/
 /***        Type Definitions                                              ***/
 /****************************************************************************/

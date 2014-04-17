@@ -36,6 +36,6 @@
 /***        Public Functions                                              ***/
 /****************************************************************************/
 uint16 u16DecodeApiSpec(uint8 *buffer, int len, tsApiSpec *spec, bool *valid);
-
+void vCopyApiSpec(tsApiSpec *spec, uint8 *dst);
 
 #endif /* FIRMWARE_API_CODEC_H_ */

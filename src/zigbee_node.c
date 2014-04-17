@@ -740,10 +740,6 @@ PUBLIC void node_vInitialise(void)
     vAHI_TimerEnable(E_AHI_TIMER_1, 4, FALSE, FALSE, TRUE);
     vAHI_TimerStartRepeat(E_AHI_TIMER_1, 1000, 1);
 
-    /* init user space */
-    DBG_vPrintf(TRUE,"Init user programming space...\r\n");
-    ups_init();
-
     /*
       If the device state has been restored from eep, re-start the stack
       and set the application running again
@@ -798,6 +794,10 @@ PUBLIC void node_vInitialise(void)
 #endif
 
     OS_eActivateTask(APP_taskNWK);
+
+    /* init user space */
+    DBG_vPrintf(TRUE,"Init user programming space...\r\n");
+    ups_init();
 }
 
 
