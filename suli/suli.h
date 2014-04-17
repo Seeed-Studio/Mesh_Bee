@@ -187,23 +187,41 @@ void suli_uart_send_byte(void * uart_device, int16 uart_num, uint8 data);
 
 
 /*
- * print numbers
- */
-void suli_uart_print_int(void *uart_device, int16 uart_num, float data);
-void suli_uart_print_float(void *uart_device, int16 uart_num, float data); 
-void suli_uart_print_float2(void *uart_device, int16 uart_num, float data, int prec); 
-void suli_uart_printf(void *uart_device, int16 uart_num, const char *fmt, ...); 
-
-
-/*
  * read a byte from uart
  */
-uint8 suli_uart_read_byte(void * uart_device, int16 uart_num);
+uint8 suli_uart_read_byte(void *uart_device, int16 uart_num);
 
 
 /*
  * if uart get data, return 1-readable, 0-unreadable
  */
-uint16 suli_uart_readable(void * uart_device, int16 uart_num);
+uint16 suli_uart_readable(void *uart_device, int16 uart_num);
+
+/*
+ * write a float
+ * num - number to write
+ * decimal - x decimal point
+ */
+void suli_uart_write_float(void *uart_device, int16 uart_num, float data, uint8 prec);
+
+
+/*
+ * write an integer
+ * num - number to write
+ */
+void suli_uart_write_int(void * uart_device, int16 uart_num, int32 num);
+
+
+/*
+ * formatted print
+ * fmt - c99 printf style format string ( !!! %f not supported !!!)
+ * ... - var list 
+ * Notice: 
+ * !!!! this api function is only for JN5168, not a suli standard one. 
+ * !!!! please make sure not using this function when you release a public suli-compatible library.
+ */
+void suli_uart_printf(void *uart_device, int16 uart_num, const char *fmt, ...); 
+
+
 
 #endif

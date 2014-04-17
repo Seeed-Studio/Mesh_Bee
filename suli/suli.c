@@ -480,23 +480,30 @@ void suli_uart_send(void * uart_device, int16 uart_num, uint8 *data, uint16 len)
 /*
  * seed a byte to uart
  */
-void suli_uart_send_byte(void * uart_device, int16 uart_num, uint8 data)
+void suli_uart_send_byte(void *uart_device, int16 uart_num, uint8 data)
 {
-    uart_tx_data(&data, 1); 
+    uart_tx_data(&data, 1);
 }
 
 /*
- * print a float number
-*/
-void suli_uart_print_float(void *uart_device, int16 uart_num, float data)
-{
-    suli_uart_print_float2(uart_device, uart_num, data, 2);
-}
-void suli_uart_print_float2(void *uart_device, int16 uart_num, float data, int prec)
+ * write a float
+ * num - number to write
+ * decimal - x decimal point
+ */
+void suli_uart_write_float(void *uart_device, int16 uart_num, float data, uint8 prec)
 {
     char buff[32];
     modp_dtoa2((double)data, buff, prec);
     uart_tx_data(buff, strlen(buff)); 
+}
+
+/*
+ * write an integer
+ * num - number to write
+ */
+void suli_uart_write_int(void *uart_device, int16 uart_num, int32 num)
+{
+    suli_uart_printf(uart_device, uart_num, "%ld", num);
 }
 
 

@@ -63,6 +63,8 @@ void arduino_setup(void)
     acc_adxl345_init(NULL);
 
     setLoopIntervalMs(10); 
+    
+    suli_uart_printf(NULL, NULL, "Setup done.\r\n");
 }
 
 void arduino_loop(void)
@@ -85,15 +87,14 @@ void arduino_loop(void)
     acc_adxl345_read_acc(&ax, &ay, &az);
 
     suli_uart_printf(NULL, NULL, "ax: ");
-    suli_uart_print_float(NULL, NULL, ax);
+    suli_uart_write_float(NULL, NULL, ax, 2);
     suli_uart_printf(NULL, NULL, ", ay: ");
-    suli_uart_print_float(NULL, NULL, ay);
+    suli_uart_write_float(NULL, NULL, ay, 2); 
     suli_uart_printf(NULL, NULL, ", az: "); 
-    suli_uart_print_float(NULL, NULL, az); 
+    suli_uart_write_float(NULL, NULL, az, 2); 
     suli_uart_printf(NULL, NULL, "\r\n"); 
 }
 */
-
 
 
 void arduino_setup(void)
@@ -101,7 +102,6 @@ void arduino_setup(void)
 
 void arduino_loop(void)
 { }
-
 
 
 
