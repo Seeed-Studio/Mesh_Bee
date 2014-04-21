@@ -83,7 +83,7 @@ extern PDM_tsRecordDescriptor g_sDevicePDDesc;
  *
  * DESCRIPTION:
  * Task to handle to end point(1) events (transmit-related event)
- *
+ * ADS module
  * RETURNS:
  * void
  *
