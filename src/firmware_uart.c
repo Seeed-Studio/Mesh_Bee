@@ -34,6 +34,13 @@ unsigned char txfifo[TXFIFOLEN];
 unsigned char rxfifo[RXFIFOLEN];
 PRIVATE  volatile bool txbusy = FALSE;
 
+
+struct ringbuffer rb_rx_uart;
+struct ringbuffer rb_tx_uart;
+
+uint8 rb_rx_mempool[UART_RX_RB_LEN]; 
+uint8 rb_tx_mempool[UART_TX_RB_LEN]; 
+
 /****************************************************************************
  *
  * NAME: uart_initialize
@@ -121,6 +128,26 @@ int AT_printBaudRate(uint16 *regAddr)
     uart_printf("--------\r\n");
     uart_printf("Note: 0-4800, 1-9600, 2-19200, 3-38400, 4-57600, 5-115200\r\n");
     return 0;
+}
+
+/****************************************************************************
+ *
+ * NAME: ringbuf_vInitialize
+ *
+ * DESCRIPTION:
+ * init ringbuffer for uart
+ *
+ * PARAMETERS: Name         RW  Usage
+ *             None
+ *
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
+void ringbuf_vInitialize()
+{
+    init_ringbuffer(&rb_rx_uart, rb_rx_mempool, UART_RX_RB_LEN); 
+    init_ringbuffer(&rb_tx_uart, rb_tx_mempool, UART_TX_RB_LEN); 
 }
 
 /****************************************************************************

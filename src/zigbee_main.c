@@ -148,7 +148,7 @@ PUBLIC void vAppMain(void)
     DBG_vPrintf(TRACE_START, "=================================\r\n");
     DBG_vPrintf(TRACE_START, "            Mesh Bee \r\n");
     DBG_vPrintf(TRACE_START, "  Zigbee module from seeedstudio \r\n");
-    DBG_vPrintf(TRACE_START, "         SW Version: 0x%04x \r\n", SW_VER);
+    DBG_vPrintf(TRACE_START, "         SW Version: 0x%04x \r\n", FW_VERSION);
     DBG_vPrintf(TRACE_START, "=================================\r\n");
 
 

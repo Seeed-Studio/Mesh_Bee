@@ -62,6 +62,15 @@ endif
 # DEBUG_PORT ?= UART1
 
 ###############################################################################
+# Firmware mode
+FW_MODE ?= SLAVE
+ifeq ($(FW_MODE), MASTER)
+CFLAGS += -DFW_MODE_MASTER
+BIN_SUFFIX += _MASTER
+endif
+
+
+###############################################################################
 # Define TRACE to use with DBG module
 # By default TRACE and OVERLAYS have been turned off
 TRACE ?=1
@@ -181,11 +190,19 @@ INCFLAGS += -I$(COMPONENTS_BASE_DIR)/Recal/Include
 
 APPLIBS += Recal
 
-###############################################################################
 
+
+
+
+
+
+###############################################################################
 # You should not need to edit below this line
 
 ###############################################################################
+
+
+
 ###############################################################################
 # Configure for the selected chip or chip family
 

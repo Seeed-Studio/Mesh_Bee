@@ -551,7 +551,7 @@ int AT_showInfo(uint16 *regAddr)
 
     uart_printf("\r\n\r\n2.Node information:\r\n");
 
-    uart_printf("FW Version       : 0x%04x \r\n", SW_VER);
+    uart_printf("FW Version       : 0x%04x \r\n", FW_VERSION);
 
     uart_printf("Short Addr       : 0x%04x \r\n", ZPS_u16AplZdoGetNwkAddr());
 

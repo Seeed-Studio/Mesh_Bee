@@ -57,17 +57,32 @@
 
 #include "firmware_ringbuffer.h"
 
-#define SW_VER                          0x1002
+/****************************************************************************/
+/***        Configurations                                                ***/
+/****************************************************************************/
+
+//#define FW_MODE_MASTER                                            //un-comment this line to enable the master mode
+                                                                    //or define FW_MODE_MASTER in Makefile to enable
+                                                                    //about master mode: https://github.com/Seeed-Studio/Mesh_Bee/blob/master/README.md                         
+#define FW_VERSION                      0x1002
+
+#define RADIO_RECALIBRATION                                         //re-calibrate the radio per 1min
+#define SEC_MODE_FOR_DATA_ON_AIR        ZPS_E_APL_AF_SECURE_NWK     //securing mode for the packets passing through the air
+                                                                    //ZPS_E_APL_AF_UNSECURE or ZPS_E_APL_AF_SECURE_NWK
+#define UART_COMM                       E_AHI_UART_1
+#define MAX_ROUTE_DISCOVERY_FAILURES    10
+#define DIO_ON_SLEEP                    9
+#define DIO_ASSOC                       10
+#define DIO_RSSI                        11
+
+/****************************************************************************/
+/***        Macro Definitions                                             ***/
+/****************************************************************************/
 
 #if defined(TARGET_COO) || defined(TARGET_ROU) || defined(TARGET_END)
 #else
     #define TARGET_COO
 #endif
-
-#define RADIO_RECALIBRATION                                  //re-calibrate the radio per 1min
-#define SEC_MODE_FOR_DATA_ON_AIR    ZPS_E_APL_AF_SECURE_NWK    //securing mode for the packets passing through the air
-                                                             //ZPS_E_APL_AF_UNSECURE or ZPS_E_APL_AF_SECURE_NWK
-
 
 #ifdef OTA_SUPPORT_OPTIONS        // Option flag passed in from the makefile
 #define CLD_OTA
@@ -78,12 +93,6 @@
 #endif
 #endif
 
-#define UART_COMM                       E_AHI_UART_1
-#define MAX_ROUTE_DISCOVERY_FAILURES    10
-#define DIO_ON_SLEEP                    9
-#define DIO_ASSOC                       10
-#define DIO_RSSI                        11
-
 #define true                            1
 #define false                           0
 
@@ -93,6 +102,7 @@
 #define PACK_STRUCT_END
 #define PACK_STRUCT_FIELD(fld) fld
 #define ALIGNED(n)  __attribute__((aligned (n)))
+
 /****************************************************************************/
 /***        Type Definitions                                              ***/
 /****************************************************************************/

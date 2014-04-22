@@ -61,11 +61,6 @@ void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent);
 /****************************************************************************/
 PRIVATE bool   bActiveByTimer = FALSE;
 
-struct ringbuffer rb_rx_uart;
-struct ringbuffer rb_tx_uart;
-
-uint8 rb_rx_mempool[RXFIFOLEN*3];
-uint8 rb_tx_mempool[TXFIFOLEN*3];
 
 /****************************************************************************/
 /***        External Variables                                            ***/
@@ -354,25 +349,7 @@ OS_TASK(APP_taskOTAReq)
 /****************************************************************************/
 /***        Exported Functions                                            ***/
 /****************************************************************************/
-/****************************************************************************
- *
- * NAME: endpoint_vInitialize
- *
- * DESCRIPTION:
- * init endpoint(1)
- *
- * PARAMETERS: Name         RW  Usage
- *             None
- *
- * RETURNS:
- * void
- *
- ****************************************************************************/
-void ringbuf_vInitialize()
-{
-    init_ringbuffer(&rb_rx_uart, rb_rx_mempool, RXFIFOLEN * 3);
-    init_ringbuffer(&rb_tx_uart, rb_tx_mempool, TXFIFOLEN * 3);
-}
+
 
 /****************************************************************************
  *
@@ -823,7 +800,7 @@ void handleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
             tsFrmTOPOResp resp;
             resp.nodeMacAddr0 = (uint32)ZPS_u64AplZdoGetIeeeAddr();
             resp.nodeMacAddr1 = (uint32)(ZPS_u64AplZdoGetIeeeAddr() >> 32);
-            resp.nodeFWVer    = (uint16)(SW_VER);
+            resp.nodeFWVer    = (uint16)(FW_VERSION);
             sendToAir(UNICAST, u16SrcAddr, &apiFrame, FRM_TOPO_RESP, (uint8 *)(&resp), sizeof(resp));
             break;
         }

@@ -26,12 +26,16 @@
 
 #include <jendefs.h>
 
-#define TXFIFOLEN               128
-#define RXFIFOLEN               128
+#define TXFIFOLEN               32
+#define RXFIFOLEN               32
+#define UART_TX_RB_LEN          100 
+#define UART_RX_RB_LEN          64
 #define THRESHOLD_READ          50
 
 
-void uart_register_callback();
+
+void ringbuf_vInitialize(); 
+void uart_register_callback(); 
 void uart_initialize(void);
 bool uart_pass_up(char *buff, unsigned short len);
 bool uart_get_tx_status_busy();
