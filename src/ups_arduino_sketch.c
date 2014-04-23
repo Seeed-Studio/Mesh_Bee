@@ -24,6 +24,7 @@
 
 #include "common.h"
 #include "firmware_ups.h"
+#include "firmware_sleep.h"
 #include "suli.h"
 
 
@@ -62,7 +63,7 @@ void arduino_setup(void)
     
     acc_adxl345_init(NULL);
 
-    setLoopIntervalMs(10); 
+    setLoopIntervalMs(10);   //default: 1000ms per loop
     
     suli_uart_printf(NULL, NULL, "Setup done.\r\n");
 }
@@ -98,10 +99,16 @@ void arduino_loop(void)
 
 
 void arduino_setup(void)
-{ }
+{
+    setLoopIntervalMs(5000);   //default: 1000ms per loop
+}
 
 void arduino_loop(void)
-{ }
+{ 
+    DBG_vPrintf(1, "test \r\n");
+    //goSleepMs(3000);
+    OS_eStartSWTimer(PollTimer, APP_TIME_MS(1), NULL); 
+}
 
 
 

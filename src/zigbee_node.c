@@ -667,6 +667,7 @@ PUBLIC void deleteStackPDM()
     PDM_vSaveRecord(&g_sDevicePDDesc);
 }
 
+
 /****************************************************************************
  *
  * NAME: node_vInitialise
@@ -703,8 +704,8 @@ PUBLIC void node_vInitialise(void)
     //Initialise ZBPro stack
     ZPS_eAplAfInit();
 
-    DBG_vPrintf(TRACE_NODE, "PDM: Capacity %d\r\n", u8PDM_CalculateFileSystemCapacity());
-    DBG_vPrintf(TRACE_NODE, "PDM: Occupancy %d\r\n", u8PDM_GetFileSystemOccupancy());
+    DBG_vPrintf(TRACE_NODE, "PDM Free Capacity: %d sectors\r\n", u8PDM_CalculateFileSystemCapacity());
+    DBG_vPrintf(TRACE_NODE, "PDM Occupancy: %d sectors\r\n", u8PDM_GetFileSystemOccupancy());
 
     /* print working mode */
     char *mode = "";

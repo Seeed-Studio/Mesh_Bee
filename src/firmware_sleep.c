@@ -1,11 +1,11 @@
 /*
- * firmware_ups.c
- * - User Programming Space -
+ * firmware_sleep.c
+ * Handles sleep mode of End Device
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module
  * 
  * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
- * Author     : Oliver Wang
+ * Author     : Jack Shao
  * Create Time: 2014/4
  * Change Log :
  *
@@ -26,15 +26,15 @@
 /***        Include files                                                 ***/
 /****************************************************************************/
 #include "common.h"
-#include "suli.h"
-#include "ups_arduino_sketch.h"
+#include "firmware_sleep.h"
+#include "firmware_ups.h"
 
 
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
-#ifndef TRACE_UPS
-#define TRACE_UPS TRUE
+#ifndef TRACE_SLEEP
+#define TRACE_SLEEP TRUE
 #endif
 
 /****************************************************************************/
@@ -45,7 +45,7 @@
 /****************************************************************************/
 /***        Local Function Prototypes                                     ***/
 /****************************************************************************/
-
+PUBLIC void vWakeCallBack(void);
 
 /****************************************************************************/
 /***        Exported Variables                                            ***/
@@ -55,13 +55,8 @@
 /****************************************************************************/
 /***        Local Variables                                               ***/
 /****************************************************************************/
-//End Device enters sleep mode only if idle task get CPU, so Arduino Loop MUST NOT
-//continues without interval.
-#ifdef TARGET_END
-PRIVATE uint32 _loopInterval = 1000;
-#else
-PRIVATE uint32 _loopInterval = 0; 
-#endif
+PRIVATE uint32 _wakeupTime = 0;
+PRIVATE	pwrm_tsWakeTimerEvent	sWake;
 
 /****************************************************************************/
 /***        External Variables                                            ***/
@@ -74,69 +69,167 @@ PRIVATE uint32 _loopInterval = 0;
 
 /****************************************************************************
  *
- * NAME: ups_init
+ * NAME: goSleepMs
  *
  * DESCRIPTION:
- * init user programming space
+ * set the End Device into sleep mode for n ms
  *
  * PARAMETERS: Name         RW  Usage
+ *             ms           W   ms
  *
  * RETURNS:
  * void
  * 
  ****************************************************************************/
-void ups_init(void)
+void goSleepMs(uint32 ms)
 {
-	//init suli
-    suli_init();
-    //init arduino sketch with arduino-style setup function
-    arduino_setup();
-    //start arduino loops, Arduino_LoopTimer is bound with Arduino_Loop task
-    OS_eStartSWTimer(Arduino_LoopTimer, APP_TIME_MS(1), NULL);
+#ifdef TARGET_END
+    _wakeupTime = ms;
+    OS_eActivateTask(SleepEnableTask);
+#endif
 }
+
 
 /****************************************************************************
  *
- * NAME: setLoopInterval
+ * NAME: SleepEnableTask
  *
  * DESCRIPTION:
- * set the interval between loops
- * End Device enters sleep mode only if idle task get CPU, so Arduino Loop MUST NOT
- * continues without interval.
+ * task for enabling sleep mode
+ * runs at lowest priority to ensure all other tasks are inactive
  *
- * PARAMETERS: Name         RW  Usage
- *             ms           W   interval in ms
+ ****************************************************************************/
+OS_TASK(SleepEnableTask)
+{
+#ifdef TARGET_END
+    DBG_vPrintf(TRACE_SLEEP, "SleepEnable Task\r\n"); 
+    
+    PWRM_eScheduleActivity(&sWake, _wakeupTime*32 , vWakeCallBack);		// Schedule the next sleep point
+    
+    stopAllSwTimers();
+#endif
+}
+
+
+/****************************************************************************
+ *
+ * NAME: vWakeCallBack
+ *
+ * DESCRIPTION:
+ * Passed to the schedule activity, and then called by the PWRM on wake
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
-void setLoopIntervalMs(uint32 ms)
+PUBLIC void vWakeCallBack(void)
 {
-    _loopInterval = ms;
+	// Cannot schedule the next wake event until the wake up callback
+	// function has completed. Instead, activate a high priority task
+	// so that it runs immediately after the callback
+	OS_eActivateTask(WakeUpTask);
 }
-
 
 /****************************************************************************
  *
- * NAME: Arduino_Loop
+ * NAME: APP_WakeUpTask
  *
  * DESCRIPTION:
- * task for arduino loop
+ * Wakeup initialisation task
+ * RETURNS:
+ * void
  *
  ****************************************************************************/
-OS_TASK(Arduino_Loop)
+OS_TASK(WakeUpTask)
 {
-    arduino_loop();
-    if(_loopInterval > 0)
+    DBG_vPrintf(TRACE_SLEEP, "Wake up task\r\n");
+    
+    OS_eActivateTask(PollTask); 
+
+    ups_init(); 
+    
+}
+
+/****************************************************************************
+ *
+ * NAME: APP_WakeUpTask
+ *
+ * DESCRIPTION:
+ * Wakeup initialisation task
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
+OS_TASK(PollTask)
+{
+    DBG_vPrintf(TRACE_SLEEP, "Poll task\r\n");
+
+    ZPS_teStatus u8PStatus = ZPS_eAplZdoPoll();
+
+    if (u8PStatus)
     {
-		OS_eStartSWTimer(Arduino_LoopTimer, APP_TIME_MS(_loopInterval), NULL); 
-    } else
-    {
-		OS_eActivateTask(Arduino_Loop); 
+        DBG_vPrintf(TRACE_SLEEP, "\nPoll Failed %d\n", u8PStatus);
     }
+    
+    //OS_eStartSWTimer(PollTimer, APP_TIME_MS(1), NULL); 
 }
 
+
+/****************************************************************************
+ *
+ * NAME: stopAllSwTimers
+ *
+ * DESCRIPTION:
+ * set the End Device into sleep mode after n ms
+ *
+ * PARAMETERS: Name         RW  Usage
+ *             ms           W   ms
+ *
+ * RETURNS:
+ * void
+ * 
+ ****************************************************************************/
+void stopAllSwTimers()
+{
+#ifdef TARGET_END
+    if (OS_eGetSWTimerStatus(App_tmr1sec) != OS_E_SWTIMER_STOPPED)
+    {
+        OS_eStopSWTimer(App_tmr1sec);
+    }
+    if (OS_eGetSWTimerStatus(APP_RouteRequestTimer) != OS_E_SWTIMER_STOPPED)
+    {
+        OS_eStopSWTimer(APP_RouteRequestTimer);
+    }
+    if (OS_eGetSWTimerStatus(APP_JoinTimer) != OS_E_SWTIMER_STOPPED)
+    {
+        OS_eStopSWTimer(APP_JoinTimer);
+    }
+    if (OS_eGetSWTimerStatus(APP_OTAReqTimer) != OS_E_SWTIMER_STOPPED)
+    {
+        OS_eStopSWTimer(APP_OTAReqTimer);
+    }
+    if (OS_eGetSWTimerStatus(APP_tmrHandleUartRx) != OS_E_SWTIMER_STOPPED)
+    {
+        OS_eStopSWTimer(APP_tmrHandleUartRx);
+    }
+    if (OS_eGetSWTimerStatus(APP_AgeOutChildrenTmr) != OS_E_SWTIMER_STOPPED)
+    {
+        OS_eStopSWTimer(APP_AgeOutChildrenTmr);
+    }
+    if (OS_eGetSWTimerStatus(APP_RadioRecalTimer) != OS_E_SWTIMER_STOPPED)
+    {
+        OS_eStopSWTimer(APP_RadioRecalTimer);
+    }
+    if (OS_eGetSWTimerStatus(APP_RejoinTimer) != OS_E_SWTIMER_STOPPED)
+    {
+        OS_eStopSWTimer(APP_RejoinTimer);
+    }
+    if (OS_eGetSWTimerStatus(Arduino_LoopTimer) != OS_E_SWTIMER_STOPPED)
+    {
+        OS_eStopSWTimer(Arduino_LoopTimer);
+    }
+#endif
+}
 /****************************************************************************/
 /***        Local Functions                                               ***/
 /****************************************************************************/

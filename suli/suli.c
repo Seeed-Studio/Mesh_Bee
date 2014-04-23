@@ -289,15 +289,10 @@ int16 suli_analog_read(ANALOG_T *aio)
 /*
  * delay us
  */
-#define APP_TIME_US(t)    (16UL*(t))
 void suli_delay_us(uint32 us)
 {
-    //if (OS_eGetSWTimerStatus(Arduino_DelayTimer) != OS_E_SWTIMER_STOPPED)
-    //{
-    //    OS_eStopSWTimer(Arduino_DelayTimer); 
-    //}
-    OS_eStartSWTimer(Arduino_DelayTimer, APP_TIME_US(us), NULL); 
-    while(OS_eGetSWTimerStatus(Arduino_DelayTimer) == OS_E_SWTIMER_RUNNING);
+    uint32 mark_time = suli_micros();
+    while(suli_micros() - mark_time < us); 
 }
 
 
@@ -306,12 +301,8 @@ void suli_delay_us(uint32 us)
  */
 void suli_delay_ms(uint32 ms)
 {
-    //if (OS_eGetSWTimerStatus(Arduino_DelayTimer) != OS_E_SWTIMER_STOPPED)
-    //{
-    //    OS_eStopSWTimer(Arduino_DelayTimer);
-    //}
-    OS_eStartSWTimer(Arduino_DelayTimer, APP_TIME_MS(ms), NULL);
-    while(OS_eGetSWTimerStatus(Arduino_DelayTimer) == OS_E_SWTIMER_RUNNING); 
+    uint32 mark_time = suli_millis();
+    while(suli_millis() - mark_time < ms);
 }
 
 
