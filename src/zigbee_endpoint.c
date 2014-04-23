@@ -32,7 +32,7 @@
 #include "firmware_at_api.h"
 #include "firmware_ota.h"
 #include "firmware_hal.h"
-#include "firmware_api_codec.h"
+#include "firmware_api_pack.h"
 
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
@@ -158,143 +158,158 @@ OS_TASK(APP_taskHandleUartRx)
 
     DBG_vPrintf(TRACE_EP, "-HandleUartRx- \r\n");
 
+#ifdef FW_MODE_MASTER
     /* state machine */
-    switch (g_sDevice.eMode)
-    {
-    /*  Default:Data Mode,node will restore the previous mode */
-	case E_MODE_DATA:
+      switch (g_sDevice.eMode)
+      {
+      /*  Default:Data Mode,node will restore the previous mode */
+  	  case E_MODE_DATA:
 
-        /* read some data from ringbuffer */
-        popCnt = MIN(dataCnt, THRESHOLD_READ);
+          /* read some data from ringbuffer */
+          popCnt = MIN(dataCnt, THRESHOLD_READ);
 
-        OS_eEnterCriticalSection(mutexRxRb);
-        ringbuffer_pop(&rb_rx_uart, tmp, popCnt);
-        OS_eExitCriticalSection(mutexRxRb);
+          OS_eEnterCriticalSection(mutexRxRb);
+          ringbuffer_pop(&rb_rx_uart, tmp, popCnt);
+          OS_eExitCriticalSection(mutexRxRb);
 
-        if ((dataCnt - popCnt) >= THRESHOLD_READ)
-            OS_eActivateTask(APP_taskHandleUartRx);
-        else if ((dataCnt - popCnt) > 0)
-            vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(1));
+          if ((dataCnt - popCnt) >= THRESHOLD_READ)
+              OS_eActivateTask(APP_taskHandleUartRx);
+          else if ((dataCnt - popCnt) > 0)
+              vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(1));
 
-        /* AT filter to find AT delimiter */
-        if (searchAtStarter(tmp, popCnt))
-        {
-            g_sDevice.eMode = E_MODE_AT;
-            PDM_vSaveRecord(&g_sDevicePDDesc);
-            uart_printf("Enter AT mode.\r\n");
-            clear_ringbuffer(&rb_rx_uart);
-        }
-        /* if not containing AT, send out the data */
-        else if (g_sDevice.eState == E_NETWORK_RUN)    //Make sure network has been created.
-        {
-            tsApiFrame frm;
-            sendToAir(g_sDevice.config.txMode, g_sDevice.config.unicastDstAddr,
-                      &frm, FRM_DATA, tmp, popCnt);
-        }
-        break;
+          /* AT filter to find AT delimiter */
+          if (searchAtStarter(tmp, popCnt))
+          {
+              g_sDevice.eMode = E_MODE_AT;
+              PDM_vSaveRecord(&g_sDevicePDDesc);
+              uart_printf("Enter AT mode.\r\n");
+              clear_ringbuffer(&rb_rx_uart);
+          }
+          /* if not containing AT, send out the data */
+          else if (g_sDevice.eState == E_NETWORK_RUN)    //Make sure network has been created.
+          {
+              tsApiFrame frm;
+              sendToAir(g_sDevice.config.txMode, g_sDevice.config.unicastDstAddr,
+                        &frm, FRM_DATA, tmp, popCnt);
+          }
+          break;
 
-    /* AT command mode */
-    case E_MODE_AT:
-        popCnt = MIN(dataCnt, RXFIFOLEN);
+      /* AT command mode */
+      case E_MODE_AT:
+          popCnt = MIN(dataCnt, RXFIFOLEN);
 
-        OS_eEnterCriticalSection(mutexRxRb);
-        ringbuffer_read(&rb_rx_uart, tmp, popCnt);
-        OS_eExitCriticalSection(mutexRxRb);
+          OS_eEnterCriticalSection(mutexRxRb);
+          ringbuffer_read(&rb_rx_uart, tmp, popCnt);
+          OS_eExitCriticalSection(mutexRxRb);
 
-        int len = popCnt;
-        bool found = FALSE;
-        while (len--)
-        {
-            if (tmp[len] == '\r' || tmp[len] == '\n')
-                found = TRUE;
-        }
+          int len = popCnt;
+          bool found = FALSE;
+          while (len--)
+          {
+              if (tmp[len] == '\r' || tmp[len] == '\n')
+                  found = TRUE;
+          }
 
-        if (!found && popCnt < RXFIFOLEN)
-        {
-            //OS_eStartSWTimer(APP_tmrHandleUartRx, APP_TIME_MS(5), NULL); //handle after 1ms
-            return;
-        }
+          if (!found && popCnt < RXFIFOLEN)
+          {
+              //OS_eStartSWTimer(APP_tmrHandleUartRx, APP_TIME_MS(5), NULL); //handle after 1ms
+              return;
+          }
 
-        /* Process AT command */
-        int ret = API_i32AtProcessSerialCmd(tmp, popCnt);
+          /* Process AT command */
+          int ret = API_i32AtProcessSerialCmd(tmp, popCnt);
 
-        char *resp;
-        if (ret == OK)
-            resp = "OK\r\n\r\n";
-        if (ret == ERR)
-            resp = "Error\r\n\r\n";
-        if (ret == ERRNCMD)
-            resp = "Error, invalid command\r\n\r\n";
-        if (ret == OUTRNG)
-            resp = "Error, out range\r\n\r\n";
-        uart_printf(resp);						//comment this for sensor data server mode
+          char *resp;
+          if (ret == OK)
+              resp = "OK\r\n\r\n";
+          if (ret == ERR)
+              resp = "Error\r\n\r\n";
+          if (ret == ERRNCMD)
+              resp = "Error, invalid command\r\n\r\n";
+          if (ret == OUTRNG)
+              resp = "Error, out range\r\n\r\n";
+          uart_printf(resp);						//comment this for sensor data server mode
 
-        OS_eEnterCriticalSection(mutexRxRb);
-        ringbuffer_pop(&rb_rx_uart, tmp, popCnt);
-        OS_eExitCriticalSection(mutexRxRb);
-        break;
+          OS_eEnterCriticalSection(mutexRxRb);
+          ringbuffer_pop(&rb_rx_uart, tmp, popCnt);
+          OS_eExitCriticalSection(mutexRxRb);
+          break;
 
-    /* API Mode */
-    case E_MODE_API:
-    	/* calc the minimal */
-    	popCnt = MIN(dataCnt, RXFIFOLEN);
+      /*
+        Arduino-ful MCU mode,the same to Slave Mode,because user
+        may pop apiSpec to rb_rx_uart.
+      */
+      case E_MODE_MCU:
+      /* calc the minimal */
+          popCnt = MIN(dataCnt, RXFIFOLEN);
 
-    	OS_eEnterCriticalSection(mutexRxRb);
-    	ringbuffer_read(&rb_rx_uart, tmp, popCnt);
-    	OS_eExitCriticalSection(mutexRxRb);
+          OS_eEnterCriticalSection(mutexRxRb);
+          ringbuffer_read(&rb_rx_uart, tmp, popCnt);
+          OS_eExitCriticalSection(mutexRxRb);
 
-    	/* AT filter to find AT delimiter */
-    	if (searchAtStarter(tmp, popCnt))
-    	{
-    		g_sDevice.eMode = E_MODE_AT;
-    	    PDM_vSaveRecord(&g_sDevicePDDesc);
-    	    uart_printf("Enter AT mode.\r\n");
-    	    clear_ringbuffer(&rb_rx_uart);
-    	}
-    	else
-    	{
-    		/* Instance an apiSpec */
-    		tsApiSpec apiSpec;
-    		bool bValid = FALSE;
-    		memset(&apiSpec, 0, sizeof(tsApiSpec));
+          /* Instance an apiSpec */
+          tsApiSpec apiSpec;
+          bool bValid = FALSE;
+          memset(&apiSpec, 0, sizeof(tsApiSpec));
 
-    		/* Deassemble apiSpec frame */
-    		uint16 procSize =  u16DecodeApiSpec(tmp, popCnt, &apiSpec, &bValid);
-    		if(!bValid)
-    		{
-    			/*
-    		      Invalid frame,discard from ringbuffer
-    		      Any data received prior to the start delimiter will be discarded.
-    		      If the frame is not received correctly or if the checksum fails,
-    		      discard too.And Re-Activate Task 1ms later.
-    		    */
-    		     vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(1));
-    		}
-    		else
-    		{
-    			/* Process API frame using API support layer's api */
-    		    API_i32UdsProcessApiCmd(&apiSpec);
-    		}
-    		/* Discard already processed part */
-    		OS_eEnterCriticalSection(mutexRxRb);
-    		ringbuffer_pop(&rb_rx_uart,discard,procSize);
-    		OS_eExitCriticalSection(mutexRxRb);
-    	}
+          /* Deassemble apiSpec frame */
+          uint16 procSize =  u16DecodeApiSpec(tmp, popCnt, &apiSpec, &bValid);
+          if(!bValid)
+          {
+          /*
+            Invalid frame,discard from ringbuffer
+            Any data received prior to the start delimiter will be discarded.
+            If the frame is not received correctly or if the checksum fails,
+            discard too.And Re-Activate Task 1ms later.
+          */
+          	vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(1));
+           }
+          else
+          {
+              /* Process API frame using API support layer's api */
+          	API_i32UdsProcessApiCmd(&apiSpec);
+          }
+          /* Discard already processed part */
+          OS_eEnterCriticalSection(mutexRxRb);
+          ringbuffer_pop(&rb_rx_uart,discard,procSize);
+          OS_eExitCriticalSection(mutexRxRb);
+          break;
 
-    	break;
+      /* default:do nothing */
+      default:
+          break;
+      }
+#else
+      /* calc the minimal */
+         popCnt = MIN(dataCnt, RXFIFOLEN);
 
-    /* Arduino-ful MCU mode */
-    case E_MODE_MCU:break;
+         OS_eEnterCriticalSection(mutexRxRb);
+         ringbuffer_read(&rb_rx_uart, tmp, popCnt);
+         OS_eExitCriticalSection(mutexRxRb);
 
-    /* default:do nothing */
-    default:
-        break;
-    }
+         /* Instance an apiSpec */
+         tsApiSpec apiSpec;
+         bool bValid = FALSE;
+         memset(&apiSpec, 0, sizeof(tsApiSpec));
+
+         /* Deassemble apiSpec frame */
+         uint16 procSize =  u16DecodeApiSpec(tmp, popCnt, &apiSpec, &bValid);
+         if(!bValid)
+         {
+         	vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(1));
+          }
+         else
+         {
+             /* Process API frame using API support layer's api */
+         	API_i32UdsProcessApiCmd(&apiSpec);
+         }
+         /* Discard already processed part */
+         OS_eEnterCriticalSection(mutexRxRb);
+         ringbuffer_pop(&rb_rx_uart,discard,procSize);
+         OS_eExitCriticalSection(mutexRxRb);
+#endif
 
 }
-
-
-
 
 /****************************************************************************
  *
@@ -521,7 +536,7 @@ void vHandleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
     vAHI_TimerStartRepeat(E_AHI_TIMER_1, 500 - pwmWidth, 500 + pwmWidth);
 
     /* Call API support layer */
-    int ret = API_i32AptsProcessStackEvent(sStackEvent);
+    int ret = API_i32AdsProcessStackEvent(sStackEvent);
     if(!ret)
     {
     	/* report module error */

@@ -2,7 +2,7 @@
  * firmware_ups.c
  * - User Programming Space -
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module
- * 
+ *
  * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
  * Author     : Oliver Wang
@@ -25,7 +25,7 @@
 /****************************************************************************/
 /***        Include files                                                 ***/
 /****************************************************************************/
-#include "common.h"
+#include "firmware_ups.h"
 #include "suli.h"
 #include "ups_arduino_sketch.h"
 
@@ -50,6 +50,13 @@
 /****************************************************************************/
 /***        Exported Variables                                            ***/
 /****************************************************************************/
+/* If runs Master Mode,create two aups_ringbuf[UART,AirPort] */
+#ifdef FW_MODE_MASTER
+struct ringbuffer rb_uart_aups;
+struct ringbuffer rb_air_aups;
+
+uint8 aups_uart_mempool[AUPS_UART_RB_LEN] = {0};
+uint8 aups_air_mempool[AUPS_AIR_RB_LEN] = {0};
 
 
 /****************************************************************************/
@@ -68,6 +75,25 @@ PRIVATE uint32 _loopInterval = 0;
 
 /****************************************************************************
  *
+ * NAME: UPS_vInitRingbuffer
+ *
+ * DESCRIPTION:
+ * init ringbuffer of user programming space
+ *
+ * PARAMETERS: Name         RW  Usage
+ *
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
+void UPS_vInitRingbuffer()
+{
+    /* aups ringbuffer is required in Master mode */
+    init_ringbuffer(&rb_uart_aups, aups_uart_mempool, AUPS_UART_RB_LEN);
+    init_ringbuffer(&rb_air_aups, aups_air_mempool, AUPS_AIR_RB_LEN);
+}
+/****************************************************************************
+ *
  * NAME: ups_init
  *
  * DESCRIPTION:
@@ -77,10 +103,12 @@ PRIVATE uint32 _loopInterval = 0;
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 void ups_init(void)
 {
+	/* Init ringbuffer */
+	UPS_vInitRingbuffer();
 	//init suli
     suli_init();
     //init arduino sketch with arduino-style setup function
@@ -88,6 +116,9 @@ void ups_init(void)
     //start arduino loops, Arduino_LoopTimer is bound with Arduino_Loop task
     OS_eStartSWTimer(Arduino_LoopTimer, APP_TIME_MS(1), NULL);
 }
+
+
+
 
 /****************************************************************************
  *
@@ -101,12 +132,38 @@ void ups_init(void)
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 void setLoopIntervalMs(uint32 ms)
 {
     _loopInterval = ms;
 }
+
+/****************************************************************************/
+/***        Local Functions                                               ***/
+/****************************************************************************/
+/****************************************************************************
+ *
+ * NAME: setNodeState
+ *
+ * DESCRIPTION:
+ * set the state of node
+ *
+ * PARAMETERS: Name         RW  Usage
+ *             state        W   state of node
+ *             0:DATA_MODE
+ *             1:AT_MODE
+ *             2:MCU_MODE
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
+void setNodeState(uint32 state)
+{
+    g_sDevice.eMode = state;
+    PDM_vSaveRecord(&g_sDevicePDDesc);
+}
+#endif  //FW_MODE_MASTER
 
 
 /****************************************************************************
@@ -119,17 +176,23 @@ void setLoopIntervalMs(uint32 ms)
  ****************************************************************************/
 OS_TASK(Arduino_Loop)
 {
-    arduino_loop();
+#ifdef FW_MODE_MASTER
+	/*
+	  Mutex, only at MCU mode,this loop will be called
+	  So,if you want to treat MeshBee as an Arduino,
+	  It is necessary that call 'setNodeState(E_MODE_MCU)'
+	  in arduino_setup();
+    */
+	if(E_MODE_MCU == g_sDevice.eMode)
+	{
+		arduino_loop();
+	}
     if(_loopInterval > 0)
     {
-		OS_eStartSWTimer(Arduino_LoopTimer, APP_TIME_MS(_loopInterval), NULL); 
+		OS_eStartSWTimer(Arduino_LoopTimer, APP_TIME_MS(_loopInterval), NULL);
     } else
     {
-		OS_eActivateTask(Arduino_Loop); 
+		OS_eActivateTask(Arduino_Loop);
     }
+#endif
 }
-
-/****************************************************************************/
-/***        Local Functions                                               ***/
-/****************************************************************************/
-

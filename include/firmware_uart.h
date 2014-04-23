@@ -1,13 +1,13 @@
-/*    
+/*
  * firmware_uart.h
- * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
- *   
- * Copyright (c) NXP B.V. 2012.   
+ * Firmware for SeeedStudio Mesh Bee(Zigbee) module
+ *
+ * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
  * Author     : Jack Shao
- * Create Time: 2013/10 
- * Change Log :   
- *   
+ * Create Time: 2013/10
+ * Change Log :
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -18,7 +18,7 @@
  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.  
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef __UART_H__
@@ -28,14 +28,15 @@
 
 #define TXFIFOLEN               32
 #define RXFIFOLEN               32
-#define UART_TX_RB_LEN          100 
+#define UART_TX_RB_LEN          100
 #define UART_RX_RB_LEN          64
+
 #define THRESHOLD_READ          50
 
 
 
-void ringbuf_vInitialize(); 
-void uart_register_callback(); 
+void ringbuf_vInitialize();
+void uart_register_callback();
 void uart_initialize(void);
 bool uart_pass_up(char *buff, unsigned short len);
 bool uart_get_tx_status_busy();

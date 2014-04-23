@@ -21,6 +21,7 @@
         <ISRs xmi:type="oscfg:ISR" xmi:id="_YMZKUMO9EeOu9rjWOjKW9g" name="Suli_isrTimer0" IPL="14" type="controlled" ISRSource="_TXWG8MO9EeOu9rjWOjKW9g"/>
         <Mutexs xmi:type="oscfg:Mutex" xmi:id="_5wZtcDu-EeOwp6m5xWk7yQ" name="mutexRxRb"/>
         <Mutexs xmi:type="oscfg:Mutex" xmi:id="_9WM6ADu_EeOwp6m5xWk7yQ" name="mutexTxRb"/>
+        <Mutexs xmi:type="oscfg:Mutex" xmi:id="_roAXcMqtEeOeo7gEr3ZCag" name="mutexAirPort"/>
         <Messages xmi:type="oscfg:Message" xmi:id="_JBf7EDrVEd6X1p7n01EMHA" name="APP_msgZpsEvents" ctype="ZPS_tsAfEvent" queue="1" Notifies="_x9JOoDrUEd6X1p7n01EMHA"/>
         <Messages xmi:type="oscfg:Message" xmi:id="_gYmaYGTEEd6edYj8GksfEA" name="APP_msgMyEndPointEvents" ctype="ZPS_tsAfEvent" queue="1" Notifies="_bjYX4WTEEd6edYj8GksfEA"/>
         <HWCounters xmi:type="oscfg:HWCounter" xmi:id="_lHpu4DpQEd6X1p7n01EMHA" name="APP_cntrTickTimer" disable_callback="_gJsHIDuwEd6x482rWS0aIQ" enable_callback="_Y9qlUTuwEd6x482rWS0aIQ" get_callback="_1gV7oDuwEd6x482rWS0aIQ" set_callback="_y13SYDuwEd6x482rWS0aIQ">
@@ -47,9 +48,9 @@
         <Tasks xmi:type="oscfg:Task" xmi:id="_4BMDAEbJEeOwdevZvMn2aQ" name="APP_taskOTAReq" EnterExitMutex="_DhAXIDpKEd6X1p7n01EMHA _98PuEDpJEd6X1p7n01EMHA _F6f-EDpKEd6X1p7n01EMHA _u0Nn0etCEd-nfefw8kaWcQ" autostarted="false" priority="201"/>
         <Tasks xmi:type="oscfg:Task" xmi:id="_NLXUMEbqEeOwdevZvMn2aQ" name="APP_AgeOutChildren" EnterExitMutex="_F6f-EDpKEd6X1p7n01EMHA _DhAXIDpKEd6X1p7n01EMHA _98PuEDpJEd6X1p7n01EMHA _u0Nn0etCEd-nfefw8kaWcQ" autostarted="false" priority="360"/>
         <Tasks xmi:type="oscfg:Task" xmi:id="_rY3FcEs7EeOZucC9wLqnzw" name="APP_RadioRecal" autostarted="false" priority="400"/>
-        <Tasks xmi:type="oscfg:Task" xmi:id="_QLwxMMO8EeOu9rjWOjKW9g" name="Arduino_Loop" EnterExitMutex="_9WM6ADu_EeOwp6m5xWk7yQ _5wZtcDu-EeOwp6m5xWk7yQ _F6f-EDpKEd6X1p7n01EMHA _u0Nn0etCEd-nfefw8kaWcQ _DhAXIDpKEd6X1p7n01EMHA _98PuEDpJEd6X1p7n01EMHA" autostarted="false" priority="99"/>
+        <Tasks xmi:type="oscfg:Task" xmi:id="_QLwxMMO8EeOu9rjWOjKW9g" name="Arduino_Loop" EnterExitMutex="_9WM6ADu_EeOwp6m5xWk7yQ _5wZtcDu-EeOwp6m5xWk7yQ _F6f-EDpKEd6X1p7n01EMHA _u0Nn0etCEd-nfefw8kaWcQ _DhAXIDpKEd6X1p7n01EMHA _98PuEDpJEd6X1p7n01EMHA _roAXcMqtEeOeo7gEr3ZCag" autostarted="false" priority="99"/>
         <CooperativeTaskGroups xmi:type="oscfg:CooperativeGroup" xmi:id="_vQTR4KmQEeGoNLVt2h6M3A" name="CooperativeTasks">
-          <CooperativeTasks xmi:type="oscfg:Task" xmi:id="_bjYX4WTEEd6edYj8GksfEA" name="APP_taskMyEndPoint" CollectMessage="_gYmaYGTEEd6edYj8GksfEA" EnterExitMutex="_98PuEDpJEd6X1p7n01EMHA _DhAXIDpKEd6X1p7n01EMHA _F6f-EDpKEd6X1p7n01EMHA _u0Nn0etCEd-nfefw8kaWcQ _9WM6ADu_EeOwp6m5xWk7yQ" autostarted="false" priority="202"/>
+          <CooperativeTasks xmi:type="oscfg:Task" xmi:id="_bjYX4WTEEd6edYj8GksfEA" name="APP_taskMyEndPoint" CollectMessage="_gYmaYGTEEd6edYj8GksfEA" EnterExitMutex="_98PuEDpJEd6X1p7n01EMHA _DhAXIDpKEd6X1p7n01EMHA _F6f-EDpKEd6X1p7n01EMHA _u0Nn0etCEd-nfefw8kaWcQ _9WM6ADu_EeOwp6m5xWk7yQ _roAXcMqtEeOeo7gEr3ZCag" autostarted="false" priority="202"/>
           <CooperativeTasks xmi:type="oscfg:Task" xmi:id="_x9JOoDrUEd6X1p7n01EMHA" name="APP_taskNWK" CollectMessage="_JBf7EDrVEd6X1p7n01EMHA" EnterExitMutex="_98PuEDpJEd6X1p7n01EMHA _DhAXIDpKEd6X1p7n01EMHA _F6f-EDpKEd6X1p7n01EMHA _u0Nn0etCEd-nfefw8kaWcQ _9WM6ADu_EeOwp6m5xWk7yQ" autostarted="false" priority="200"/>
         </CooperativeTaskGroups>
       </Modules>
@@ -353,6 +354,11 @@
               <children xmi:type="notation:Node" xmi:id="_YMi7VcO9EeOu9rjWOjKW9g" visible="true" type="5024"/>
               <styles xmi:type="notation:ShapeStyle" xmi:id="_YMi7UcO9EeOu9rjWOjKW9g" fontColor="0" fontName="宋体" fontHeight="9" bold="false" italic="false" underline="false" strikeThrough="false" description="" fillColor="16777215" lineColor="11579568" lineWidth="-1"/>
               <layoutConstraint xmi:type="notation:Bounds" xmi:id="_YMi7UsO9EeOu9rjWOjKW9g" x="1059" y="241" width="-1" height="-1"/>
+            </children>
+            <children xmi:type="notation:Node" xmi:id="_rpygIMqtEeOeo7gEr3ZCag" visible="true" type="3012" element="_roAXcMqtEeOeo7gEr3ZCag">
+              <children xmi:type="notation:Node" xmi:id="_rpygI8qtEeOeo7gEr3ZCag" visible="true" type="5025"/>
+              <styles xmi:type="notation:ShapeStyle" xmi:id="_rpygIcqtEeOeo7gEr3ZCag" fontColor="0" fontName="宋体" fontHeight="9" bold="false" italic="false" underline="false" strikeThrough="false" description="" fillColor="16777215" lineColor="11579568" lineWidth="-1"/>
+              <layoutConstraint xmi:type="notation:Bounds" xmi:id="_rpygIsqtEeOeo7gEr3ZCag" x="915" y="308" width="81" height="36"/>
             </children>
             <styles xmi:type="notation:SortingStyle" xmi:id="_UoRIJjpMEd6X1p7n01EMHA" sorting="None"/>
             <styles xmi:type="notation:FilteringStyle" xmi:id="_UoRIJzpMEd6X1p7n01EMHA" filtering="None"/>
@@ -1346,6 +1352,30 @@
       <element xsi:nil="true"/>
       <bendpoints xmi:type="notation:RelativeBendpoints" xmi:id="_nC8H08O9EeOu9rjWOjKW9g" points="[-2, 10, 0, -24]$[-1, 28, 1, -6]"/>
       <targetAnchor xmi:type="notation:IdentityAnchor" xmi:id="_nC8H1sO9EeOu9rjWOjKW9g" id="(0.52517986,0.115384616)"/>
+    </edges>
+    <edges xmi:type="notation:Edge" xmi:id="_2ZLbAMqtEeOeo7gEr3ZCag" visible="true" type="4003" source="_QLwxMcO8EeOu9rjWOjKW9g" target="_rpygIMqtEeOeo7gEr3ZCag">
+      <children xmi:type="notation:Node" xmi:id="_2ZVMAMqtEeOeo7gEr3ZCag" visible="true" type="6004">
+        <element xsi:nil="true"/>
+        <layoutConstraint xmi:type="notation:Location" xmi:id="_2ZVMAcqtEeOeo7gEr3ZCag" x="0" y="40"/>
+      </children>
+      <styles xmi:type="notation:RoutingStyle" xmi:id="_2ZLbAcqtEeOeo7gEr3ZCag" routing="Manual" smoothness="None" avoidObstructions="false" closestDistance="false" jumpLinkStatus="None" jumpLinkType="Semicircle" jumpLinksReverse="false"/>
+      <styles xmi:type="notation:FontStyle" xmi:id="_2ZLbAsqtEeOeo7gEr3ZCag" fontColor="0" fontName="宋体" fontHeight="9" bold="false" italic="false" underline="false" strikeThrough="false"/>
+      <element xsi:nil="true"/>
+      <bendpoints xmi:type="notation:RelativeBendpoints" xmi:id="_2ZLbA8qtEeOeo7gEr3ZCag" points="[-1, 3, 78, 0]$[-65, 5, 14, 2]"/>
+      <sourceAnchor xmi:type="notation:IdentityAnchor" xmi:id="_2Ze9AMqtEeOeo7gEr3ZCag" id="(0.007246377,0.48076922)"/>
+      <targetAnchor xmi:type="notation:IdentityAnchor" xmi:id="_2Ze9AcqtEeOeo7gEr3ZCag" id="(0.8271605,0.6111111)"/>
+    </edges>
+    <edges xmi:type="notation:Edge" xmi:id="_47KPkMqtEeOeo7gEr3ZCag" visible="true" type="4003" source="_blURkGTEEd6edYj8GksfEA" target="_rpygIMqtEeOeo7gEr3ZCag">
+      <children xmi:type="notation:Node" xmi:id="_47KPlMqtEeOeo7gEr3ZCag" visible="true" type="6004">
+        <element xsi:nil="true"/>
+        <layoutConstraint xmi:type="notation:Location" xmi:id="_47KPlcqtEeOeo7gEr3ZCag" x="39" y="-9"/>
+      </children>
+      <styles xmi:type="notation:RoutingStyle" xmi:id="_47KPkcqtEeOeo7gEr3ZCag" routing="Manual" smoothness="None" avoidObstructions="false" closestDistance="false" jumpLinkStatus="None" jumpLinkType="Semicircle" jumpLinksReverse="false"/>
+      <styles xmi:type="notation:FontStyle" xmi:id="_47KPksqtEeOeo7gEr3ZCag" fontColor="0" fontName="宋体" fontHeight="9" bold="false" italic="false" underline="false" strikeThrough="false"/>
+      <element xsi:nil="true"/>
+      <bendpoints xmi:type="notation:RelativeBendpoints" xmi:id="_47KPk8qtEeOeo7gEr3ZCag" points="[0, 3, -167, -165]$[0, 168, -167, 0]$[167, 168, 0, 0]"/>
+      <sourceAnchor xmi:type="notation:IdentityAnchor" xmi:id="_47KPlsqtEeOeo7gEr3ZCag" id="(0.8720379,0.9464286)"/>
+      <targetAnchor xmi:type="notation:IdentityAnchor" xmi:id="_47KPl8qtEeOeo7gEr3ZCag" id="(0.0,0.5277778)"/>
     </edges>
   </notation:Diagram>
 </xmi:XMI>

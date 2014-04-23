@@ -1,7 +1,7 @@
 /*
  * suli.c
  * Seeed Unified Library Interface for Mesh Bee
- * 
+ *
  * About Suli: https://github.com/Seeed-Studio/Suli
  *
  * 2013 Copyright (c) Seeed Technology Inc.  All right reserved.
@@ -58,10 +58,10 @@ static void strreverse(char *begin, char *end);
 /***        Local Variables                                               ***/
 /****************************************************************************/
 volatile uint32 timer0_overflow_count = 0;
-volatile uint32 timer0_millis = 0; 
+volatile uint32 timer0_millis = 0;
 
 static const double pow10[] = { 1, 10, 100, 1000, 10000, 100000, 1000000,
-                                10000000, 100000000, 1000000000 }; 
+                                10000000, 100000000, 1000000000 };
 
 /****************************************************************************/
 /***        External Variables                                            ***/
@@ -72,11 +72,11 @@ static const double pow10[] = { 1, 10, 100, 1000, 10000, 100000, 1000000,
 /***        Exported Functions                                            ***/
 /****************************************************************************/
 
-/* 
- * initialize hardware 
- * e.g. timer for millis/micros/pulseIn 
- * For Arduino & mbed, no need to call this. 
- * Within Seeed firmware of Mesh Bee, we have called this at a proper place. 
+/*
+ * initialize hardware
+ * e.g. timer for millis/micros/pulseIn
+ * For Arduino & mbed, no need to call this.
+ * Within Seeed firmware of Mesh Bee, we have called this at a proper place.
  */
 void suli_init(void)
 {
@@ -110,15 +110,15 @@ void suli_pin_dir(IO_T *pio, DIR_T dir)
 {
     if(*pio >= DO0)
     {
-        if(dir == HAL_PIN_INPUT) 
+        if(dir == HAL_PIN_INPUT)
         {
-            DBG_vPrintf(TRACE_SULI, "DO pins can not be configured as input.\r\n"); 
+            DBG_vPrintf(TRACE_SULI, "DO pins can not be configured as input.\r\n");
         }
     } else
     {
         uint32 u32Inputs = 0;
-        uint32 u32Outputs = 0; 
-    
+        uint32 u32Outputs = 0;
+
         if(dir == HAL_PIN_INPUT)
         {
             u32Inputs = (1 << (*pio));
@@ -140,15 +140,15 @@ void suli_pin_write(IO_T *pio, int16 state)
 {
     if(*pio >= DO0)
     {
-        uint8 u8On = 0; 
-        uint8 u8Off = 0; 
-        
+        uint8 u8On = 0;
+        uint8 u8Off = 0;
+
         if(state == HAL_PIN_LOW)
         {
-            u8Off = (1 << (*pio - DO0)); 
+            u8Off = (1 << (*pio - DO0));
         } else
         {
-            u8On = (1 << (*pio - DO0)); 
+            u8On = (1 << (*pio - DO0));
         }
         vAHI_DoSetDataOut(u8On, u8Off);
     } else
@@ -158,12 +158,12 @@ void suli_pin_write(IO_T *pio, int16 state)
 
         if(state == HAL_PIN_LOW)
         {
-            u32Off = (1 << (*pio)); 
+            u32Off = (1 << (*pio));
         } else
         {
-            u32On = (1 << (*pio)); 
+            u32On = (1 << (*pio));
         }
-        vAHI_DioSetOutput(u32On, u32Off); 
+        vAHI_DioSetOutput(u32On, u32Off);
     }
 }
 
@@ -180,9 +180,9 @@ int16 suli_pin_read(IO_T *pio)
 
 
 /**
- * Reads a pulse (either HIGH or LOW) on a pin. For example, if value is HIGH, 
- * suli_pulse_in() waits for the pin to go HIGH, starts timing, 
- * then waits for the pin to go LOW and stops timing. Returns the length of the pulse in microseconds. 
+ * Reads a pulse (either HIGH or LOW) on a pin. For example, if value is HIGH,
+ * suli_pulse_in() waits for the pin to go HIGH, starts timing,
+ * then waits for the pin to go LOW and stops timing. Returns the length of the pulse in microseconds.
  * Gives up and returns 0 if no pulse starts within a specified time out.
  * para -
  * pin: pins which you want to read the pulse.
@@ -194,7 +194,7 @@ uint32 suli_pulse_in(IO_T *pio, uint8 state, uint32 timeout)
     #define LOOP_CYCLES   38
     uint32 width = 0;
     uint32 numloops = 0;
-    uint32 maxloops = timeout * 32 / (LOOP_CYCLES-5); 
+    uint32 maxloops = timeout * 32 / (LOOP_CYCLES-5);
 
     while(suli_pin_read(pio) == state)
     {
@@ -208,13 +208,13 @@ uint32 suli_pulse_in(IO_T *pio, uint8 state, uint32 timeout)
 			return 0;
     }
 
-    while(((u32AHI_DioReadInput() >> (*pio)) & 0x1) == state) 
+    while(((u32AHI_DioReadInput() >> (*pio)) & 0x1) == state)
     {
         if (numloops++ == maxloops)
 			return 0;
 		width++;
     }
-    return (width * LOOP_CYCLES + 32) / 32; 
+    return (width * LOOP_CYCLES + 32) / 32;
 }
 
 
@@ -248,7 +248,7 @@ void suli_analog_init(ANALOG_T * aio, PIN_T pin)
             *aio = E_AHI_ADC_SRC_VOLT;
             break;
         default:
-            *aio = E_AHI_ADC_SRC_TEMP; 
+            *aio = E_AHI_ADC_SRC_TEMP;
         }
         vAHI_ApConfigure(E_AHI_AP_REGULATOR_ENABLE,
     					 E_AHI_AP_INT_DISABLE,
@@ -256,11 +256,11 @@ void suli_analog_init(ANALOG_T * aio, PIN_T pin)
     		    		 E_AHI_AP_CLOCKDIV_500KHZ,
     		    		 E_AHI_AP_INTREF);
 
-    	// Wait until the regulator becomes stable. 
+    	// Wait until the regulator becomes stable.
     	while(!bAHI_APRegulatorEnabled());
-    } else 
+    } else
     {
-        DBG_vPrintf(TRACE_SULI, "PIN %d can not be used as analog input.\r\n", pin); 
+        DBG_vPrintf(TRACE_SULI, "PIN %d can not be used as analog input.\r\n", pin);
     }
 }
 
@@ -271,18 +271,18 @@ void suli_analog_init(ANALOG_T * aio, PIN_T pin)
  * if if your ADC is 12bit, you need to >>2, or your ADC is 8Bit, you need to <<2
  */
 int16 suli_analog_read(ANALOG_T *aio)
-{    
+{
     vAHI_AdcEnable(E_AHI_ADC_SINGLE_SHOT, E_AHI_AP_INPUT_RANGE_2, *aio);  //2*vref = 1.2*2 = 2.4V
     vAHI_AdcStartSample();
     // Wait until ADC data is available
     while(bAHI_AdcPoll());
-    
+
     uint16 val = u16AHI_AdcRead();
-    
+
     return val;
-    
+
     //convert the output to 5V - 1024
-    //return (int16)(val * 6.6f / 5.0f);   
+    //return (int16)(val * 6.6f / 5.0f);
 }
 
 
@@ -294,9 +294,9 @@ void suli_delay_us(uint32 us)
 {
     //if (OS_eGetSWTimerStatus(Arduino_DelayTimer) != OS_E_SWTIMER_STOPPED)
     //{
-    //    OS_eStopSWTimer(Arduino_DelayTimer); 
+    //    OS_eStopSWTimer(Arduino_DelayTimer);
     //}
-    OS_eStartSWTimer(Arduino_DelayTimer, APP_TIME_US(us), NULL); 
+    OS_eStartSWTimer(Arduino_DelayTimer, APP_TIME_US(us), NULL);
     while(OS_eGetSWTimerStatus(Arduino_DelayTimer) == OS_E_SWTIMER_RUNNING);
 }
 
@@ -311,12 +311,12 @@ void suli_delay_ms(uint32 ms)
     //    OS_eStopSWTimer(Arduino_DelayTimer);
     //}
     OS_eStartSWTimer(Arduino_DelayTimer, APP_TIME_MS(ms), NULL);
-    while(OS_eGetSWTimerStatus(Arduino_DelayTimer) == OS_E_SWTIMER_RUNNING); 
+    while(OS_eGetSWTimerStatus(Arduino_DelayTimer) == OS_E_SWTIMER_RUNNING);
 }
 
 
 /*
- * Returns the number of milliseconds since your board began running the current program. 
+ * Returns the number of milliseconds since your board began running the current program.
  * This number will overflow (go back to zero), after approximately 50 days.
  */
 uint32 suli_millis()
@@ -326,18 +326,18 @@ uint32 suli_millis()
 
 
 /*
- * Returns the number of microseconds since your board began running the current program. 
+ * Returns the number of microseconds since your board began running the current program.
  * This number will overflow (go back to zero), after approximately 70 minutes.
  * Note: there are 1,000 microseconds in a millisecond and 1,000,000 microseconds in a second.
  */
 uint32 suli_micros()
 {
-    return (u16AHI_TimerReadCount(E_AHI_TIMER_0) + 60000 * timer0_overflow_count); 
+    return (u16AHI_TimerReadCount(E_AHI_TIMER_0) + 60000 * timer0_overflow_count);
 }
 
 
 /*
- * I2C interface initialize. 
+ * I2C interface initialize.
  */
 void suli_i2c_init(void * i2c_device)
 {
@@ -360,9 +360,9 @@ uint8 suli_i2c_write(void * i2c_device, uint8 dev_addr, uint8 *data, uint8 len)
 {
     vAHI_SiMasterWriteSlaveAddr(dev_addr, FALSE);
     // bSetSTA,  bSetSTO,  bSetRD,  bSetWR,  bSetAckCtrl,  bSetIACK);
-    bAHI_SiMasterSetCmdReg(TRUE, FALSE, FALSE, TRUE, E_AHI_SI_SEND_ACK, E_AHI_SI_NO_IRQ_ACK); 
+    bAHI_SiMasterSetCmdReg(TRUE, FALSE, FALSE, TRUE, E_AHI_SI_SEND_ACK, E_AHI_SI_NO_IRQ_ACK);
     while(bAHI_SiMasterPollTransferInProgress()); //Waitforanindicationofsuccess
-    
+
     int i;
     uint8 *old = data;
     for(i = 0; i < len; i++)
@@ -396,9 +396,9 @@ uint8 suli_i2c_write(void * i2c_device, uint8 dev_addr, uint8 *data, uint8 len)
  */
 uint8 suli_i2c_read(void *i2c_device, uint8 dev_addr, uint8 *buff, uint8 len)
 {
-    vAHI_SiMasterWriteSlaveAddr(dev_addr, TRUE); 
+    vAHI_SiMasterWriteSlaveAddr(dev_addr, TRUE);
     // bSetSTA,  bSetSTO,  bSetRD,  bSetWR,  bSetAckCtrl,  bSetIACK);
-    bAHI_SiMasterSetCmdReg(TRUE, FALSE, FALSE, TRUE, E_AHI_SI_SEND_ACK, E_AHI_SI_NO_IRQ_ACK); 
+    bAHI_SiMasterSetCmdReg(TRUE, FALSE, FALSE, TRUE, E_AHI_SI_SEND_ACK, E_AHI_SI_NO_IRQ_ACK);
     while(bAHI_SiMasterPollTransferInProgress()); //Waitforanindicationofsuccess
 
     int i;
@@ -407,10 +407,10 @@ uint8 suli_i2c_read(void *i2c_device, uint8 dev_addr, uint8 *buff, uint8 len)
     {
         if(i == (len - 1))  //should send stop, nack
         {
-            bAHI_SiMasterSetCmdReg(FALSE, TRUE, TRUE, FALSE, E_AHI_SI_SEND_NACK, E_AHI_SI_NO_IRQ_ACK); 
+            bAHI_SiMasterSetCmdReg(FALSE, TRUE, TRUE, FALSE, E_AHI_SI_SEND_NACK, E_AHI_SI_NO_IRQ_ACK);
         } else
         {
-            bAHI_SiMasterSetCmdReg(FALSE, FALSE, TRUE, FALSE, E_AHI_SI_SEND_ACK, E_AHI_SI_NO_IRQ_ACK); 
+            bAHI_SiMasterSetCmdReg(FALSE, FALSE, TRUE, FALSE, E_AHI_SI_SEND_ACK, E_AHI_SI_NO_IRQ_ACK);
         }
         while(bAHI_SiMasterPollTransferInProgress()); //Waitforanindicationofsuccess
         *buff++ = u8AHI_SiMasterReadData8();
@@ -424,7 +424,7 @@ uint8 suli_i2c_read(void *i2c_device, uint8 dev_addr, uint8 *buff, uint8 len)
  * - uart_device: uart device pointer, IGNORED for Mesh Bee
  * - uart_num: for some MCU, there's more than one uart, this is the number of uart
  *   for Arduino-UNO(or others use 328, 32u4, 168), these is a hardware uart and software uart.
- *   for Mesh Bee (JN5168), IGNORED as only UART1 is for user 
+ *   for Mesh Bee (JN5168), IGNORED as only UART1 is for user
  * - baud? baudrate
  */
 void suli_uart_init(void * uart_device, int16 uart_num, uint32 baud)
@@ -459,8 +459,8 @@ void suli_uart_init(void * uart_device, int16 uart_num, uint32 baud)
         g_sDevice.config.baudRateUart1 = 5;
         break;
     }
-    PDM_vSaveRecord(&g_sDevicePDDesc); 
-    AT_setBaudRateUart1(&g_sDevice.config.baudRateUart1); 
+    PDM_vSaveRecord(&g_sDevicePDDesc);
+    AT_setBaudRateUart1(&g_sDevice.config.baudRateUart1);
 }
 
 
@@ -494,7 +494,7 @@ void suli_uart_write_float(void *uart_device, int16 uart_num, float data, uint8 
 {
     char buff[32];
     modp_dtoa2((double)data, buff, prec);
-    uart_tx_data(buff, strlen(buff)); 
+    uart_tx_data(buff, strlen(buff));
 }
 
 /*
@@ -508,8 +508,8 @@ void suli_uart_write_int(void *uart_device, int16 uart_num, int32 num)
 
 
 /*
- * send formatted string to uart 
- * max length after formateed: 80 
+ * send formatted string to uart
+ * max length after formateed: 80
  */
 void suli_uart_printf(void *uart_device, int16 uart_num, const char *fmt, ...)
 {
@@ -529,16 +529,16 @@ void suli_uart_printf(void *uart_device, int16 uart_num, const char *fmt, ...)
  */
 uint8 suli_uart_read_byte(void * uart_device, int16 uart_num)
 {
-    uint32 dataCnt = 0; 
+    uint32 dataCnt = 0;
     char tmp;
 
     OS_eEnterCriticalSection(mutexRxRb);
-    dataCnt = ringbuffer_data_size(&rb_rx_uart);
+    dataCnt = ringbuffer_data_size(&rb_uart_aups);
     if(dataCnt > 0)
     {
-        ringbuffer_pop(&rb_rx_uart, &tmp, 1); 
+        ringbuffer_pop(&rb_uart_aups, &tmp, 1);
     }
-    OS_eExitCriticalSection(mutexRxRb); 
+    OS_eExitCriticalSection(mutexRxRb);
 
     if(dataCnt > 0) return tmp;
     else return 0;
@@ -552,8 +552,8 @@ uint16 suli_uart_readable(void * uart_device, int16 uart_num)
 {
     uint32 dataCnt = 0;
     OS_eEnterCriticalSection(mutexRxRb);
-    dataCnt = ringbuffer_data_size(&rb_rx_uart); 
-    OS_eExitCriticalSection(mutexRxRb); 
+    dataCnt = ringbuffer_data_size(&rb_uart_aups);
+    OS_eExitCriticalSection(mutexRxRb);
     return dataCnt;
 }
 
@@ -663,7 +663,7 @@ void modp_dtoa2(double value, char *str, int prec)
             ++whole;
         }
 
-        //vvvvvvvvvvvvvvvvvvv  Diff from modp_dto2
+        //Diff from modp_dto2
     } else if(frac)
     {
         count = prec;

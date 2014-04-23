@@ -107,6 +107,7 @@ typedef enum
 	INVALID_PARAM = 3
 }teAtRetVal;
 
+/* adapt RPC */
 typedef enum
 {
 	/* API identifier */
@@ -117,7 +118,23 @@ typedef enum
     API_TX_REQ = 0x01,          //Tx a packet to special short address
     API_TX_RESP = 0x03,
 	API_RX_PACKET = 0x81,        //received a packet from air,send to UART
-	API_TEST = 0x8f				//Test
+	API_TEST = 0x8f,				//Test
+	/* recently */
+	API_CTRL = 0xe7,
+	API_QUERY = 0xbe,
+	API_QUERY_RESP = 0x43,
+	API_DATA = 0xc0,
+	API_OTA_NTF = 0xd3,
+	API_OTA_REQ = 0xb0,
+	API_OTA_RESP = 0x06,
+	API_OTA_ABT_REQ = 0xf7,
+	API_OTA_ABT_RESP = 0xdb,
+	API_OTA_UPG_REQ = 0x5a,
+	API_OTA_UPG_RESP = 0xe6,
+	API_OTA_ST_REQ = 0x91,
+	API_OTA_ST_RESP = 0x89,
+	API_TOPO_REQ = 0xfb,
+	API_TOPO_RESP = 0x6b
 }teApiIdentifier;
 
 //CTRL
@@ -309,6 +326,6 @@ void copyApiFrame(tsApiFrame *frm, uint8 *dst);
 bool searchAtStarter(uint8 *buffer, int len);
 int API_i32AtProcessSerialCmd(uint8 *buf, int len);
 int API_i32UdsProcessApiCmd(tsApiSpec* apiSpec);
-int API_i32AptsProcessStackEvent(ZPS_tsAfEvent sStackEvent);
+int API_i32AdsProcessStackEvent(ZPS_tsAfEvent sStackEvent);
 bool API_bSendToAirPort(uint16 txMode, uint16 unicastDest, uint8 *buf, int len);
 #endif /* __AT_API_H__ */

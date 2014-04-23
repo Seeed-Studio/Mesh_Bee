@@ -146,7 +146,11 @@ PUBLIC void vAppMain(void)
     DBG_vUartInit(DBG_E_UART_0, DBG_E_UART_BAUD_RATE_115200);
     DBG_vPrintf(TRACE_START, "\r\n\r\n");
     DBG_vPrintf(TRACE_START, "=================================\r\n");
-    DBG_vPrintf(TRACE_START, "            Mesh Bee \r\n");
+#ifdef FW_MODE_MASTER
+    DBG_vPrintf(TRACE_START, "        Mesh Bee Master Mode \r\n");
+#else
+    DBG_vPrintf(TRACE_START, "        Mesh Bee Slave Mode \r\n");
+#endif
     DBG_vPrintf(TRACE_START, "  Zigbee module from seeedstudio \r\n");
     DBG_vPrintf(TRACE_START, "         SW Version: 0x%04x \r\n", FW_VERSION);
     DBG_vPrintf(TRACE_START, "=================================\r\n");
@@ -220,6 +224,7 @@ void Format_ATIO(tsApiSpec *apiSpec)
   apiSpec->payload.localAtReq = localAtReq;
   apiSpec->checkSum = calCheckSum((unsigned char*)&localAtReq, apiSpec->length);
 }
+
 PRIVATE void vInitialiseApp(void)
 {
     /* initialise JenOS modules */
@@ -243,22 +248,6 @@ PRIVATE void vInitialiseApp(void)
 
     DBG_vPrintf(TRACE_START, "Initialising %s node... \r\n", role);
     node_vInitialise();
-
-    //test
-    DBG_vPrintf(TRACE_START,"tsApiSpec:%d\n",sizeof(tsApiSpec));
-    DBG_vPrintf(TRACE_START,"tsLocalAtReq:%d\n",sizeof(tsLocalAtReq));
-    tsApiSpec apiSpec;
-    DBG_vPrintf(TRACE_START,"payload:%d\n",sizeof(apiSpec.payload));
-
-    Format_ATIO(&apiSpec);
-
-    uint8 *ptr = (uint8*)&apiSpec;
-    int i=0;
-    for(i=0;i<sizeof(tsApiSpec);i++)
-    {
-    	DBG_vPrintf(TRACE_START,"%d\n",ptr[i]);
-    }
-
 }
 
 
