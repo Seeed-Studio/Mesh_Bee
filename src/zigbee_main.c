@@ -130,16 +130,16 @@ PWRM_CALLBACK(Wakeup)
     while (bAHI_GetClkSource() == TRUE);
     // Now we are running on the XTAL, optimise the flash memory wait states.
     vAHI_OptimiseWaitStates();
-    
+
 #ifndef PDM_EEPROM
      // Need to re initialise the spi bus for external pdm
     PDM_vWarmInitHW();
 #endif
-    
-    DBG_vUartInit(DBG_E_UART_0, DBG_E_UART_BAUD_RATE_115200); 
-    
+
+    DBG_vUartInit(DBG_E_UART_0, DBG_E_UART_BAUD_RATE_115200);
+
     DBG_vPrintf(TRACE_START, "\r\n\r\nAPP: Woken up (CB)\r\n");
-    
+
     if( (u8AHI_PowerStatus()) & RAM_HELD )
     {
 		/* Restore Mac settings (turns radio on) */
@@ -163,13 +163,13 @@ PWRM_CALLBACK(Wakeup)
 
         //init pwm for rssi
         vAHI_TimerEnable(E_AHI_TIMER_1, 4, FALSE, FALSE, TRUE);
-        vAHI_TimerStartRepeat(E_AHI_TIMER_1, 1000, 1); 
-        
-        bAHI_FlashInit(E_FL_CHIP_ST_M25P40_A, NULL); 
-        
+        vAHI_TimerStartRepeat(E_AHI_TIMER_1, 1000, 1);
+
+        bAHI_FlashInit(E_FL_CHIP_ST_M25P40_A, NULL);
+
         DBG_vPrintf(TRACE_START, "APP: Restarting OS\n");
-        OS_vRestart(); 
-        
+        OS_vRestart();
+
     }
 }
 
@@ -206,7 +206,11 @@ PUBLIC void vAppMain(void)
     DBG_vUartInit(DBG_E_UART_0, DBG_E_UART_BAUD_RATE_115200);
     DBG_vPrintf(TRACE_START, "\r\n\r\n");
     DBG_vPrintf(TRACE_START, "=================================\r\n");
-    DBG_vPrintf(TRACE_START, "            Mesh Bee \r\n");
+#ifdef FW_MODE_MASTER
+    DBG_vPrintf(TRACE_START, "        Mesh Bee Master Mode \r\n");
+#else
+    DBG_vPrintf(TRACE_START, "        Mesh Bee Slave Mode \r\n");
+#endif
     DBG_vPrintf(TRACE_START, "  Zigbee module from seeedstudio \r\n");
     DBG_vPrintf(TRACE_START, "     Firmware Version: 0x%04x \r\n", FW_VERSION);
     DBG_vPrintf(TRACE_START, "=================================\r\n");
@@ -215,9 +219,9 @@ PUBLIC void vAppMain(void)
     DBG_vPrintf(TRACE_START, "Stack overflow mark: 0x%08x\r\n", &stack_low_water_mark);
 
     vAHI_SetStackOverflow(TRACE_START, (uint32)&stack_low_water_mark);
-    
-    DBG_vPrintf(TRACE_START, "Stack Size: %d\r\n",    (uint32)&stack_size); 
-    
+
+    DBG_vPrintf(TRACE_START, "Stack Size: %d\r\n",    (uint32)&stack_size);
+
     DBG_vPrintf(TRACE_START, "Free RAM: %d\r\n",    (uint32)&free_ram_len);
 
     if (bAHI_WatchdogResetEvent())
@@ -289,7 +293,6 @@ PRIVATE void vInitialiseApp(void)
 
     DBG_vPrintf(TRACE_START, "Initialising %s node... \r\n", role);
     node_vInitialise();
-
 }
 
 

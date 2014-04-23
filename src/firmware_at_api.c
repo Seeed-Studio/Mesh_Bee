@@ -30,7 +30,8 @@
 #include "firmware_ota.h"
 #include "zigbee_endpoint.h"
 #include "firmware_hal.h"
-#include "firmware_api_codec.h"
+#include "firmware_api_pack.h"
+#include "firmware_cmi.h"
 #include "suli.h"
 
 #ifndef TRACE_ATAPI
@@ -62,7 +63,6 @@ int AT_powerUpActionSet(uint16 *regAddr);
 int AT_enterDataMode(uint16 *regAddr);
 int AT_listAllNodes(uint16 *regAddr);
 int AT_showInfo(uint16 *regAddr);
-int AT_enterApiMode(uint16 *regAddr);
 int AT_triggerOTAUpgrade(uint16 *regAddr);
 int AT_abortOTAUpgrade(uint16 *regAddr);
 int AT_OTAStatusPoll(uint16 *regAddr);
@@ -119,9 +119,6 @@ static AT_Command_t atCommands[] =
 #endif
     //show the information of node
     { "IF", NULL, FALSE, 0, 0, NULL, AT_showInfo },
-
-    //enter API mode immediately
-    { "AP", NULL, FALSE, 0, 0, NULL, AT_enterApiMode },
 
     //exit at mode into data mode
     { "EX", NULL, FALSE, 0, 0, NULL, AT_enterDataMode },
@@ -496,29 +493,7 @@ int AT_enterDataMode(uint16 *regAddr)
     return OK;
 }
 
-/****************************************************************************
- *
- * NAME: AT_enterApiMode
- *
- * DESCRIPTION:
- *
- *
- * PARAMETERS: Name         RW  Usage
- *
- *
- * RETURNS:
- * void
- *
- ****************************************************************************/
-int AT_enterApiMode(uint16 *regAddr)
-{
-    //return ERR;
-	/* oliver modify */
-	g_sDevice.eMode = E_MODE_API;
-	PDM_vSaveRecord(&g_sDevicePDDesc);
-	uart_printf("Enter API mode.\r\n");
-	return OK;
-}
+
 
 /****************************************************************************
  *
@@ -1363,7 +1338,7 @@ int API_i32UdsProcessApiCmd(tsApiSpec* apiSpec)
             }
         	/* UART ACK,if frameId ==0,No ACK */
             size = vCopyApiSpec(&retApiSpec, tmp);
-        	uart_tx_data(tmp, size);       //pay attention to this
+            CMI_vTxData(tmp, size);       //pay attention to this
 	    	break;
 	    /*
 	      remote AT Require:
@@ -1413,7 +1388,7 @@ int API_i32UdsProcessApiCmd(tsApiSpec* apiSpec)
 *
 *
 ****************************************************************************/
-int API_i32AptsProcessStackEvent(ZPS_tsAfEvent sStackEvent)
+int API_i32AdsProcessStackEvent(ZPS_tsAfEvent sStackEvent)
 {
     int cnt =0, i =0;
     int size = 0;
@@ -1496,7 +1471,7 @@ int API_i32AptsProcessStackEvent(ZPS_tsAfEvent sStackEvent)
       */
       case API_REMOTE_AT_RESP:
     	  size = vCopyApiSpec(&apiSpec, tmp);
-    	  uart_tx_data(tmp, size);
+    	  CMI_vTxData(tmp, size);
     	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
           break;
 

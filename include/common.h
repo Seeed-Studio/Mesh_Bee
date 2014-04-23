@@ -61,9 +61,9 @@
 /***        Configurations                                                ***/
 /****************************************************************************/
 
-//#define FW_MODE_MASTER                                            //un-comment this line to enable the master mode
+//#define FW_MODE_MASTER                                              //un-comment this line to enable the master mode
                                                                     //or define FW_MODE_MASTER in Makefile to enable
-                                                                    //about master mode: https://github.com/Seeed-Studio/Mesh_Bee/blob/master/README.md                         
+                                                                    //about master mode: https://github.com/Seeed-Studio/Mesh_Bee/blob/master/README.md
 #define FW_VERSION                      0x1002
 
 #define RADIO_RECALIBRATION                                         //re-calibrate the radio per 1min
@@ -96,7 +96,7 @@
 #define true                            1
 #define false                           0
 
-/*  */
+/* Byte align */
 #define PACK_STRUCT_BEGIN
 #define PACK_STRUCT_STRUCT __attribute__ ((__packed__))
 #define PACK_STRUCT_END
@@ -133,7 +133,6 @@ typedef enum
 {
     E_MODE_DATA,    //Transparent serial port
     E_MODE_AT,      //MeshBee console
-    E_MODE_API,     //Wireless Bee
     E_MODE_MCU      //Arduino-ful MCU
 }teMode;
 
@@ -187,6 +186,8 @@ typedef struct
 /****************************************************************************/
 extern struct ringbuffer rb_rx_uart;
 extern struct ringbuffer rb_tx_uart;
+extern struct ringbuffer rb_uart_aups;    //for AUPS Uart
+extern struct ringbuffer rb_air_aups;     //for AUPS AirPort response
 extern tsDevice g_sDevice;
 extern PDM_tsRecordDescriptor g_sDevicePDDesc;
 

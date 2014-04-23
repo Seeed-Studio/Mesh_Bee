@@ -707,16 +707,22 @@ PUBLIC void node_vInitialise(void)
     DBG_vPrintf(TRACE_NODE, "PDM Free Capacity: %d sectors\r\n", u8PDM_CalculateFileSystemCapacity());
     DBG_vPrintf(TRACE_NODE, "PDM Occupancy: %d sectors\r\n", u8PDM_GetFileSystemOccupancy());
 
+#ifdef FW_MODE_MASTER
+    /* default:set to AT mode */
+    g_sDevice.eMode = E_MODE_AT;
+    PDM_vSaveRecord(&g_sDevicePDDesc);
+
     /* print working mode */
     char *mode = "";
     switch(g_sDevice.eMode)
     {
       case E_MODE_DATA: mode = "DATA"; break;
       case E_MODE_AT: mode = "AT"; break;
-      case E_MODE_API: mode = "API"; break;
+      case E_MODE_MCU: mode = "MCU"; break;
       default:break;
     }
     DBG_vPrintf(TRACE_START, "Current Mode: %s\r\n",mode);
+#endif
 
     //Init UART
     ringbuf_vInitialize();
@@ -741,7 +747,7 @@ PUBLIC void node_vInitialise(void)
     vAHI_TimerEnable(E_AHI_TIMER_1, 4, FALSE, FALSE, TRUE);
     vAHI_TimerStartRepeat(E_AHI_TIMER_1, 1000, 1);
 
-    
+
     /*
       If the device state has been restored from eep, re-start the stack
       and set the application running again
@@ -750,7 +756,7 @@ PUBLIC void node_vInitialise(void)
     {
         ZPS_eAplZdoStartStack();
         DBG_vPrintf(TRACE_NODE, "Restoring Context, app state %d, \r\n", g_sDevice.eState);
-        
+
 #ifndef TARGET_COO
         vRestoreLastNWK(&g_sDevice.nwDesc);
 #endif
@@ -775,13 +781,13 @@ PUBLIC void node_vInitialise(void)
         ZPS_eAplZdoPermitJoining(0xff);
         //g_sDevice.bPermitJoining = TRUE;
     }
-    
+
 
     // Activate the radio recalibration task in 60s
 #ifdef RADIO_RECALIBRATION
     OS_eStartSWTimer(APP_RadioRecalTimer, APP_TIME_SEC(60), NULL);
 #endif
-    
+
     // OTA
 #ifdef CLD_OTA
     DBG_vPrintf(TRACE_NODE, "Initializing OTA.\r\n");
@@ -797,11 +803,12 @@ PUBLIC void node_vInitialise(void)
 #endif
 
     OS_eActivateTask(APP_taskNWK);
-    
+
+#ifdef FW_MODE_MASTER
     /* init user space */
     DBG_vPrintf(TRUE, "Init user programming space...\r\n");
-    ups_init(); 
-        
+    ups_init();
+#endif
 }
 
 
