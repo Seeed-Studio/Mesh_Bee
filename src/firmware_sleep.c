@@ -145,9 +145,9 @@ OS_TASK(WakeUpTask)
     DBG_vPrintf(TRACE_SLEEP, "Wake up task\r\n");
     
     OS_eActivateTask(PollTask); 
-
+#ifdef FW_MODE_MASTER
     ups_init(); 
-    
+#endif 
 }
 
 /****************************************************************************
