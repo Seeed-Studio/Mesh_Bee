@@ -97,6 +97,7 @@ _image_len    = (_flash_end - _flash_start + _ram_data_len + 3) & ~ 3;
 _heap_start   = __heap_start;
 _heap_end     = __heap_end;
 _ram_top      = ABSOLUTE(ORIGIN(ram)) + LENGTH(ram);
+_free_ram_len = __heap_end - __heap_start - _minimum_heap_size;
 
 __app_ram_start = 0x01001580; /* Page 5, word 8 (16-byte words, 16 words per page) */
 PROVIDE(_heap_location  = _u32HeapStart);

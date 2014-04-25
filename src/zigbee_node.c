@@ -1,13 +1,13 @@
-/*    
+/*
  * zigbee_node.c
- * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
- *   
- * Copyright (c) NXP B.V. 2012.   
+ * Firmware for SeeedStudio Mesh Bee(Zigbee) module
+ *
+ * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
  * Author     : Jack Shao
- * Create Time: 2013/10 
- * Change Log :   
- *   
+ * Create Time: 2013/10
+ * Change Log : Oliver Wang Modify 2014/03
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -18,7 +18,7 @@
  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.  
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 /****************************************************************************/
@@ -37,8 +37,8 @@
 #include "zigbee_endpoint.h"
 #include "zigbee_join.h"
 #include "firmware_ota.h"
-
-
+#include "firmware_hal.h"
+#include "firmware_spm.h"  //for SPM_vInit()
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
@@ -77,7 +77,7 @@ PRIVATE uint8    u8ChildOfInterest = 0;
 PRIVATE uint8    u8FailedRouteDiscoveries = 0;
 
 //mac address which will be used when debug or manufactory.
-//it will be place at .ro_mac_address section which can be 
+//it will be place at .ro_mac_address section which can be
 //written by NXP flash programmer directly.
 PRIVATE uint8 au8MacAddress[]__attribute__((section(".ro_mac_address"))) = {
 #if defined(TARGET_COO)
@@ -212,8 +212,8 @@ PRIVATE void vHandleNetworkFormationEvent(ZPS_tsAfEvent sStackEvent)
  *
  * RETURNS:
  * void
- * 
- * 
+ *
+ *
  ****************************************************************************/
 PUBLIC void vHandleRunningEvent(ZPS_tsAfEvent sStackEvent)
 {
@@ -339,7 +339,7 @@ PUBLIC void vHandleRunningEvent(ZPS_tsAfEvent sStackEvent)
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 PUBLIC void refreshRoute()
 {
@@ -399,7 +399,7 @@ OS_TASK(APP_taskNWK)
     case E_NETWORK_CONFIG:
         DBG_vPrintf(TRACE_NODE, "Handle State: E_NETWORK_CONFIG\r\n");
         vHandleConfigureNetworkEvent(sStackEvent);
-        vAHI_DioSetOutput(0, (1 << DIO_ASSOC)); 
+        vAHI_DioSetOutput(0, (1 << DIO_ASSOC));
         break;
         //start-up------------------------
     case E_NETWORK_STARTUP:
@@ -409,25 +409,25 @@ OS_TASK(APP_taskNWK)
 #else
         vHandleStartupEvent();
 #endif
-        vAHI_DioSetOutput(0, (1 << DIO_ASSOC)); 
+        vAHI_DioSetOutput(0, (1 << DIO_ASSOC));
         break;
         //wait formation done------------------------
     case E_NETWORK_WAIT_FORMATION:
         DBG_vPrintf(TRACE_NODE, "Handle State: E_NETWORK_WAIT_FORMATION\r\n");
         vHandleNetworkFormationEvent(sStackEvent);
-        vAHI_DioSetOutput(0, (1 << DIO_ASSOC)); 
+        vAHI_DioSetOutput(0, (1 << DIO_ASSOC));
         break;
         //discovery------------------------
     case E_NETWORK_DISCOVERY:
         DBG_vPrintf(TRACE_NODE, "Handle State: E_NETWORK_DISCOVERY \r\n");
         vHandleNetworkDiscoveryEvent(sStackEvent);
-        vAHI_DioSetOutput(0, (1 << DIO_ASSOC)); 
+        vAHI_DioSetOutput(0, (1 << DIO_ASSOC));
         break;
         //joining------------------------
     case E_NETWORK_JOINING:
         DBG_vPrintf(TRACE_NODE, "Handle State: E_NETWORK_JOINING \r\n");
         vHandleNetworkJoinEvent(sStackEvent);
-        vAHI_DioSetOutput(0, (1 << DIO_ASSOC)); 
+        vAHI_DioSetOutput(0, (1 << DIO_ASSOC));
         break;
         //init------------------------
     case E_NETWORK_INIT:
@@ -443,7 +443,7 @@ OS_TASK(APP_taskNWK)
     case E_NETWORK_WAIT_LEAVE:
         DBG_vPrintf(TRACE_NODE, "Handle State: E_NETWORK_WAIT_LEAVE \r\n");
         vHandleNetworkLeave(sStackEvent);
-        vAHI_DioSetOutput(0, (1 << DIO_ASSOC)); 
+        vAHI_DioSetOutput(0, (1 << DIO_ASSOC));
         break;
         //run------------------------
     case E_NETWORK_RUN:
@@ -453,7 +453,7 @@ OS_TASK(APP_taskNWK)
         //router should discovery the route to coo periodly.
         refreshRoute();
 #endif
-        vAHI_DioSetOutput((1 << DIO_ASSOC),0); 
+        vAHI_DioSetOutput((1 << DIO_ASSOC),0);
         break;
 
     default:
@@ -568,13 +568,12 @@ OS_TASK(APP_AgeOutChildren)
 #endif
 }
 
-
 /****************************************************************************
  *
  * NAME: APP_RadioRecal
  *
  * DESCRIPTION:
- * Recalibrate the radio 
+ * Recalibrate the radio
  *
  * RETURNS:
  * void
@@ -587,6 +586,7 @@ OS_TASK(APP_RadioRecal)
     {
         DBG_vPrintf(TRACE_NODE, "Recalibrate the radio\r\n");
         uint8 eStatus = eAHI_AttemptCalibration();
+
         if (eStatus)
         {
             DBG_vPrintf(TRACE_NODE, "Recalibration already underway");
@@ -599,8 +599,6 @@ OS_TASK(APP_RadioRecal)
     }
 #endif
 }
-
-
 
 /****************************************************************************/
 /***        Exported Functions                                            ***/
@@ -617,7 +615,7 @@ OS_TASK(APP_RadioRecal)
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 PUBLIC void initDeviceDefault(tsDevice *dev)
 {
@@ -626,6 +624,8 @@ PUBLIC void initDeviceDefault(tsDevice *dev)
     dev->eMode  = E_MODE_DATA;
     dev->magic  = PDM_REC_MAGIC;
     dev->len    = sizeof(tsDevice);
+    dev->rebootByCmd = false;
+    dev->rebootByRemote = false;
 
     dev->supportOTA = FALSE;
     dev->isOTASvr   = FALSE;
@@ -657,7 +657,7 @@ PUBLIC void initDeviceDefault(tsDevice *dev)
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 PUBLIC void deleteStackPDM()
 {
@@ -668,6 +668,7 @@ PUBLIC void deleteStackPDM()
     memcpy(&g_sDevice, &backup, sizeof(backup));
     PDM_vSaveRecord(&g_sDevicePDDesc);
 }
+
 
 /****************************************************************************
  *
@@ -680,6 +681,7 @@ PUBLIC void deleteStackPDM()
  * void
  *
  ****************************************************************************/
+
 PUBLIC void node_vInitialise(void)
 {
     PDM_eLoadRecord(&g_sDevicePDDesc, REC_ID1, &g_sDevice, sizeof(g_sDevice), FALSE);
@@ -690,6 +692,7 @@ PUBLIC void node_vInitialise(void)
         initDeviceDefault(&g_sDevice);
         PDM_eLoadRecord(&g_sDevicePDDesc, REC_ID1, &g_sDevice, sizeof(g_sDevice), FALSE);
     }
+
     //if configed powerup actions non-zero, then node should redo the network related stuff.
     if (g_sDevice.config.powerUpAction)
     {
@@ -700,39 +703,58 @@ PUBLIC void node_vInitialise(void)
         PDM_vSaveRecord(&g_sDevicePDDesc);
     }
 
-    if (E_NETWORK_CONFIG == g_sDevice.eState) // If context is blank
-    {
-        // set the security state default link key 
-        //ZPS_vAplSecSetInitialSecurityState(ZPS_ZDO_PRECONFIGURED_LINK_KEY, s_au8LnkKeyArray,
-        //                                   0, ZPS_APS_UNIQUE_LINK_KEY );
-    }
-
-    // during developing, we can overwrite the on-chip mac addr 
-    //ZPS_vSetOverrideLocalMacAddress((uint64 *)&au8MacAddress);
-
-    //Initialise ZBPro stack 
+    //Initialise ZBPro stack
     ZPS_eAplAfInit();
 
+    DBG_vPrintf(TRACE_NODE, "PDM Free Capacity: %d sectors\r\n", u8PDM_CalculateFileSystemCapacity());
+    DBG_vPrintf(TRACE_NODE, "PDM Occupancy: %d sectors\r\n", u8PDM_GetFileSystemOccupancy());
 
-    DBG_vPrintf(TRACE_NODE, "PDM: Capacity %d\r\n", u8PDM_CalculateFileSystemCapacity());
-    DBG_vPrintf(TRACE_NODE, "PDM: Occupancy %d\r\n", u8PDM_GetFileSystemOccupancy());
+    /* print working mode */
+    char *mode = "";
+    switch(g_sDevice.eMode)
+    {
+      case E_MODE_API: mode = "API";break;
+      case E_MODE_DATA: mode = "DATA"; break;
+      case E_MODE_AT: mode = "AT"; break;
+      case E_MODE_MCU: mode = "MCU"; break;
+      default:break;
+    }
+    DBG_vPrintf(TRACE_START, "Current Mode: %s.\r\n",mode);
 
 
-    // Cant through the compiling, vAHI_ETSIHighPowerModuleEnable not found,
-    // what the poor documents nxp supplies!
-    //if (g_sDevice.config.etsi)
-    //{
-    //    DBG_vPrintf(TRACE_NODE, "Limit the module to +10dbm for ETSI compliance \r\n");
-    //    vAHI_ETSIHighPowerModuleEnable(TRUE); // Limit the module to +8dB for ETSI compliance
-    //}
+    //Init SPM
+    SPM_vInit();
+    DBG_vPrintf(TRACE_START, "Initializing SPM ... \r\n",mode);
 
-    // Initialise  
-    endpoint_vInitialize();
+    //Init UART
+    ringbuf_vInitialize();
     uart_initialize();
 
-    // If the device state has been restored from eep, re-start the stack
-    //  and set the application running again 
-    if (g_sDevice.eState > E_NETWORK_STARTUP) // If the last known state was a running state (i.e. a context restore)
+    //Init ADC
+    tsAdcParam tsParm;
+    tsParm.u8SampleSelect = E_AHI_AP_SAMPLE_8;
+    tsParm.u8ClockDivRatio = E_AHI_AP_CLOCKDIV_500KHZ;
+    tsParm.bRefSelect = E_AHI_AP_INTREF;
+
+    vHAL_AdcSampleInit(&tsParm);   						//sample on-chip temperature
+
+    //light on on/sleep led.
+    vAHI_DioSetDirection(0, (1 << DIO_ON_SLEEP));
+    vAHI_DioSetOutput((1 << DIO_ON_SLEEP), 0);
+
+    //init the association led pin
+    vAHI_DioSetDirection(0, (1 << DIO_ASSOC));
+
+    //init pwm for rssi
+    vAHI_TimerEnable(E_AHI_TIMER_1, 4, FALSE, FALSE, TRUE);
+    vAHI_TimerStartRepeat(E_AHI_TIMER_1, 1000, 1);
+
+
+    /*
+      If the device state has been restored from eep, re-start the stack
+      and set the application running again
+    */
+    if (g_sDevice.eState > E_NETWORK_STARTUP)   // If the last known state was a running state (i.e. a context restore)
     {
         ZPS_eAplZdoStartStack();
         DBG_vPrintf(TRACE_NODE, "Restoring Context, app state %d, \r\n", g_sDevice.eState);
@@ -743,8 +765,11 @@ PUBLIC void node_vInitialise(void)
 
 #ifndef TARGET_END
         ZPS_eAplZdoPermitJoining(0xff);
-        // Activate the child aging task on a context restore to make sure any previous
-        // children haven't jumped to another parent whilst we were offline 
+
+        /*
+          Activate the child aging task on a context restore to make sure any previous
+          children haven't jumped to another parent whilst we were offline
+        */
         OS_eActivateTask(APP_AgeOutChildren);
 #endif
 
@@ -752,22 +777,27 @@ PUBLIC void node_vInitialise(void)
         if (g_sDevice.otaDownloading > 0) OS_eActivateTask(APP_taskOTAReq);
 #endif
     }
-    // else perform any actions required on initial start-up 
+    // else perform any actions required on initial start-up
     else
     {
         ZPS_eAplZdoPermitJoining(0xff);
         //g_sDevice.bPermitJoining = TRUE;
     }
+    
+    //if reboot by at/api cmd
+    if (g_sDevice.rebootByCmd)
+    {
+        postReboot();
+        g_sDevice.rebootByCmd = false;
+        PDM_vSaveRecord(&g_sDevicePDDesc); 
+    }
 
-    // Start the tick timer
-    //OS_eStartSWTimer(App_tmr1sec, ONE_SECOND_TICK_TIME, NULL);
-
-    // Activate the radio recalibration task in 60s 
+    // Activate the radio recalibration task in 60s
 #ifdef RADIO_RECALIBRATION
     OS_eStartSWTimer(APP_RadioRecalTimer, APP_TIME_SEC(60), NULL);
 #endif
 
-    // OTA 
+    // OTA
 #ifdef CLD_OTA
     DBG_vPrintf(TRACE_NODE, "Initializing OTA.\r\n");
     g_sDevice.supportOTA = TRUE;
@@ -783,16 +813,9 @@ PUBLIC void node_vInitialise(void)
 
     OS_eActivateTask(APP_taskNWK);
 
-    //light on on/sleep led.
-    vAHI_DioSetDirection(0, (1 << DIO_ON_SLEEP));
-    vAHI_DioSetOutput((1 << DIO_ON_SLEEP), 0); 
-    
-    //init the association led pin
-    vAHI_DioSetDirection(0, (1 << DIO_ASSOC)); 
-    
-    //init pwm for rssi
-    vAHI_TimerEnable(E_AHI_TIMER_1, 4, FALSE, FALSE, TRUE);
-    vAHI_TimerStartRepeat(E_AHI_TIMER_1, 1000, 1);
+    /* init user space */
+    DBG_vPrintf(TRUE, "Init user programming space...\r\n");
+    ups_init();
 }
 
 

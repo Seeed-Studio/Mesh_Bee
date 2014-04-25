@@ -62,6 +62,15 @@ endif
 # DEBUG_PORT ?= UART1
 
 ###############################################################################
+# Firmware mode
+FW_MODE ?= SLAVE
+ifeq ($(FW_MODE), MASTER)
+CFLAGS += -DFW_MODE_MASTER
+BIN_SUFFIX += _MASTER
+endif
+
+
+###############################################################################
 # Define TRACE to use with DBG module
 # By default TRACE and OVERLAYS have been turned off
 TRACE ?=1
@@ -139,6 +148,7 @@ APP_INC_DIR     = $(APP_BASE)/include
 APP_BLD_DIR     = $(APP_BASE)/build
 APP_SRC_DIR     = $(APP_BASE)/src
 UTIL_SRC_DIR    = $(COMPONENTS_BASE_DIR)/Utilities/Source
+SULI_DIR        = $(APP_BASE)/suli
 
 ###############################################################################
 # Application Source files
@@ -153,20 +163,15 @@ APPSRC += os_irq_stackoverflowexception.S
 APPSRC += os_irq_unimplementedmodule.S
 APPSRC += pdum_gen.c
 APPSRC += zps_gen.c
-##########
+
 APPSRC += app_timer_driver.c
-APPSRC += zigbee_main.c
-APPSRC += zigbee_node.c
-APPSRC += zigbee_endpoint.c
-APPSRC += zigbee_join.c
-APPSRC += zigbee_zbp_utilities.c
 
-APPSRC += firmware_ringbuffer.c
-APPSRC += firmware_at_api.c
-APPSRC += firmware_uart.c
-APPSRC += firmware_ota.c
+##########
+#auto scan all c files under folder: src & suli
+APPSRC += $(notdir $(wildcard $(APP_SRC_DIR)/*.c))
+APPSRC += $(notdir $(wildcard $(SULI_DIR)/*.c))
 
-####
+##########
 APP_ZPSCFG = MeshBee.zpscfg
 
 ###############################################################################
@@ -174,6 +179,7 @@ APP_ZPSCFG = MeshBee.zpscfg
 
 INCFLAGS += -I$(APP_INC_DIR)
 INCFLAGS += -I$(APP_BLD_DIR)/gen
+INCFLAGS += -I$(SULI_DIR)
 
 INCFLAGS += -I$(COMPONENTS_BASE_DIR)/Utilities/Include
 INCFLAGS += -I$(COMPONENTS_BASE_DIR)/Recal/Include
@@ -184,11 +190,19 @@ INCFLAGS += -I$(COMPONENTS_BASE_DIR)/Recal/Include
 
 APPLIBS += Recal
 
-###############################################################################
 
+
+
+
+
+
+###############################################################################
 # You should not need to edit below this line
 
 ###############################################################################
+
+
+
 ###############################################################################
 # Configure for the selected chip or chip family
 
@@ -223,7 +237,7 @@ LDFLAGS += -L$(STACK_BASE_DIR)/ZBPro/Build
 
 .PHONY: all clean
 # Path to directories containing application source 
-vpath % $(APP_SRC_DIR):$(APP_BLD_DIR)/gen:$(SE_SRC_DIRS):$(UTIL_SRC_DIR)
+vpath % $(APP_SRC_DIR):$(APP_BLD_DIR)/gen:$(SULI_DIR):$(SE_SRC_DIRS):$(UTIL_SRC_DIR)
 
 
 all: $(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).bin
@@ -244,19 +258,19 @@ $(APP_BLD_DIR)/gen/zps_gen.c $(APP_BLD_DIR)/gen/zps_gen.h: $(APP_SRC_DIR)/$(APP_
 	$(ZPSCONFIG) -n $(TARGET) -t $(JENNIC_CHIP) -l $(ZPS_NWK_LIB) -a $(ZPS_APL_LIB) -f "$(shell cygpath -w "$<")" -o "$(shell cygpath -w "$(APP_BLD_DIR)/gen")"
 	@echo
 
-%.o: %.S
+%.o: %.S | $(APP_BLD_DIR)/obj
 	$(info Assembling $< ...)
 	$(CC) -c -o $(APP_BLD_DIR)/obj/$@ $(CFLAGS) $(INCFLAGS) $< -MD -MF $(APP_BLD_DIR)/obj/$*.d -MP
 	@echo
 
-%.o: %.c 
+%.o: %.c | $(APP_BLD_DIR)/obj
 	$(info Compiling $< ...)
 	$(CC) -c -o $(APP_BLD_DIR)/obj/$@ $(CFLAGS) $(INCFLAGS) $< -MD -MF $(APP_BLD_DIR)/obj/$*.d -MP
 	@echo
 
-$(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).elf: $(APPOBJS) $(addsuffix.a,$(addprefix $(COMPONENTS_BASE_DIR)/Library/lib,$(APPLDLIBS))) 
+$(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).elf: $(APP_BLD_DIR)/gen $(APPOBJS) $(addsuffix.a,$(addprefix $(COMPONENTS_BASE_DIR)/Library/lib,$(APPLDLIBS)))  | $(APP_BLD_DIR)/output
 	$(info Linking $@ ...)
-	$(CC) -Wl,--gc-sections -Wl,-u_AppColdStart -Wl,-u_AppWarmStart $(LDFLAGS) -TAppBuild_JN5168.ld -o $@ -Wl,--start-group $(addprefix $(APP_BLD_DIR)/obj/,$(APPOBJS)) $(addprefix -l,$(LDLIBS)) -Wl,--end-group -Wl,-Map,$(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).map 	 
+	$(CC) -Wl,--gc-sections -Wl,-u_AppColdStart -Wl,-u_AppWarmStart $(LDFLAGS) -TAppBuild_JN5168.ld -o $@ -Wl,--start-group $(addprefix $(APP_BLD_DIR)/obj/,$(APPOBJS)) $(addprefix -l,$(LDLIBS)) -lm -Wl,--end-group -Wl,-Map,$(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).map 	 
 	$(SIZE) $@ 
 
 $(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).bin: $(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).elf 
@@ -264,7 +278,17 @@ $(APP_BLD_DIR)/output/$(TARGET)_$(JENNIC_CHIP)$(BIN_SUFFIX).bin: $(APP_BLD_DIR)/
 	$(OBJCOPY) -j .version -j .bir -j .flashheader -j .vsr_table -j .vsr_handlers  -j .ro_mac_address -j .ro_ota_header -j .ro_se_lnkKey -j .ro_se_cert -j.ro_se_pvKey -j .ro_se_customData -j .rodata -j .text -j .data -j .bss -j .heap -j .stack -S -O binary $< $@
 	@echo
 
-	
+$(APP_BLD_DIR)/output:
+	$(info Create dir: $(APP_BLD_DIR)/output)
+	mkdir $@
+
+$(APP_BLD_DIR)/gen:
+	$(info Create dir: $(APP_BLD_DIR)/gen)
+	mkdir $@
+
+$(APP_BLD_DIR)/obj:
+	$(info Create dir: $(APP_BLD_DIR)/obj)
+	mkdir $@
 ###############################################################################
 
 clean:

@@ -1,11 +1,11 @@
 /*
- * firmware_uart.h
+ * firmware_ads.h
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module
  *
  * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
- * Author     : Jack Shao
- * Create Time: 2013/10
+ * Author     : Jack Shao & Oliver Wang
+ * Create Time: 2014/04
  * Change Log :
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
@@ -21,29 +21,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __UART_H__
-#define __UART_H__
+#ifndef FIRMWARE_ADS_H_
+#define FIRMWARE_ADS_H_
 
 #include <jendefs.h>
 
-#define TXFIFOLEN               32
-#define RXFIFOLEN               32
-#define UART_TX_RB_LEN          100
-#define UART_RX_RB_LEN          64
-
-#define THRESHOLD_READ          50
 
 
-
-void ringbuf_vInitialize();
-void uart_register_callback();
-void uart_initialize(void);
-bool uart_pass_up(char *buff, unsigned short len);
-bool uart_get_tx_status_busy();
-void uart_trigger_tx();
-void uart_tx_data(void *data, int len);
-int uart_printf(const char *fmt, ...);
-int AT_setBaudRateUart1(uint16 *regAddr);
-int AT_printBaudRate(uint16 *regAddr);
-
-#endif /* __UART_H__ */
+#endif /* FIRMWARE_ADS_H_ */

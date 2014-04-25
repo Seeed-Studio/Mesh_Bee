@@ -1,11 +1,12 @@
 /*
- * firmware_uart.h
+ * ups_arduino_sketch.h
+ * - User Programming Space, Arduino style programe -
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module
- *
+ * 
  * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
- * Author     : Jack Shao
- * Create Time: 2013/10
+ * Author     : Oliver Wang
+ * Create Time: 2014/4
  * Change Log :
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
@@ -21,29 +22,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __UART_H__
-#define __UART_H__
+#ifndef __UPS_ARDUINO_SKETCH_H__
+#define __UPS_ARDUINO_SKETCH_H__
 
-#include <jendefs.h>
+#include "common.h"
 
-#define TXFIFOLEN               32
-#define RXFIFOLEN               32
-#define UART_TX_RB_LEN          100
-#define UART_RX_RB_LEN          64
-
-#define THRESHOLD_READ          50
+PUBLIC void arduino_setup(void); 
+PUBLIC void arduino_loop(void); 
 
 
-
-void ringbuf_vInitialize();
-void uart_register_callback();
-void uart_initialize(void);
-bool uart_pass_up(char *buff, unsigned short len);
-bool uart_get_tx_status_busy();
-void uart_trigger_tx();
-void uart_tx_data(void *data, int len);
-int uart_printf(const char *fmt, ...);
-int AT_setBaudRateUart1(uint16 *regAddr);
-int AT_printBaudRate(uint16 *regAddr);
-
-#endif /* __UART_H__ */
+#endif

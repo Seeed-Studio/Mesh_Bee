@@ -1,13 +1,13 @@
-/*    
+/*
  * zigbee_main.c
- * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
- *   
- * Copyright (c) NXP B.V. 2012.   
+ * Firmware for SeeedStudio Mesh Bee(Zigbee) module
+ *
+ * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
  * Author     : Jack Shao
- * Create Time: 2013/10 
- * Change Log :   
- *   
+ * Create Time: 2013/10
+ * Change Log : Oliver Wang Modify 2014/03
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -18,7 +18,7 @@
  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.  
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 /****************************************************************************/
@@ -29,6 +29,9 @@
 #include "appapi.h"
 #include "zigbee_node.h"
 #include "firmware_uart.h"
+
+#include "firmware_at_api.h"
+#include "firmware_hal.h"
 
 #ifdef RADIO_RECALIBRATION
 #include "recal.h"
@@ -54,6 +57,8 @@ PUBLIC uint8 u8PDM_GetFileSystemOccupancy(void);
 #ifndef TRACE_EXCEPTION
 #define TRACE_EXCEPTION    TRUE
 #endif
+
+#define RAM_HELD    2
 
 /****************************************************************************/
 /***        Type Definitions                                              ***/
@@ -99,6 +104,7 @@ uint16 u16ImageStartSector = 0;
 /* Linker script externs */
 extern void *stack_low_water_mark;
 extern void *stack_size;
+extern void *free_ram_len;
 
 /****************************************************************************/
 /***        Tasks                                                          ***/
@@ -111,11 +117,67 @@ extern void *stack_size;
 PWRM_CALLBACK(PreSleep)
 {
     DBG_vPrintf(TRACE_START, "APP: Going to sleep (CB) ... ");
+    vAppApiSaveMacSettings();
+    vAHI_AdcDisable();
+	vAHI_SiMasterDisable();
+    u32AHI_DioInterruptStatus();
+    DBG_vPrintf(TRACE_START, "gone\n\n");
 }
 
 PWRM_CALLBACK(Wakeup)
 {
+    // Check that the clock source is the external 32MHz, needed for accurate UART timings
+    while (bAHI_GetClkSource() == TRUE);
+    // Now we are running on the XTAL, optimise the flash memory wait states.
+    vAHI_OptimiseWaitStates();
+
+#ifndef PDM_EEPROM
+     // Need to re initialise the spi bus for external pdm
+    PDM_vWarmInitHW();
+#endif
+
+    DBG_vUartInit(DBG_E_UART_0, DBG_E_UART_BAUD_RATE_115200);
+
     DBG_vPrintf(TRACE_START, "\r\n\r\nAPP: Woken up (CB)\r\n");
+
+    if( (u8AHI_PowerStatus()) & RAM_HELD )
+    {
+		/* Restore Mac settings (turns radio on) */
+		vMAC_RestoreSettings();
+		DBG_vPrintf(TRACE_START, "APP: MAC settings restored\n");
+
+		vAHI_HighPowerModuleEnable(TRUE, TRUE);
+#ifdef ETSI
+		vAHI_ETSIHighPowerModuleEnable(TRUE);									// Limit the module to +8dB for ETSI compliance
+#endif
+		// Re-initialise the hardware peripherals
+        uart_initialize();
+
+        //Init ADC
+        tsAdcParam tsParm;
+        tsParm.u8SampleSelect = E_AHI_AP_SAMPLE_8;
+        tsParm.u8ClockDivRatio = E_AHI_AP_CLOCKDIV_500KHZ;
+        tsParm.bRefSelect = E_AHI_AP_INTREF;
+
+        vHAL_AdcSampleInit(&tsParm);                        //sample on-chip temperature
+
+        //init pwm for rssi
+        vAHI_TimerEnable(E_AHI_TIMER_1, 4, FALSE, FALSE, TRUE);
+        vAHI_TimerStartRepeat(E_AHI_TIMER_1, 1000, 1);
+
+        bAHI_FlashInit(E_FL_CHIP_ST_M25P40_A, NULL);
+
+        DBG_vPrintf(TRACE_START, "APP: Restarting OS\n");
+        OS_vRestart();
+
+    }
+}
+
+
+void vAppRegisterPWRMCallbacks(void)
+{
+    PWRM_vRegisterPreSleepCallback(PreSleep);
+    PWRM_vRegisterWakeupCallback(Wakeup);
 }
 
 
@@ -146,15 +208,17 @@ PUBLIC void vAppMain(void)
     DBG_vPrintf(TRACE_START, "=================================\r\n");
     DBG_vPrintf(TRACE_START, "            Mesh Bee \r\n");
     DBG_vPrintf(TRACE_START, "  Zigbee module from seeedstudio \r\n");
-    DBG_vPrintf(TRACE_START, "         SW Version: 0x%04x \r\n", SW_VER);
+    DBG_vPrintf(TRACE_START, "     Firmware Version: 0x%04x \r\n", FW_VERSION);
     DBG_vPrintf(TRACE_START, "=================================\r\n");
 
 
-    DBG_vPrintf(TRACE_START, "Low water mark: 0x%08x\r\n", &stack_low_water_mark);
+    DBG_vPrintf(TRACE_START, "Stack overflow mark: 0x%08x\r\n", &stack_low_water_mark);
 
     vAHI_SetStackOverflow(TRACE_START, (uint32)&stack_low_water_mark);
 
-    DBG_vPrintf(TRACE_START, "Stack Size %d\r\n",    (uint32)&stack_size);
+    DBG_vPrintf(TRACE_START, "Stack Size: %d\r\n",    (uint32)&stack_size);
+
+    DBG_vPrintf(TRACE_START, "Free RAM: %d\r\n",    (uint32)&free_ram_len);
 
     if (bAHI_WatchdogResetEvent())
     {
@@ -163,10 +227,13 @@ PUBLIC void vAppMain(void)
         vAHI_WatchdogStop();
         //while (1);
     }
-    
+
     u32AppApiInit(NULL, NULL, NULL, NULL, NULL, NULL);
 
-    vAHI_HighPowerModuleEnable(TRUE, TRUE);                                        // Enable high power mode
+    vAHI_HighPowerModuleEnable(TRUE, TRUE);  //
+#ifdef ETSI
+    vAHI_ETSIHighPowerModuleEnable(TRUE);                                   // Limit the module to +8dB for ETSI compliance
+#endif
 
     OS_vStart(vInitialiseApp, vUnclaimedInterrupt, vOSError);
 
@@ -180,11 +247,6 @@ PUBLIC void vAppMain(void)
     }
 }
 
-void vAppRegisterPWRMCallbacks(void)
-{
-    PWRM_vRegisterPreSleepCallback(PreSleep);
-    PWRM_vRegisterWakeupCallback(Wakeup);
-}
 
 /****************************************************************************/
 /***        Local Functions                                               ***/
@@ -201,11 +263,14 @@ void vAppRegisterPWRMCallbacks(void)
  * void
  *
  ****************************************************************************/
+
 PRIVATE void vInitialiseApp(void)
 {
     /* initialise JenOS modules */
     DBG_vPrintf(TRACE_START, "Initialising PWRM ... \r\n");
+#ifdef TARGET_END
     PWRM_vInit(E_AHI_SLEEP_OSCON_RAMON);
+#endif
 
     DBG_vPrintf(TRACE_START, "Initialising PDM ... \r\n");
 

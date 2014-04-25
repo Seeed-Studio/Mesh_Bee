@@ -1,11 +1,11 @@
 /*
- * firmware_uart.h
+ * firmware_cmi.h
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module
  *
  * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
- * Author     : Jack Shao
- * Create Time: 2013/10
+ * Author     : Oliver Wang
+ * Create Time: 2014/04
  * Change Log :
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
@@ -21,29 +21,19 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __UART_H__
-#define __UART_H__
+#ifndef FIRMWARE_CMI_H_
+#define FIRMWARE_CMI_H_
+/****************************************************************************/
+/***        Include files                                                 ***/
+/****************************************************************************/
+#include "common.h"
+/****************************************************************************/
+/***        Exported Functions                                            ***/
+/****************************************************************************/
 
-#include <jendefs.h>
-
-#define TXFIFOLEN               32
-#define RXFIFOLEN               32
-#define UART_TX_RB_LEN          100
-#define UART_RX_RB_LEN          64
-
-#define THRESHOLD_READ          50
+void CMI_vPushData(void *data, int len);
+void CMI_vTxData(void *data, int len);
 
 
+#endif /* FIRMWARE_CMI_H_ */
 
-void ringbuf_vInitialize();
-void uart_register_callback();
-void uart_initialize(void);
-bool uart_pass_up(char *buff, unsigned short len);
-bool uart_get_tx_status_busy();
-void uart_trigger_tx();
-void uart_tx_data(void *data, int len);
-int uart_printf(const char *fmt, ...);
-int AT_setBaudRateUart1(uint16 *regAddr);
-int AT_printBaudRate(uint16 *regAddr);
-
-#endif /* __UART_H__ */
