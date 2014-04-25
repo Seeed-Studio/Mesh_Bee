@@ -162,6 +162,9 @@ typedef struct
     teMode      eMode;
     tsConfig    config;
     ZPS_tsNwkNetworkDescr   nwDesc;
+    bool        rebootByCmd;
+    bool        rebootByRemote;
+    uint16      rebootByAddr;
     //OTA related
     #ifdef CLD_OTA
     bool        supportOTA;

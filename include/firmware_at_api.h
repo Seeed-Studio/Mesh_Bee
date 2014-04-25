@@ -176,6 +176,8 @@ typedef struct
 {
     uint32              nodeMacAddr0;  //cant sent 64bit interger due to align issue
     uint32              nodeMacAddr1;
+    uint8               lqi;
+    int16               dbm;
     uint16              nodeFWVer;
 }tsFrmTOPOResp;
 
@@ -298,9 +300,6 @@ typedef struct
 	const char	*name;		            //AT command name
 	uint8       atCmdIndex;             //AT command index
 	uint16		*configAddr;            //config address
-	const bool	isHex;
-	const int 	paramDigits;
-	const uint16 maxValue;
 	AT_CommandApiMode_Func_t function;  //AT commands call back function
 }AT_Command_ApiMode_t;
 
@@ -327,12 +326,14 @@ uint16 u16DecodeApiSpec(uint8 *buffer, int len, tsApiSpec *spec, bool *valid);		
 void copyApiFrame(tsApiFrame *frm, uint8 *dst);
 bool searchAtStarter(uint8 *buffer, int len);
 
-void assembleLocalAtResp(tsLocalAtResp *resp, uint8 frm_id, uint8 cmd_id, uint8 status, uint8 *value, int len); 
-void assembleRemoteAtResp(tsRemoteAtResp *resp, uint8 frm_id, uint8 cmd_id, uint8 status, uint8 *value, int len, uint16 addr);
+int assembleLocalAtResp(tsLocalAtResp *resp, uint8 frm_id, uint8 cmd_id, uint8 status, uint8 *value, int len); 
+int assembleRemoteAtResp(tsRemoteAtResp *resp, uint8 frm_id, uint8 cmd_id, uint8 status, uint8 *value, int len, uint16 addr);
 void assembleApiSpec(tsApiSpec *api, uint8 len, uint8 idtf, uint8 *payload, int payload_len); 
 
 int API_i32AtProcessSerialCmd(uint8 *buf, int len);
 int API_i32UdsProcessApiCmd(tsApiSpec* apiSpec);
 int API_i32AdsProcessStackEvent(ZPS_tsAfEvent sStackEvent);
 bool API_bSendToAirPort(uint16 txMode, uint16 unicastDest, uint8 *buf, int len);
+
+void postReboot();
 #endif /* __AT_API_H__ */

@@ -106,6 +106,33 @@ int AT_reScanNetwork(uint16 *regAddr)
     return ERR;
 }
 
+
+
+int API_RescanNetwork(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr)
+{
+    int ret = AT_reScanNetwork(regAddr);
+    int resp = (ret == OK) ? AT_OK:AT_ERR;
+    
+    if (API_LOCAL_AT_REQ == inputApiSpec->teApiIdentifier)
+    {
+        tsLocalAtResp localAtResp;
+        int len = assembleLocalAtResp(&localAtResp,
+                                      inputApiSpec->payload.localAtReq.frameId,
+                                      inputApiSpec->payload.localAtReq.atCmdId,
+                                      resp, (uint8 *)&resp, 2); 
+        assembleApiSpec(retApiSpec, len, API_LOCAL_AT_RESP, (uint8 *)&localAtResp, len);
+    } else if (API_REMOTE_AT_REQ == inputApiSpec->teApiIdentifier)
+    {
+        tsRemoteAtResp remoteAtResp;
+        int len = assembleRemoteAtResp(&remoteAtResp,
+                                       inputApiSpec->payload.remoteAtReq.frameId,
+                                       inputApiSpec->payload.remoteAtReq.atCmdId,
+                                       resp, (uint8 *)&resp, 2, inputApiSpec->payload.remoteAtReq.unicastAddr); 
+        assembleApiSpec(retApiSpec, len, API_REMOTE_AT_RESP, (uint8 *)&remoteAtResp, len);
+    }
+    return OK; 
+}
+
 /****************************************************************************
  * NAME: vHandleNetworkLeave
  *
@@ -168,8 +195,6 @@ PUBLIC void vHandleNetworkLeave(ZPS_tsAfEvent sStackEvent)
  ****************************************************************************/
 int AT_joinNetworkWithIndex(uint16 *regAddr)
 {
-    ZPS_teStatus eStatus = 0xFF;
-
     uint16 idx = *regAddr;
 
     if (idx > u8DiscovedNWKListCount || u8DiscovedNWKListCount == 0)
@@ -199,7 +224,7 @@ int AT_joinNetworkWithIndex(uint16 *regAddr)
         uart_tx_data(tmp, len);
         DBG_vPrintf(TRACE_JOIN, "%s", tmp);
         
-        eStatus = ZPS_eAplZdoJoinNetwork(&tsDiscovedNWKList[u8DiscovedNWKJoinCount]);
+        ZPS_teStatus eStatus = ZPS_eAplZdoJoinNetwork(&tsDiscovedNWKList[u8DiscovedNWKJoinCount]); 
 
         if (ZPS_E_SUCCESS == eStatus)
         {
@@ -222,6 +247,94 @@ int AT_joinNetworkWithIndex(uint16 *regAddr)
 
     return ERR;
 }
+
+
+
+
+int API_JoinNetworkWithIndex(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr)
+{
+    //save the register
+    if (inputApiSpec->payload.localAtReq.value[0] != 0)
+    {
+        memcpy((uint8 *)regAddr, inputApiSpec->payload.localAtReq.value + 1, 2);
+        PDM_vSaveRecord(&g_sDevicePDDesc);
+    }
+
+    int result = 0;
+    char tmp[90]; 
+    int len;
+    do
+    {
+        uint16 idx = *regAddr;
+
+        if (idx > u8DiscovedNWKListCount || u8DiscovedNWKListCount == 0)
+        {
+            len = sprintf(tmp, "Illegal Index\r\n"); 
+            DBG_vPrintf(TRACE_JOIN, "%s", tmp); 
+            result = 1;
+            break;
+        }
+
+        u8DiscovedNWKJoinCount = idx; 
+
+
+        if (g_sDevice.eState > E_NETWORK_JOINING)
+        {
+            len = sprintf(tmp, "Need ATRS\r\n");
+            DBG_vPrintf(TRACE_JOIN, "%s", tmp);
+            result = 2;
+            break;
+        } else
+        {
+            len = sprintf(tmp, "Joining PAN: %08x%08x \r\n",
+                          (uint32)(tsDiscovedNWKList[u8DiscovedNWKJoinCount].u64ExtPanId >> 32),
+                          (uint32)(tsDiscovedNWKList[u8DiscovedNWKJoinCount].u64ExtPanId)
+                         );
+            DBG_vPrintf(TRACE_JOIN, "%s", tmp);
+
+            ZPS_teStatus eStatus = ZPS_eAplZdoJoinNetwork(&tsDiscovedNWKList[u8DiscovedNWKJoinCount]); 
+
+            if (ZPS_E_SUCCESS == eStatus)
+            {
+                len = sprintf(tmp, "Joined in.\r\n");
+                DBG_vPrintf(TRACE_JOIN, "%s", tmp);
+                g_sDevice.eState = E_NETWORK_JOINING;
+                u8DiscovedNWKJoinCount++;
+                result = 0;
+                break;
+            } else
+            {
+                len = sprintf(tmp, "Join ERR: %x\r\n", eStatus);
+                DBG_vPrintf(TRACE_JOIN, "%s", tmp);
+                u8DiscovedNWKJoinCount++;
+                result = 3;
+                break;
+            }
+        }
+    } while (false);
+    
+    int resp = (result == 0) ? AT_OK : AT_ERR;
+
+    if (API_LOCAL_AT_REQ == inputApiSpec->teApiIdentifier)
+    {
+        tsLocalAtResp localAtResp;
+        int size = assembleLocalAtResp(&localAtResp,
+                                      inputApiSpec->payload.localAtReq.frameId,
+                                      inputApiSpec->payload.localAtReq.atCmdId,
+                                      resp, tmp, len);
+        assembleApiSpec(retApiSpec, len, API_LOCAL_AT_RESP, (uint8 *)&localAtResp, size); 
+    } else if (API_REMOTE_AT_REQ == inputApiSpec->teApiIdentifier)
+    {
+        tsRemoteAtResp remoteAtResp;
+        int size = assembleRemoteAtResp(&remoteAtResp, 
+                                       inputApiSpec->payload.remoteAtReq.frameId,
+                                       inputApiSpec->payload.remoteAtReq.atCmdId,
+                                       resp, tmp, len, inputApiSpec->payload.remoteAtReq.unicastAddr); 
+        assembleApiSpec(retApiSpec, len, API_REMOTE_AT_RESP, (uint8 *)&remoteAtResp, size); 
+    }
+    return OK; 
+}
+
 
 /****************************************************************************
  *

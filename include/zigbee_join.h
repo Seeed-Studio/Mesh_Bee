@@ -26,6 +26,7 @@
 
 
 #include "common.h"
+#include "firmware_at_api.h"
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
@@ -50,8 +51,11 @@ PUBLIC void vStartStopTimer( OS_thSWTimer hSWTimer, uint32 u32Ticks, teState eNe
 PUBLIC void vJoinedNetwork( ZPS_tsAfEvent sStackEvent );
 PUBLIC void vRestoreLastNWK(ZPS_tsNwkNetworkDescr * desc);
 int AT_listNetworkScaned(uint16 *regAddr); 
-int AT_reScanNetwork(uint16 *regAddr); 
+int AT_reScanNetwork(uint16 *regAddr);
 int AT_joinNetworkWithIndex(uint16 *regAddr);
+int API_RescanNetwork(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr); 
+int API_JoinNetworkWithIndex(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr);  
+
 
 #define MAX_SINGLE_CHANNEL_NETWORKS        8
 

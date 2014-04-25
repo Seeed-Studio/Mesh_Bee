@@ -624,6 +624,8 @@ PUBLIC void initDeviceDefault(tsDevice *dev)
     dev->eMode  = E_MODE_DATA;
     dev->magic  = PDM_REC_MAGIC;
     dev->len    = sizeof(tsDevice);
+    dev->rebootByCmd = false;
+    dev->rebootByRemote = false;
 
     dev->supportOTA = FALSE;
     dev->isOTASvr   = FALSE;
@@ -780,7 +782,14 @@ PUBLIC void node_vInitialise(void)
         ZPS_eAplZdoPermitJoining(0xff);
         //g_sDevice.bPermitJoining = TRUE;
     }
-
+    
+    //if reboot by at/api cmd
+    if (g_sDevice.rebootByCmd)
+    {
+        postReboot();
+        g_sDevice.rebootByCmd = false;
+        PDM_vSaveRecord(&g_sDevicePDDesc); 
+    }
 
     // Activate the radio recalibration task in 60s
 #ifdef RADIO_RECALIBRATION
