@@ -142,3 +142,47 @@ void PCK_vApiSpecDataFrame(tsApiSpec *apiSpec, uint8 frameId, uint8 option, uint
     apiSpec->payload.txDataPacket = txDataPacket;
     apiSpec->checkSum = calCheckSum((uint8*)&txDataPacket, apiSpec->length);
 }
+
+
+uint8 PCK_u8ApiSpecLocalAtIo(tsApiSpec *apiSpec, uint8 pin, uint8 state)
+{
+  apiSpec->startDelimiter = API_START_DELIMITER;
+  apiSpec->length = sizeof(tsLocalAtReq);           //Note: union length != tsLocalAtReq length
+  apiSpec->teApiIdentifier = API_LOCAL_AT_REQ;
+
+  tsLocalAtReq localAtReq;
+  memset(&localAtReq, 0, sizeof(tsLocalAtReq));
+
+  localAtReq.frameId = 0xec;
+  localAtReq.atCmdId = ATIO;
+  localAtReq.value[0] = pin;
+  localAtReq.value[1] = state;
+
+  apiSpec->payload.localAtReq = localAtReq;
+
+  apiSpec->checkSum = calCheckSum((uint8*)&localAtReq, apiSpec->length);
+
+  return 3 + sizeof(tsLocalAtReq) + 1;
+}
+
+uint8 PCK_u8ApiSpecRemoteAtIo(tsApiSpec *apiSpec, uint16 unicastAddr , uint8 pin, uint8 state)
+{
+  apiSpec->startDelimiter = API_START_DELIMITER;
+  apiSpec->length = sizeof(tsRemoteAtReq);           //Note: union length != tsLocalAtReq length
+  apiSpec->teApiIdentifier = API_REMOTE_AT_REQ;
+
+  tsRemoteAtReq remoteAtReq;
+  memset(&remoteAtReq, 0, sizeof(tsRemoteAtReq));
+
+  remoteAtReq.frameId=0xec;
+  remoteAtReq.atCmdId = ATIO;
+  remoteAtReq.option = 0x00;
+  remoteAtReq.value[0] = pin;
+  remoteAtReq.value[1] = state;
+  remoteAtReq.unicastAddr = unicastAddr;
+
+  apiSpec->payload.remoteAtReq = remoteAtReq;
+  apiSpec->checkSum = calCheckSum((uint8*)&remoteAtReq, apiSpec->length);
+
+  return 3 + sizeof(tsRemoteAtReq) + 1;
+}
