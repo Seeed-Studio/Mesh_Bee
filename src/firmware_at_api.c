@@ -427,17 +427,84 @@ int getHexParamData(uint8 *buf, int len, uint16 *result, int size)
 
     int len2 = MIN(size, (len - ATHEADERLEN));
     int i = 0;
-    for ( i = 0; i < len2 ; i++)
+    for (i = 0; i < len2; i++)
     {
         char *pos = strchr(ar, *(low + i));
         if (pos == NULL) return ERR;
-        value = value*16 + (pos-ar);
+        value = value * 16 + (pos - ar);
     }
 
     *result = value;
     return OK;
 }
 
+
+/****************************************************************************
+ *
+ * NAME: assembleLocalAtResp
+ *
+ * DESCRIPTION:
+ * 
+ *
+ * PARAMETERS: Name         RW  Usage
+ *
+ *
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
+void assembleLocalAtResp(tsLocalAtResp *resp, uint8 frm_id, uint8 cmd_id, uint8 status, uint8 *value, int len)
+{
+    resp->frameId = frm_id;
+    resp->atCmdId = cmd_id;
+    resp->eStatus = status;
+    memcpy(resp->value, value, len);
+}
+
+/****************************************************************************
+ *
+ * NAME: assembleRemoteAtResp
+ *
+ * DESCRIPTION:
+ * 
+ *
+ * PARAMETERS: Name         RW  Usage
+ *
+ *
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
+void assembleRemoteAtResp(tsRemoteAtResp *resp, uint8 frm_id, uint8 cmd_id, uint8 status, uint8 *value, int len, uint16 addr)
+{
+    resp->frameId = frm_id;
+    resp->atCmdId = cmd_id;
+    resp->eStatus = status;
+    memcpy(resp->value, value, len);
+    resp->unicastAddr = addr;
+}
+
+/****************************************************************************
+ *
+ * NAME: assembleApiSpec
+ *
+ * DESCRIPTION:
+ * 
+ *
+ * PARAMETERS: Name         RW  Usage
+ *
+ *
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
+void assembleApiSpec(tsApiSpec *api, uint8 len, uint8 idtf, uint8 *payload, int payload_len)
+{
+    api->length = len;
+    api->teApiIdentifier = idtf;
+    memcpy((uint8 *)&api->payload.localAtReq, payload, payload_len);
+    api->checkSum = calCheckSum(payload, payload_len);
+}
 
 
 

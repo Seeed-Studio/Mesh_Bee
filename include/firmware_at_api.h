@@ -326,6 +326,11 @@ uint16 deassembleApiFrame(uint8 *buffer, int len, tsApiFrame *frm, bool *valid);
 uint16 u16DecodeApiSpec(uint8 *buffer, int len, tsApiSpec *spec, bool *valid);		//oliver add for API mode
 void copyApiFrame(tsApiFrame *frm, uint8 *dst);
 bool searchAtStarter(uint8 *buffer, int len);
+
+void assembleLocalAtResp(tsLocalAtResp *resp, uint8 frm_id, uint8 cmd_id, uint8 status, uint8 *value, int len); 
+void assembleRemoteAtResp(tsRemoteAtResp *resp, uint8 frm_id, uint8 cmd_id, uint8 status, uint8 *value, int len, uint16 addr);
+void assembleApiSpec(tsApiSpec *api, uint8 len, uint8 idtf, uint8 *payload, int payload_len); 
+
 int API_i32AtProcessSerialCmd(uint8 *buf, int len);
 int API_i32UdsProcessApiCmd(tsApiSpec* apiSpec);
 int API_i32AdsProcessStackEvent(ZPS_tsAfEvent sStackEvent);
