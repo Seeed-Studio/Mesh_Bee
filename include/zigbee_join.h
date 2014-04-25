@@ -1,13 +1,13 @@
-/*    
+/*
  * zigbee_join.h
- * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
- *   
- * Copyright (c) NXP B.V. 2012.   
+ * Firmware for SeeedStudio Mesh Bee(Zigbee) module
+ *
+ * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
  * Author     : Jack Shao
- * Create Time: 2013/10 
- * Change Log :   
- *   
+ * Create Time: 2013/10
+ * Change Log :
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -18,7 +18,7 @@
  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.  
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef ZIGBEE_JOIN_H_
@@ -39,8 +39,8 @@
 /****************************************************************************/
 /***        Exported Functions                                            ***/
 /****************************************************************************/
-PUBLIC void vHandleStartupEvent(void); 
-PUBLIC void vHandleNetworkLeave(ZPS_tsAfEvent sStackEvent); 
+PUBLIC void vHandleStartupEvent(void);
+PUBLIC void vHandleNetworkLeave(ZPS_tsAfEvent sStackEvent);
 PUBLIC void vHandleNetworkDiscoveryEvent(ZPS_tsAfEvent sStackEvent);
 PUBLIC void vHandleNetworkJoinEvent(ZPS_tsAfEvent sStackEvent);
 PUBLIC void vJoinStoredNWK(void);
@@ -50,19 +50,22 @@ PUBLIC void vUnhandledEvent(uint8 eState, ZPS_teAfEventType eType);
 PUBLIC void vStartStopTimer( OS_thSWTimer hSWTimer, uint32 u32Ticks, teState eNextState );
 PUBLIC void vJoinedNetwork( ZPS_tsAfEvent sStackEvent );
 PUBLIC void vRestoreLastNWK(ZPS_tsNwkNetworkDescr * desc);
-int AT_listNetworkScaned(uint16 *regAddr); 
+
+int AT_listNetworkScaned(uint16 *regAddr);
 int AT_reScanNetwork(uint16 *regAddr);
 int AT_joinNetworkWithIndex(uint16 *regAddr);
-int API_RescanNetwork(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr); 
-int API_JoinNetworkWithIndex(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr);  
+int API_RescanNetwork(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr);
+int API_JoinNetworkWithIndex(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr);
 
+
+int API_listNetworkScaned(tsApiSpec *reqApiSpec, tsApiSpec *respApiSpec, uint16 *regAddr);
 
 #define MAX_SINGLE_CHANNEL_NETWORKS        8
 
 /****************************************************************************/
 /***        External Variables                                            ***/
 /****************************************************************************/
-extern     bool                    bRejoining; 
+extern     bool                    bRejoining;
 /****************************************************************************/
 /****************************************************************************/
 /****************************************************************************/

@@ -174,6 +174,36 @@ typedef struct
 //TOPO
 typedef struct
 {
+	uint8               lqi;
+	uint8               dbm;
+	uint16              nodeFWVer;
+    uint32              nodeMacAddr0;  //cant sent 64bit interger due to align issue
+    uint32              nodeMacAddr1;
+}tsTopoInfo;
+
+typedef struct
+{
+	uint8               role;
+	uint8               radioChannel;
+	uint16              nodeFWVer;
+	uint16              shortAddr;
+	uint16              panId;
+    uint32              nodeMacAddr0;  //cant sent 64bit interger due to align issue
+    uint32              nodeMacAddr1;
+}tsNodeInfo;
+
+typedef struct
+{
+    uint8 index;
+    uint8 radioChannel;
+    uint8 isPermitJoin;
+    uint32 panId0;
+    uint32 panId1;
+}tsNwkInfo;
+
+//TOPO for AT mode
+typedef struct
+{
     uint32              nodeMacAddr0;  //cant sent 64bit interger due to align issue
     uint32              nodeMacAddr1;
     uint8               lqi;
@@ -326,9 +356,11 @@ uint16 u16DecodeApiSpec(uint8 *buffer, int len, tsApiSpec *spec, bool *valid);		
 void copyApiFrame(tsApiFrame *frm, uint8 *dst);
 bool searchAtStarter(uint8 *buffer, int len);
 
-int assembleLocalAtResp(tsLocalAtResp *resp, uint8 frm_id, uint8 cmd_id, uint8 status, uint8 *value, int len); 
+
+int assembleLocalAtResp(tsLocalAtResp *resp, uint8 frm_id, uint8 cmd_id, uint8 status, uint8 *value, int len);
 int assembleRemoteAtResp(tsRemoteAtResp *resp, uint8 frm_id, uint8 cmd_id, uint8 status, uint8 *value, int len, uint16 addr);
-void assembleApiSpec(tsApiSpec *api, uint8 len, uint8 idtf, uint8 *payload, int payload_len); 
+void assembleApiSpec(tsApiSpec *api, uint8 idtf, uint8 *payload, int payload_len);
+
 
 int API_i32AtProcessSerialCmd(uint8 *buf, int len);
 int API_i32UdsProcessApiCmd(tsApiSpec* apiSpec);

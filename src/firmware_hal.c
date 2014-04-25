@@ -96,7 +96,7 @@ PUBLIC void vHAL_AdcSampleInit(tsAdcParam *param)
 	/* Wait until the regulator becomes stable. */
 	while(!bAHI_APRegulatorEnabled());
 
-	DBG_vPrintf(TRACE_HAL, "HAL:ADC is successfully initialized.\r\n");
+	DBG_vPrintf(TRACE_HAL, "Initializing ADC ...\r\n");
 }
 /****************************************************************************
  *
@@ -220,9 +220,20 @@ PUBLIC void vHAL_PullXtal(int32 i32Temperature)
 }
 
 
-/*
- * read a byte from uart
- */
+/****************************************************************************
+ *
+ * NAME: vHAL_UartRead
+ *
+ * DESCRIPTION:
+ * Read data from AUPS ringbuffer
+ *
+ * PARAMETERS:  len
+ *
+ *
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
 void vHAL_UartRead(void *data, int len)
 {
     uint32 dataCnt = 0;

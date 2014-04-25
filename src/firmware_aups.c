@@ -204,7 +204,7 @@ OS_TASK(Arduino_Loop)
 		{
 			/* Set AT mode */
 			setNodeState(E_MODE_AT);
-			suli_uart_printf(Device, DeviceId, "Enter AT Mode");
+			suli_uart_printf(Device, DeviceId, "Enter AT Mode.\r\n");
 			/* Clear ringbuffer of AUPS */
 			OS_eEnterCriticalSection(mutexRxRb);
 			clear_ringbuffer(&rb_uart_aups);

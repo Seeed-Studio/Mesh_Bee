@@ -177,7 +177,7 @@ OS_TASK(APP_taskHandleUartRx)
         	{
         		g_sDevice.eMode = E_MODE_AT;
         		PDM_vSaveRecord(&g_sDevicePDDesc);
-        		uart_printf("Enter AT mode.\r\n");
+        		uart_printf("Enter AT Mode.\r\n");
         		clear_ringbuffer(&rb_rx_spm);
         	}
         	{
@@ -202,7 +202,7 @@ OS_TASK(APP_taskHandleUartRx)
         	{
         		g_sDevice.eMode = E_MODE_AT;
         	    PDM_vSaveRecord(&g_sDevicePDDesc);
-        	    uart_printf("Enter AT mode.\r\n");
+        	    uart_printf("Enter AT Mode.\r\n");
         	    clear_ringbuffer(&rb_rx_spm);
         	}
         	/* if not containing AT, send out the data */

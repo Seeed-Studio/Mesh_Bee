@@ -719,11 +719,12 @@ PUBLIC void node_vInitialise(void)
       case E_MODE_MCU: mode = "MCU"; break;
       default:break;
     }
-    DBG_vPrintf(TRACE_START, "Current Mode: %s\r\n",mode);
+    DBG_vPrintf(TRACE_START, "Current Mode: %s.\r\n",mode);
 
 
     //Init SPM
     SPM_vInit();
+    DBG_vPrintf(TRACE_START, "Initializing SPM ... \r\n",mode);
 
     //Init UART
     ringbuf_vInitialize();
