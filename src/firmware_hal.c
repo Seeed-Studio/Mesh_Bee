@@ -218,3 +218,20 @@ PUBLIC void vHAL_PullXtal(int32 i32Temperature)
 		break;
 	}
 }
+
+
+/*
+ * read a byte from uart
+ */
+void vHAL_UartRead(void *data, int len)
+{
+    uint32 dataCnt = 0;
+
+    OS_eEnterCriticalSection(mutexRxRb);
+    dataCnt = ringbuffer_data_size(&rb_uart_aups);
+    if(dataCnt >= len)
+    {
+        ringbuffer_read(&rb_uart_aups, data, len);
+    }
+    OS_eExitCriticalSection(mutexRxRb);
+}

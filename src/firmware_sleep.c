@@ -2,7 +2,7 @@
  * firmware_sleep.c
  * Handles sleep mode of End Device
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module
- * 
+ *
  * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
  * Author     : Jack Shao
@@ -27,14 +27,14 @@
 /****************************************************************************/
 #include "common.h"
 #include "firmware_sleep.h"
-#include "firmware_ups.h"
+#include "firmware_aups.h"
 
 
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
 #ifndef TRACE_SLEEP
-#define TRACE_SLEEP TRUE
+#define TRACE_SLEEP FALSE
 #endif
 
 /****************************************************************************/
@@ -79,7 +79,7 @@ PRIVATE	pwrm_tsWakeTimerEvent	sWake;
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 void goSleepMs(uint32 ms)
 {
@@ -102,10 +102,10 @@ void goSleepMs(uint32 ms)
 OS_TASK(SleepEnableTask)
 {
 #ifdef TARGET_END
-    DBG_vPrintf(TRACE_SLEEP, "SleepEnable Task\r\n"); 
-    
+    DBG_vPrintf(TRACE_SLEEP, "SleepEnable Task\r\n");
+
     PWRM_eScheduleActivity(&sWake, _wakeupTime*32 , vWakeCallBack);		// Schedule the next sleep point
-    
+
     stopAllSwTimers();
 #endif
 }
@@ -143,11 +143,11 @@ PUBLIC void vWakeCallBack(void)
 OS_TASK(WakeUpTask)
 {
     DBG_vPrintf(TRACE_SLEEP, "Wake up task\r\n");
-    
-    OS_eActivateTask(PollTask); 
+
+    OS_eActivateTask(PollTask);
 #ifdef FW_MODE_MASTER
-    ups_init(); 
-#endif 
+    ups_init();
+#endif
 }
 
 /****************************************************************************
@@ -170,8 +170,8 @@ OS_TASK(PollTask)
     {
         DBG_vPrintf(TRACE_SLEEP, "\nPoll Failed %d\n", u8PStatus);
     }
-    
-    //OS_eStartSWTimer(PollTimer, APP_TIME_MS(1), NULL); 
+
+    //OS_eStartSWTimer(PollTimer, APP_TIME_MS(1), NULL);
 }
 
 
@@ -187,7 +187,7 @@ OS_TASK(PollTask)
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 void stopAllSwTimers()
 {

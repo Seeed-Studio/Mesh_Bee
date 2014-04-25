@@ -61,6 +61,9 @@ int AT_printTT(uint16 *regAddr);
 int AT_reboot(uint16 *regAddr);
 int AT_powerUpActionSet(uint16 *regAddr);
 int AT_enterDataMode(uint16 *regAddr);
+int AT_enterApiMode(uint16 *regAddr);
+int AT_enterMcuMode(uint16 *regAddr);
+
 int AT_listAllNodes(uint16 *regAddr);
 int AT_showInfo(uint16 *regAddr);
 int AT_triggerOTAUpgrade(uint16 *regAddr);
@@ -122,7 +125,14 @@ static AT_Command_t atCommands[] =
 
     //exit at mode into data mode
     { "EX", NULL, FALSE, 0, 0, NULL, AT_enterDataMode },
-#ifdef OTA_SERVER
+
+    //exit at mode into data mode
+    { "AP", NULL, FALSE, 0, 0, NULL, AT_enterApiMode },
+
+    //exit at mode into data mode
+    { "MC", NULL, FALSE, 0, 0, NULL, AT_enterMcuMode },
+
+    #ifdef OTA_SERVER
     //ota trigger, trigger upgrade for unicastDstAddr
     { "OT", NULL, FALSE, 0, 0, NULL, AT_triggerOTAUpgrade },
 
@@ -340,7 +350,7 @@ int adjustLen(uint8 *buf, int len)
     int alen = 0;
     while (len-- > 0)
     {
-        if (*buf == '\r' || *buf == '\r\n') break;
+        if (*buf == '\r' || *buf == '\n') break;
         alen++;
         buf++;
     }
@@ -492,7 +502,18 @@ int AT_enterDataMode(uint16 *regAddr)
     PDM_vSaveRecord(&g_sDevicePDDesc);
     return OK;
 }
-
+int AT_enterApiMode(uint16 *regAddr)
+{
+    g_sDevice.eMode = E_MODE_API;
+    PDM_vSaveRecord(&g_sDevicePDDesc);
+    return OK;
+}
+int AT_enterMcuMode(uint16 *regAddr)
+{
+    g_sDevice.eMode = E_MODE_MCU;
+    PDM_vSaveRecord(&g_sDevicePDDesc);
+    return OK;
+}
 
 
 /****************************************************************************
@@ -1476,8 +1497,10 @@ int API_i32AdsProcessStackEvent(ZPS_tsAfEvent sStackEvent)
           break;
 
       /* Data */
-      case API_RX_PACKET:
-
+      case API_DATA_PACKET:
+    	  size = vCopyApiSpec(&apiSpec, tmp);
+          CMI_vTxData(tmp, size);
+          PDUM_eAPduFreeAPduInstance(hapdu_ins);
     	  break;
       /* default:do nothing */
       default:

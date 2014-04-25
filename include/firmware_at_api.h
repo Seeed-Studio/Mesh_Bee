@@ -115,6 +115,7 @@ typedef enum
 	API_LOCAL_AT_RESP = 0x88,
 	API_REMOTE_AT_REQ = 0x17,
 	API_REMOTE_AT_RESP = 0x97,
+	API_DATA_PACKET = 0x02,
     API_TX_REQ = 0x01,          //Tx a packet to special short address
     API_TX_RESP = 0x03,
 	API_RX_PACKET = 0x81,        //received a packet from air,send to UART
@@ -247,6 +248,7 @@ typedef struct
 {
 	uint8 frameId;
 	uint8 option;             //indicate broadcast or unicast
+	uint8 dataLen;
 	uint8 data[API_DATA_LEN];
 	uint16 unicastAddr;
 }__attribute__ ((packed)) tsTxDataPacket;

@@ -24,6 +24,12 @@
 /***        Include files                                                 ***/
 /****************************************************************************/
 #include "firmware_api_pack.h"
+#include "firmware_at_api.h"
+
+/****************************************************************************/
+/***        External Functions                                            ***/
+/****************************************************************************/
+extern uint8 calCheckSum(uint8 *in, int len);
 
 /****************************************************************************
  *
@@ -103,4 +109,36 @@ int vCopyApiSpec(tsApiSpec *spec, uint8 *dst)
     size += 1;
 
     return size;
+}
+
+/****************************************************************************
+ *
+ * NAME: PAK_vApiSpecDataFrame
+ *
+ * DESCRIPTION:
+ * Pack data frame
+ *
+ * RETURNS:
+ * tsApiSpec
+ *
+ ****************************************************************************/
+void PCK_vApiSpecDataFrame(tsApiSpec *apiSpec, uint8 frameId, uint8 option, uint16 unicastAddr, void *data, int len)
+{
+	tsTxDataPacket txDataPacket;
+    memset(&txDataPacket, 0, sizeof(tsTxDataPacket));
+
+    int min_cnt = MIN(len, API_DATA_LEN);
+
+	txDataPacket.frameId = frameId;
+    txDataPacket.option = option;
+    txDataPacket.dataLen = min_cnt;
+    txDataPacket.unicastAddr = unicastAddr;
+
+    memcpy(txDataPacket.data, data, min_cnt);
+
+    apiSpec->startDelimiter = API_START_DELIMITER;
+    apiSpec->length = sizeof(tsTxDataPacket);
+    apiSpec->teApiIdentifier = API_DATA_PACKET;
+    apiSpec->payload.txDataPacket = txDataPacket;
+    apiSpec->checkSum = calCheckSum((uint8*)&txDataPacket, apiSpec->length);
 }

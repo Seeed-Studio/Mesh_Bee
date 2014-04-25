@@ -34,6 +34,8 @@
 #define TRACE_UART TRUE
 #endif
 
+extern void CMI_vPushData(void *data, int len);
+
 /****************************************************************************/
 /***        Exported Variables                                               ***/
 /****************************************************************************/
@@ -41,14 +43,65 @@ unsigned char txfifo[TXFIFOLEN];
 unsigned char rxfifo[RXFIFOLEN];
 PRIVATE  volatile bool txbusy = FALSE;
 
-struct ringbuffer rb_rx_uart;
-struct ringbuffer rb_tx_uart;
+//struct ringbuffer rb_rx_uart;
+struct ringbuffer rb_tx_uart;    //for UART transfer data
 
-uint8 rb_rx_mempool[UART_RX_RB_LEN];
+//uint8 rb_rx_mempool[UART_RX_RB_LEN];
 uint8 rb_tx_mempool[UART_TX_RB_LEN];
 
 
+/****************************************************************************
+ *
+ * NAME: APP_isrUART1
+ *
+ * DESCRIPTION:
+ * UART data server(UDS)
+ * put received data into ringbuffer, or transfer data
+ * Note: now we add communication interface layer,both input and output data
+ *       were handled by CMI.
+ *
+ *       (1)Master Mode: External[data]-->suli-->AUPS_rx_ringbuffer-->AUPS
+ *                    AUPS[data]-->AUPS_tx_ringbuffer-->suli-->External
+ *       If user want to send a AT command,Steps:
+ *       1.Pack one calling pack_lib;
+ *       2.Push it into rb_rx_uart.
+ *       3.A command execute thread will pop rb_rx_uart and execute callback
+ *         function periodically.
+ *       (2)Slave Mode:
+ *                    External[apiSpec Frame]--rb_rx_uart
+ *       A command execute thread will pop rb_rx_uart and execute
+ *       callback function periodically.
+ ****************************************************************************/
+OS_ISR(APP_isrUART1)
+{
+    uint8 intrpt;
+    uint32 avlb_cnt;
 
+    intrpt = (u8AHI_UartReadInterruptStatus(UART_COMM) >> 1) & 0x7;
+
+    DBG_vPrintf(TRACE_NODE, "\r\nuart interrupt: %d \r\n", intrpt);
+    if (intrpt == E_AHI_UART_INT_RXDATA)
+    {
+        avlb_cnt = u16AHI_UartReadRxFifoLevel(UART_COMM);
+
+        if (avlb_cnt > 0)
+        {
+            uint8 tmp[RXFIFOLEN];
+            /*
+              anyhow we read to empty to clear interrupt flag
+              if not do so, ISR will occur again and again
+            */
+            u16AHI_UartBlockReadData(UART_COMM, tmp, avlb_cnt);
+
+            /* Push data into ringbuffer through CMI switcher */
+            CMI_vPushData(tmp, avlb_cnt);
+        }
+    }
+    else if (intrpt == E_AHI_UART_INT_TX) //tx empty
+    {
+        uart_trigger_tx();
+    }
+}
 /****************************************************************************
  *
  * NAME: uart_initialize
@@ -154,8 +207,7 @@ int AT_printBaudRate(uint16 *regAddr)
  ****************************************************************************/
 void ringbuf_vInitialize()
 {
-	/* This is the essential part,no matter in Master or Slave mode */
-    init_ringbuffer(&rb_rx_uart, rb_rx_mempool, UART_RX_RB_LEN);
+	/* Init ringbuffer */
     init_ringbuffer(&rb_tx_uart, rb_tx_mempool, UART_TX_RB_LEN);
 }
 

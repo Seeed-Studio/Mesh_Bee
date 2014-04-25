@@ -38,4 +38,5 @@
 uint16 u16DecodeApiSpec(uint8 *buffer, int len, tsApiSpec *spec, bool *valid);
 int vCopyApiSpec(tsApiSpec *spec, uint8 *dst);
 
+void PCK_vApiSpecDataFrame(tsApiSpec *apiSpec, uint8 frameId, uint8 option, uint16 unicastAddr, void *data, int len);
 #endif /* FIRMWARE_API_CODEC_H_ */

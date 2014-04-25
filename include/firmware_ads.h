@@ -1,12 +1,11 @@
 /*
- * firmware_ups.h
- * - User Programming Space -
+ * firmware_ads.h
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module
  *
  * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
- * Author     : Oliver Wang
- * Create Time: 2014/4
+ * Author     : Jack Shao & Oliver Wang
+ * Create Time: 2014/04
  * Change Log :
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
@@ -22,18 +21,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __FIRMWARE_UPS_H__
-#define __FIRMWARE_UPS_H__
+#ifndef FIRMWARE_ADS_H_
+#define FIRMWARE_ADS_H_
 
-#include "common.h"
+#include <jendefs.h>
 
-/* oliver */
-#define AUPS_UART_RB_LEN          50
-#define AUPS_AIR_RB_LEN           50
 
-#ifdef FW_MODE_MASTER
-PUBLIC void setLoopIntervalMs(uint32 ms);
-PUBLIC void setNodeState(uint32 state);
-#endif
 
-#endif
+#endif /* FIRMWARE_ADS_H_ */

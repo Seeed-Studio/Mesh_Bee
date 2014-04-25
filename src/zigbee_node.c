@@ -38,7 +38,7 @@
 #include "zigbee_join.h"
 #include "firmware_ota.h"
 #include "firmware_hal.h"
-
+#include "firmware_spm.h"  //for SPM_vInit()
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
@@ -707,22 +707,21 @@ PUBLIC void node_vInitialise(void)
     DBG_vPrintf(TRACE_NODE, "PDM Free Capacity: %d sectors\r\n", u8PDM_CalculateFileSystemCapacity());
     DBG_vPrintf(TRACE_NODE, "PDM Occupancy: %d sectors\r\n", u8PDM_GetFileSystemOccupancy());
 
-#ifdef FW_MODE_MASTER
-    /* default:set to AT mode */
-    g_sDevice.eMode = E_MODE_AT;
-    PDM_vSaveRecord(&g_sDevicePDDesc);
-
     /* print working mode */
     char *mode = "";
     switch(g_sDevice.eMode)
     {
+      case E_MODE_API: mode = "API";break;
       case E_MODE_DATA: mode = "DATA"; break;
       case E_MODE_AT: mode = "AT"; break;
       case E_MODE_MCU: mode = "MCU"; break;
       default:break;
     }
     DBG_vPrintf(TRACE_START, "Current Mode: %s\r\n",mode);
-#endif
+
+
+    //Init SPM
+    SPM_vInit();
 
     //Init UART
     ringbuf_vInitialize();
@@ -804,11 +803,9 @@ PUBLIC void node_vInitialise(void)
 
     OS_eActivateTask(APP_taskNWK);
 
-#ifdef FW_MODE_MASTER
     /* init user space */
     DBG_vPrintf(TRUE, "Init user programming space...\r\n");
     ups_init();
-#endif
 }
 
 

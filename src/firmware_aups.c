@@ -25,10 +25,10 @@
 /****************************************************************************/
 /***        Include files                                                 ***/
 /****************************************************************************/
-#include "firmware_ups.h"
+#include "firmware_aups.h"
 #include "suli.h"
 #include "ups_arduino_sketch.h"
-
+#include "firmware_hal.h"
 
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
@@ -45,13 +45,13 @@
 /****************************************************************************/
 /***        Local Function Prototypes                                     ***/
 /****************************************************************************/
-
+extern bool searchAtStarter(uint8 *buffer, int len);
 
 /****************************************************************************/
 /***        Exported Variables                                            ***/
 /****************************************************************************/
 /* If runs Master Mode,create two aups_ringbuf[UART,AirPort] */
-#ifdef FW_MODE_MASTER
+
 struct ringbuffer rb_uart_aups;
 struct ringbuffer rb_air_aups;
 
@@ -67,7 +67,7 @@ uint8 aups_air_mempool[AUPS_AIR_RB_LEN] = {0};
 #ifdef TARGET_END
 PRIVATE uint32 _loopInterval = 1000;
 #else
-PRIVATE uint32 _loopInterval = 0; 
+PRIVATE uint32 _loopInterval = 0;
 #endif
 
 /****************************************************************************/
@@ -171,7 +171,7 @@ void setNodeState(uint32 state)
     g_sDevice.eMode = state;
     PDM_vSaveRecord(&g_sDevicePDDesc);
 }
-#endif  //FW_MODE_MASTER
+
 
 
 /****************************************************************************
@@ -184,17 +184,38 @@ void setNodeState(uint32 state)
  ****************************************************************************/
 OS_TASK(Arduino_Loop)
 {
-#ifdef FW_MODE_MASTER
+
 	/*
-	  Mutex, only at MCU mode,this loop will be called
-	  So,if you want to treat MeshBee as an Arduino,
-	  It is necessary that call 'setNodeState(E_MODE_MCU)'
-	  in arduino_setup();
+	  Mutex, only in MCU mode,this loop will be called
+      or data in ringbuffer may become mess
     */
 	if(E_MODE_MCU == g_sDevice.eMode)
 	{
-		arduino_loop();
+		/* Back-Ground to search AT delimiter */
+		uint8 tmp[AUPS_UART_RB_LEN];
+		uint8 *Device = NULL;
+		uint16 DeviceId = 0;
+		uint32 avlb_cnt = suli_uart_readable(Device, DeviceId);
+		uint32 min_cnt = MIN(AUPS_UART_RB_LEN, avlb_cnt);
+
+		/* Read,not pop,make sure we don't pollute user data in AUPS ringbuffer */
+		vHAL_UartRead(tmp, min_cnt);
+		if (searchAtStarter(tmp, min_cnt))
+		{
+			/* Set AT mode */
+			setNodeState(E_MODE_AT);
+			suli_uart_printf(Device, DeviceId, "Enter AT Mode");
+			/* Clear ringbuffer of AUPS */
+			OS_eEnterCriticalSection(mutexRxRb);
+			clear_ringbuffer(&rb_uart_aups);
+			OS_eExitCriticalSection(mutexRxRb);
+		}
+		else
+		{
+		    arduino_loop();
+		}
 	}
+
     if(_loopInterval > 0)
     {
 		OS_eStartSWTimer(Arduino_LoopTimer, APP_TIME_MS(_loopInterval), NULL);
@@ -202,5 +223,4 @@ OS_TASK(Arduino_Loop)
     {
 		OS_eActivateTask(Arduino_Loop);
     }
-#endif
 }

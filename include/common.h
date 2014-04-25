@@ -6,7 +6,7 @@
  * Spread by SeeedStudio
  * Author     : Jack Shao
  * Create Time: 2013/10
- * Change Log :
+ * Change Log : Oliver Wang Modify 2014/04
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -64,7 +64,7 @@
 //#define FW_MODE_MASTER                                              //un-comment this line to enable the master mode
                                                                     //or define FW_MODE_MASTER in Makefile to enable
                                                                     //about master mode: https://github.com/Seeed-Studio/Mesh_Bee/blob/master/README.md
-#define FW_VERSION                      0x1002
+#define FW_VERSION                      0x1003
 
 #define RADIO_RECALIBRATION                                         //re-calibrate the radio per 1min
 #define SEC_MODE_FOR_DATA_ON_AIR        ZPS_E_APL_AF_SECURE_NWK     //securing mode for the packets passing through the air
@@ -96,12 +96,7 @@
 #define true                            1
 #define false                           0
 
-/* Byte align */
-#define PACK_STRUCT_BEGIN
-#define PACK_STRUCT_STRUCT __attribute__ ((__packed__))
-#define PACK_STRUCT_END
-#define PACK_STRUCT_FIELD(fld) fld
-#define ALIGNED(n)  __attribute__((aligned (n)))
+
 
 /****************************************************************************/
 /***        Type Definitions                                              ***/
@@ -131,8 +126,9 @@ typedef enum
 /* Node main state */
 typedef enum
 {
+	E_MODE_AT,      //MeshBee console
+	E_MODE_API,     //API mode
     E_MODE_DATA,    //Transparent serial port
-    E_MODE_AT,      //MeshBee console
     E_MODE_MCU      //Arduino-ful MCU
 }teMode;
 
@@ -184,10 +180,12 @@ typedef struct
 /****************************************************************************/
 /***        Exported Variables                                            ***/
 /****************************************************************************/
-extern struct ringbuffer rb_rx_uart;
+//extern struct ringbuffer rb_rx_uart;
 extern struct ringbuffer rb_tx_uart;
-extern struct ringbuffer rb_uart_aups;    //for AUPS Uart
+extern struct ringbuffer rb_rx_spm;       //for SPM input resource pool
+extern struct ringbuffer rb_uart_aups;    //for AUPS UART
 extern struct ringbuffer rb_air_aups;     //for AUPS AirPort response
+
 extern tsDevice g_sDevice;
 extern PDM_tsRecordDescriptor g_sDevicePDDesc;
 
