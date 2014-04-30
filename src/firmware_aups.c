@@ -1,11 +1,12 @@
 /*
- * firmware_hal.c
+ * firmware_ups.c
+ * - User Programming Space -
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module
  *
  * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
  * Author     : Oliver Wang
- * Create Time: 2014/3
+ * Create Time: 2014/4
  * Change Log :
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
@@ -24,23 +25,18 @@
 /****************************************************************************/
 /***        Include files                                                 ***/
 /****************************************************************************/
-#include "common.h"
+#include "firmware_aups.h"
+#include "suli.h"
+#include "ups_arduino_sketch.h"
 #include "firmware_hal.h"
-
 
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
-#ifndef TRACE_HAL
-#define TRACE_HAL TRUE
+#ifndef TRACE_UPS
+#define TRACE_UPS TRUE
 #endif
 
-#define TEMP_XTAL_HALF_PULL             95  /*  95C */
-#define TEMP_XTAL_HALF_PUSH             93  /*  93C */
-#define TEMP_XTAL_FULL_PULL            110  /* 110C */
-#define TEMP_XTAL_FULL_PUSH            108  /* 108C */
-
-#define ADC_REG                        0x02001f04
 /****************************************************************************/
 /***        Type Definitions                                              ***/
 /****************************************************************************/
@@ -49,17 +45,30 @@
 /****************************************************************************/
 /***        Local Function Prototypes                                     ***/
 /****************************************************************************/
-
+extern bool searchAtStarter(uint8 *buffer, int len);
 
 /****************************************************************************/
 /***        Exported Variables                                            ***/
 /****************************************************************************/
+/* If runs Master Mode,create two aups_ringbuf[UART,AirPort] */
+
+struct ringbuffer rb_uart_aups;
+struct ringbuffer rb_air_aups;
+
+uint8 aups_uart_mempool[AUPS_UART_RB_LEN] = {0};
+uint8 aups_air_mempool[AUPS_AIR_RB_LEN] = {0};
 
 
 /****************************************************************************/
 /***        Local Variables                                               ***/
 /****************************************************************************/
-
+//End Device enters sleep mode only if idle task get CPU, so Arduino Loop MUST NOT
+//continues without interval.
+#ifdef TARGET_END
+PRIVATE uint32 _loopInterval = 1000;
+#else
+PRIVATE uint32 _loopInterval = 0;
+#endif
 
 /****************************************************************************/
 /***        External Variables                                            ***/
@@ -67,182 +76,151 @@
 
 
 /****************************************************************************/
-/***        Local Functions                                               ***/
+/***        Exported Functions                                            ***/
 /****************************************************************************/
 
 /****************************************************************************
  *
- * NAME: vHAL_AdcSampleInit
+ * NAME: UPS_vInitRingbuffer
  *
  * DESCRIPTION:
- * init ADC
+ * init ringbuffer of user programming space
  *
- * PARAMETERS: u8Source       tsAdcParam*
- *
+ * PARAMETERS: Name         RW  Usage
  *
  * RETURNS:
  * void
  *
  ****************************************************************************/
-PUBLIC void vHAL_AdcSampleInit(tsAdcParam *param)
+void UPS_vInitRingbuffer()
 {
-	/* Set up the analog peripherals,ready to handle the conversions */
-	vAHI_ApConfigure(E_AHI_AP_REGULATOR_ENABLE,
-					 E_AHI_AP_INT_DISABLE,
-		    		 param->u8SampleSelect,
-		    		 param->u8ClockDivRatio,
-		    		 param->bRefSelect);
-
-	/* Wait until the regulator becomes stable. */
-	while(!bAHI_APRegulatorEnabled());
-
-	DBG_vPrintf(TRACE_HAL, "Initializing ADC ...\r\n");
+    /* aups ringbuffer is required in Master mode */
+    init_ringbuffer(&rb_uart_aups, aups_uart_mempool, AUPS_UART_RB_LEN);
+    init_ringbuffer(&rb_air_aups, aups_air_mempool, AUPS_AIR_RB_LEN);
 }
 /****************************************************************************
  *
- * NAME: vHAL_AdcSampleRead
+ * NAME: ups_init
  *
  * DESCRIPTION:
- * ADC read
+ * init user programming space
  *
- * PARAMETERS:  void
- *
+ * PARAMETERS: Name         RW  Usage
  *
  * RETURNS:
  * void
  *
  ****************************************************************************/
-uint16 vHAL_AdcSampleRead(uint8 u8Source)
+void ups_init(void)
 {
-	uint16 iAdVal = 0;		//local value
-
-	/* Enable ADC */
-	vAHI_AdcEnable(E_AHI_ADC_SINGLE_SHOT, E_AHI_AP_INPUT_RANGE_2, u8Source);
-
-	/* Start Sample */
-	vAHI_AdcStartSample();
-
-	/* Wait until ADC data is available */
-	while(bAHI_AdcPoll());
-
-	/* Here return register value */
-	iAdVal = *(uint32 *)ADC_REG;
-
-	return iAdVal;
+	/* Init ringbuffer */
+	UPS_vInitRingbuffer();
+	//init suli
+    suli_init();
+    //init arduino sketch with arduino-style setup function
+    arduino_setup();
+    //start arduino loops, Arduino_LoopTimer is bound with Arduino_Loop task
+    OS_eStartSWTimer(Arduino_LoopTimer, APP_TIME_MS(1), NULL);
 }
 
-/****************************************************************************
- *
- * NAME: i16HAL_GetChipTemp
- *
- * DESCRIPTION:
- * Helper Function to convert 10bit ADC reading to degrees C
- * Formula: DegC = Typical DegC - ((Reading12 - Typ12) * ScaleFactor)
- * Where C = 25 and temps sensor output 730mv at 25C (from datasheet)
- * As we use 2Vref and 10bit adc this gives (730/2400)*4096  [=Typ12 =1210]
- * Scale factor is half the 0.706 data-sheet resolution DegC/LSB (2Vref)
- *
- * PARAMETERS:  u16AdcValue
- *
- *
- * RETURNS:
- * Chip Temperature in DegC
- *
- ****************************************************************************/
-PUBLIC int16 i16HAL_GetChipTemp(uint16 u16AdcValue)
-{
-	int16 i16Centigrade;
 
-	i16Centigrade = (int16) ((int32) 25 - ((((int32) (u16AdcValue*4) - (int32) 1210) * (int32) 353) / (int32) 1000));
-
-	return (i16Centigrade);
-}
 
 
 /****************************************************************************
  *
- * NAME: vHAL_PullXtal
+ * NAME: setLoopInterval
  *
  * DESCRIPTION:
- * Oscillator pulling State machine
+ * set the interval between loops
+ * End Device enters sleep mode only if idle task get CPU, so Arduino Loop MUST NOT
+ * continues without interval.
  *
- * PARAMETERS:  void
- *
+ * PARAMETERS: Name         RW  Usage
+ *             ms           W   interval in ms
  *
  * RETURNS:
  * void
  *
  ****************************************************************************/
-PUBLIC void vHAL_PullXtal(int32 i32Temperature)
+void setLoopIntervalMs(uint32 ms)
 {
-	static teXtalPullingStates eXtalPullingState = E_STATE_XTAL_UNPULLED;
+    _loopInterval = ms;
+}
 
-    DBG_vPrintf(TRACE_HAL, "\nAPP: T =%d C",i32Temperature);
+/****************************************************************************/
+/***        Local Functions                                               ***/
+/****************************************************************************/
+/****************************************************************************
+ *
+ * NAME: setNodeState
+ *
+ * DESCRIPTION:
+ * set the state of node
+ *
+ * PARAMETERS: Name         RW  Usage
+ *             state        W   state of node
+ *             0:DATA_MODE
+ *             1:AT_MODE
+ *             2:MCU_MODE
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
+void setNodeState(uint32 state)
+{
+    g_sDevice.eMode = state;
+    PDM_vSaveRecord(&g_sDevicePDDesc);
+}
 
-	switch (eXtalPullingState)
+
+
+/****************************************************************************
+ *
+ * NAME: Arduino_Loop
+ *
+ * DESCRIPTION:
+ * task for arduino loop
+ *
+ ****************************************************************************/
+OS_TASK(Arduino_Loop)
+{
+
+	/*
+	  Mutex, only in MCU mode,this loop will be called
+      or data in ringbuffer may become mess
+    */
+	if(E_MODE_MCU == g_sDevice.eMode)
 	{
-		case  E_STATE_XTAL_UNPULLED :
-			if (i32Temperature >= TEMP_XTAL_HALF_PULL)
-			{
-				DBG_vPrintf(TRACE_HAL, "\nAPP: Xtal 1/2 pulled");
-				eXtalPullingState = E_STATE_XTAL_SEMIPULLED;
-				vAHI_ClockXtalPull(eXtalPullingState);
-			}
-			break;
+		/* Back-Ground to search AT delimiter */
+		uint8 tmp[AUPS_UART_RB_LEN];
+		uint8 *Device = NULL;
+		uint16 DeviceId = 0;
+		uint32 avlb_cnt = suli_uart_readable(Device, DeviceId);
+		uint32 min_cnt = MIN(AUPS_UART_RB_LEN, avlb_cnt);
 
-		case  E_STATE_XTAL_SEMIPULLED :
-			if (i32Temperature >= TEMP_XTAL_FULL_PULL)
-			{
-				DBG_vPrintf(TRACE_HAL, "\nAPP: Xtal full pulled");
-				eXtalPullingState = E_STATE_XTAL_PULLED;
-				vAHI_ClockXtalPull(eXtalPullingState);
-			}
-			else if (i32Temperature < TEMP_XTAL_HALF_PUSH)
-			{
-				DBG_vPrintf(TRACE_HAL, "\nAPP: Xtal not pulled");
-				eXtalPullingState = E_STATE_XTAL_UNPULLED;
-				vAHI_ClockXtalPull(eXtalPullingState);
-			}
-			break;
-
-		case  E_STATE_XTAL_PULLED :
-			if (i32Temperature < TEMP_XTAL_FULL_PUSH)
-			{
-				DBG_vPrintf(TRACE_HAL, "\nAPP: Xtal 1/2 pulled");
-				eXtalPullingState = E_STATE_XTAL_SEMIPULLED;
-				vAHI_ClockXtalPull(eXtalPullingState);
-			}
-			break;
-
-		default :
-		break;
+		/* Read,not pop,make sure we don't pollute user data in AUPS ringbuffer */
+		vHAL_UartRead(tmp, min_cnt);
+		if (searchAtStarter(tmp, min_cnt))
+		{
+			/* Set AT mode */
+			setNodeState(E_MODE_AT);
+			suli_uart_printf(Device, DeviceId, "Enter AT Mode.\r\n");
+			/* Clear ringbuffer of AUPS */
+			OS_eEnterCriticalSection(mutexRxRb);
+			clear_ringbuffer(&rb_uart_aups);
+			OS_eExitCriticalSection(mutexRxRb);
+		}
+		else
+		{
+		    arduino_loop();
+		}
 	}
-}
 
-
-/****************************************************************************
- *
- * NAME: vHAL_UartRead
- *
- * DESCRIPTION:
- * Read data from AUPS ringbuffer
- *
- * PARAMETERS:  len
- *
- *
- * RETURNS:
- * void
- *
- ****************************************************************************/
-void vHAL_UartRead(void *data, int len)
-{
-    uint32 dataCnt = 0;
-
-    OS_eEnterCriticalSection(mutexRxRb);
-    dataCnt = ringbuffer_data_size(&rb_uart_aups);
-    if(dataCnt >= len)
+    if(_loopInterval > 0)
     {
-        ringbuffer_read(&rb_uart_aups, data, len);
+		OS_eStartSWTimer(Arduino_LoopTimer, APP_TIME_MS(_loopInterval), NULL);
+    } else
+    {
+		OS_eActivateTask(Arduino_Loop);
     }
-    OS_eExitCriticalSection(mutexRxRb);
 }

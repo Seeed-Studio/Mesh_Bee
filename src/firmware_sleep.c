@@ -1,11 +1,12 @@
 /*
- * firmware_hal.c
+ * firmware_sleep.c
+ * Handles sleep mode of End Device
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module
  *
  * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
- * Author     : Oliver Wang
- * Create Time: 2014/3
+ * Author     : Jack Shao
+ * Create Time: 2014/4
  * Change Log :
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
@@ -25,22 +26,17 @@
 /***        Include files                                                 ***/
 /****************************************************************************/
 #include "common.h"
-#include "firmware_hal.h"
+#include "firmware_sleep.h"
+#include "firmware_aups.h"
 
 
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
-#ifndef TRACE_HAL
-#define TRACE_HAL TRUE
+#ifndef TRACE_SLEEP
+#define TRACE_SLEEP FALSE
 #endif
 
-#define TEMP_XTAL_HALF_PULL             95  /*  95C */
-#define TEMP_XTAL_HALF_PUSH             93  /*  93C */
-#define TEMP_XTAL_FULL_PULL            110  /* 110C */
-#define TEMP_XTAL_FULL_PUSH            108  /* 108C */
-
-#define ADC_REG                        0x02001f04
 /****************************************************************************/
 /***        Type Definitions                                              ***/
 /****************************************************************************/
@@ -49,7 +45,7 @@
 /****************************************************************************/
 /***        Local Function Prototypes                                     ***/
 /****************************************************************************/
-
+PUBLIC void vWakeCallBack(void);
 
 /****************************************************************************/
 /***        Exported Variables                                            ***/
@@ -59,7 +55,8 @@
 /****************************************************************************/
 /***        Local Variables                                               ***/
 /****************************************************************************/
-
+PRIVATE uint32 _wakeupTime = 0;
+PRIVATE	pwrm_tsWakeTimerEvent	sWake;
 
 /****************************************************************************/
 /***        External Variables                                            ***/
@@ -67,182 +64,173 @@
 
 
 /****************************************************************************/
-/***        Local Functions                                               ***/
+/***        Exported Functions                                            ***/
 /****************************************************************************/
 
 /****************************************************************************
  *
- * NAME: vHAL_AdcSampleInit
+ * NAME: goSleepMs
  *
  * DESCRIPTION:
- * init ADC
+ * set the End Device into sleep mode for n ms
  *
- * PARAMETERS: u8Source       tsAdcParam*
- *
+ * PARAMETERS: Name         RW  Usage
+ *             ms           W   ms
  *
  * RETURNS:
  * void
  *
  ****************************************************************************/
-PUBLIC void vHAL_AdcSampleInit(tsAdcParam *param)
+void goSleepMs(uint32 ms)
 {
-	/* Set up the analog peripherals,ready to handle the conversions */
-	vAHI_ApConfigure(E_AHI_AP_REGULATOR_ENABLE,
-					 E_AHI_AP_INT_DISABLE,
-		    		 param->u8SampleSelect,
-		    		 param->u8ClockDivRatio,
-		    		 param->bRefSelect);
-
-	/* Wait until the regulator becomes stable. */
-	while(!bAHI_APRegulatorEnabled());
-
-	DBG_vPrintf(TRACE_HAL, "Initializing ADC ...\r\n");
+#ifdef TARGET_END
+    _wakeupTime = ms;
+    OS_eActivateTask(SleepEnableTask);
+#endif
 }
+
+
 /****************************************************************************
  *
- * NAME: vHAL_AdcSampleRead
+ * NAME: SleepEnableTask
  *
  * DESCRIPTION:
- * ADC read
+ * task for enabling sleep mode
+ * runs at lowest priority to ensure all other tasks are inactive
  *
- * PARAMETERS:  void
+ ****************************************************************************/
+OS_TASK(SleepEnableTask)
+{
+#ifdef TARGET_END
+    DBG_vPrintf(TRACE_SLEEP, "SleepEnable Task\r\n");
+
+    PWRM_eScheduleActivity(&sWake, _wakeupTime*32 , vWakeCallBack);		// Schedule the next sleep point
+
+    stopAllSwTimers();
+#endif
+}
+
+
+/****************************************************************************
  *
+ * NAME: vWakeCallBack
+ *
+ * DESCRIPTION:
+ * Passed to the schedule activity, and then called by the PWRM on wake
  *
  * RETURNS:
  * void
  *
  ****************************************************************************/
-uint16 vHAL_AdcSampleRead(uint8 u8Source)
+PUBLIC void vWakeCallBack(void)
 {
-	uint16 iAdVal = 0;		//local value
-
-	/* Enable ADC */
-	vAHI_AdcEnable(E_AHI_ADC_SINGLE_SHOT, E_AHI_AP_INPUT_RANGE_2, u8Source);
-
-	/* Start Sample */
-	vAHI_AdcStartSample();
-
-	/* Wait until ADC data is available */
-	while(bAHI_AdcPoll());
-
-	/* Here return register value */
-	iAdVal = *(uint32 *)ADC_REG;
-
-	return iAdVal;
+	// Cannot schedule the next wake event until the wake up callback
+	// function has completed. Instead, activate a high priority task
+	// so that it runs immediately after the callback
+	OS_eActivateTask(WakeUpTask);
 }
 
 /****************************************************************************
  *
- * NAME: i16HAL_GetChipTemp
+ * NAME: APP_WakeUpTask
  *
  * DESCRIPTION:
- * Helper Function to convert 10bit ADC reading to degrees C
- * Formula: DegC = Typical DegC - ((Reading12 - Typ12) * ScaleFactor)
- * Where C = 25 and temps sensor output 730mv at 25C (from datasheet)
- * As we use 2Vref and 10bit adc this gives (730/2400)*4096  [=Typ12 =1210]
- * Scale factor is half the 0.706 data-sheet resolution DegC/LSB (2Vref)
- *
- * PARAMETERS:  u16AdcValue
- *
- *
- * RETURNS:
- * Chip Temperature in DegC
- *
- ****************************************************************************/
-PUBLIC int16 i16HAL_GetChipTemp(uint16 u16AdcValue)
-{
-	int16 i16Centigrade;
-
-	i16Centigrade = (int16) ((int32) 25 - ((((int32) (u16AdcValue*4) - (int32) 1210) * (int32) 353) / (int32) 1000));
-
-	return (i16Centigrade);
-}
-
-
-/****************************************************************************
- *
- * NAME: vHAL_PullXtal
- *
- * DESCRIPTION:
- * Oscillator pulling State machine
- *
- * PARAMETERS:  void
- *
- *
+ * Wakeup initialisation task
  * RETURNS:
  * void
  *
  ****************************************************************************/
-PUBLIC void vHAL_PullXtal(int32 i32Temperature)
+OS_TASK(WakeUpTask)
 {
-	static teXtalPullingStates eXtalPullingState = E_STATE_XTAL_UNPULLED;
+    DBG_vPrintf(TRACE_SLEEP, "Wake up task\r\n");
 
-    DBG_vPrintf(TRACE_HAL, "\nAPP: T =%d C",i32Temperature);
-
-	switch (eXtalPullingState)
-	{
-		case  E_STATE_XTAL_UNPULLED :
-			if (i32Temperature >= TEMP_XTAL_HALF_PULL)
-			{
-				DBG_vPrintf(TRACE_HAL, "\nAPP: Xtal 1/2 pulled");
-				eXtalPullingState = E_STATE_XTAL_SEMIPULLED;
-				vAHI_ClockXtalPull(eXtalPullingState);
-			}
-			break;
-
-		case  E_STATE_XTAL_SEMIPULLED :
-			if (i32Temperature >= TEMP_XTAL_FULL_PULL)
-			{
-				DBG_vPrintf(TRACE_HAL, "\nAPP: Xtal full pulled");
-				eXtalPullingState = E_STATE_XTAL_PULLED;
-				vAHI_ClockXtalPull(eXtalPullingState);
-			}
-			else if (i32Temperature < TEMP_XTAL_HALF_PUSH)
-			{
-				DBG_vPrintf(TRACE_HAL, "\nAPP: Xtal not pulled");
-				eXtalPullingState = E_STATE_XTAL_UNPULLED;
-				vAHI_ClockXtalPull(eXtalPullingState);
-			}
-			break;
-
-		case  E_STATE_XTAL_PULLED :
-			if (i32Temperature < TEMP_XTAL_FULL_PUSH)
-			{
-				DBG_vPrintf(TRACE_HAL, "\nAPP: Xtal 1/2 pulled");
-				eXtalPullingState = E_STATE_XTAL_SEMIPULLED;
-				vAHI_ClockXtalPull(eXtalPullingState);
-			}
-			break;
-
-		default :
-		break;
-	}
+    OS_eActivateTask(PollTask);
+#ifdef FW_MODE_MASTER
+    ups_init();
+#endif
 }
-
 
 /****************************************************************************
  *
- * NAME: vHAL_UartRead
+ * NAME: APP_WakeUpTask
  *
  * DESCRIPTION:
- * Read data from AUPS ringbuffer
- *
- * PARAMETERS:  len
- *
- *
+ * Wakeup initialisation task
  * RETURNS:
  * void
  *
  ****************************************************************************/
-void vHAL_UartRead(void *data, int len)
+OS_TASK(PollTask)
 {
-    uint32 dataCnt = 0;
+    DBG_vPrintf(TRACE_SLEEP, "Poll task\r\n");
 
-    OS_eEnterCriticalSection(mutexRxRb);
-    dataCnt = ringbuffer_data_size(&rb_uart_aups);
-    if(dataCnt >= len)
+    ZPS_teStatus u8PStatus = ZPS_eAplZdoPoll();
+
+    if (u8PStatus)
     {
-        ringbuffer_read(&rb_uart_aups, data, len);
+        DBG_vPrintf(TRACE_SLEEP, "\nPoll Failed %d\n", u8PStatus);
     }
-    OS_eExitCriticalSection(mutexRxRb);
+
+    //OS_eStartSWTimer(PollTimer, APP_TIME_MS(1), NULL);
 }
+
+
+/****************************************************************************
+ *
+ * NAME: stopAllSwTimers
+ *
+ * DESCRIPTION:
+ * set the End Device into sleep mode after n ms
+ *
+ * PARAMETERS: Name         RW  Usage
+ *             ms           W   ms
+ *
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
+void stopAllSwTimers()
+{
+#ifdef TARGET_END
+    if (OS_eGetSWTimerStatus(App_tmr1sec) != OS_E_SWTIMER_STOPPED)
+    {
+        OS_eStopSWTimer(App_tmr1sec);
+    }
+    if (OS_eGetSWTimerStatus(APP_RouteRequestTimer) != OS_E_SWTIMER_STOPPED)
+    {
+        OS_eStopSWTimer(APP_RouteRequestTimer);
+    }
+    if (OS_eGetSWTimerStatus(APP_JoinTimer) != OS_E_SWTIMER_STOPPED)
+    {
+        OS_eStopSWTimer(APP_JoinTimer);
+    }
+    if (OS_eGetSWTimerStatus(APP_OTAReqTimer) != OS_E_SWTIMER_STOPPED)
+    {
+        OS_eStopSWTimer(APP_OTAReqTimer);
+    }
+    if (OS_eGetSWTimerStatus(APP_tmrHandleUartRx) != OS_E_SWTIMER_STOPPED)
+    {
+        OS_eStopSWTimer(APP_tmrHandleUartRx);
+    }
+    if (OS_eGetSWTimerStatus(APP_AgeOutChildrenTmr) != OS_E_SWTIMER_STOPPED)
+    {
+        OS_eStopSWTimer(APP_AgeOutChildrenTmr);
+    }
+    if (OS_eGetSWTimerStatus(APP_RadioRecalTimer) != OS_E_SWTIMER_STOPPED)
+    {
+        OS_eStopSWTimer(APP_RadioRecalTimer);
+    }
+    if (OS_eGetSWTimerStatus(APP_RejoinTimer) != OS_E_SWTIMER_STOPPED)
+    {
+        OS_eStopSWTimer(APP_RejoinTimer);
+    }
+    if (OS_eGetSWTimerStatus(Arduino_LoopTimer) != OS_E_SWTIMER_STOPPED)
+    {
+        OS_eStopSWTimer(Arduino_LoopTimer);
+    }
+#endif
+}
+/****************************************************************************/
+/***        Local Functions                                               ***/
+/****************************************************************************/
+

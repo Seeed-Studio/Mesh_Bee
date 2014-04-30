@@ -1,24 +1,61 @@
 Mesh Bee
 ------------
 
-Mesh Bee is a 2.4GHz wireless transceiver from seeed studio. It's based on NXP's newly JN516x series 
-wireless microcontroller chip and supports ZigBee Pro network stack. The factory firmware wraps the 
-complicated ZigBee stack operation into a few easy to use serial commands, and drives Mesh Bee into a 
-transparent serial communication node that can be part of a simple point-to-point connection or a complex 
-mesh network. Moreover, Mesh Bee is totally open hardware and open sourced, which means that you can customize
-the firmware on your requirements. You can use JN516x's ARM core to control things and JenOS to simplify
-your development. The developing environment and tools from NXP are all free.
+![image](http://www.seeedstudio.com/wiki/images/6/6b/QQ20140327-1.png)
 
+#### Abstract
+
+MeshBee is a 2.4GHz wireless zigbee module from seeed studio. It uses microchip JN516x from NXP that enables
+several different flvors of standards-based zigbee mesh networking. Our released firmware fully supports **ZigBee Pro** stack.
+You can use MeshBee in two different ways: Master, Slave. In master mode,The factory firmware wraps the complicated ZigBee stack 
+operation into a few easy to use serial commands(AT Command), Mesh Bee can also work as a transparent serial communication node that can be 
+part of a simple point-to-point connection or a complex mesh network.In slave mode,user can control it through API frame.
+ 
 Mesh Bee will bring you lots of fun.
+ 
 
-### Firmware architecture
+#### 1.Software Architecture
+##### 1.1 Slave mode
+![image](https://raw.githubusercontent.com/CasyWang/Mesh_Bee/MeshBee_v1002/doc/MeshBeeSlave.jpg)
 
-This is the Mesh Bee software architecture,its arduino-ful user programming space
-is magic.We will teach makers how to use it in the future.
+In this mode,other MCU connects to MeshBee and sends API frame through UART.
 
-![image](https://github.com/Seeed-Studio/Mesh_Bee/blob/MeshBee_v1002/img_folder/MeshBeeArchitecture.jpg)
+###### 1.1.1 What's API mode
+API is simplfy a set of standard interfaces created to allow other MCU to interact with MeshBee.For our purposes,API supports
+local control and remote control.For instance,PC can send an API frame to Coordinator A, A received this frame,and 
+execute sleeping command. The most important thing to note is that APIs are specifically engineered to enable MeshBee to talk 
+efficiently to other MCU.
 
-### Usage
+Every transfer of information requires a protocol. We defined the API frame format like this(structure defined in firmware_at_api.h):
+
+![image](https://raw.githubusercontent.com/CasyWang/Mesh_Bee/MeshBee_v1002/doc/ApiSpec_Frame.jpg)
+
+Each frame has a start delimiter for sync. 
+Different types of frames contain different types of data structures,the Api Identifier tells us what type of API frame we are looking at.
+Cmd name indicate which command you want to execute.
+
+User can use our released library(On going) to package API frame. 
+
+###### 1.1.2 Network Topology at API mode
+
+In API mode,user's MCU which connected to the Coordinator, has the ability to access every node in network.
+
+![image](https://raw.githubusercontent.com/CasyWang/Mesh_Bee/MeshBee_v1002/doc/MeshNetwork.jpg)
+
+##### 1.2 Master mode
+The most exciting thing to announce is that an arduino-ful user programming space(AUPS),by which you can treat MeshBee 
+as a wireless arduino, was provided.You can develop a stand-alone application in AUPS. The user application consists of two arduino-style functions
+at the top level: setup & loop, which act just like arduino's.
+
+![image](https://raw.githubusercontent.com/CasyWang/Mesh_Bee/MeshBee_v1002/doc/MeshBeeMaster.jpg)
+
+##### 1.3 What's a Suli  
+
+We introduced Suli too. Suli means Seeed Unified Library Interface. We'll switch to Suli for our future module driver/library release. That means our suli-compatible library/driver will adapt all platforms that suli supporting. Please glance over https://github.com/Seeed-Studio/Suli for more information. 
+
+
+
+#### 2. Usage
 
 1. Install the SDK toolchain;
 2. Download this repo and put all files into a directory A (example);
@@ -28,7 +65,7 @@ is magic.We will teach makers how to use it in the future.
 
 The details are descripted at [this](http://www.seeedstudio.com/wiki/Mesh_Bee) wiki page, please launch there and find your need.
 
-### Contribution
+#### 3. Contribution
 
 Contributing to this software is warmly welcomed. You can do this basically by
 [forking](https://help.github.com/articles/fork-a-repo), committing modifications and then [pulling requests](https://help.github.com/articles/using-pull-requests) (follow the links above for operating guide). Adding change log and your contact into file header is encouraged.  
@@ -42,7 +79,7 @@ And more, you can post on our discussion group at [here](https://groups.google.c
     
 ----
 
-This software is written by Jack Shao (xuguang.shao@seeedstudio.com) for seeed studio<br>
+This software is written by Jack Shao (xuguang.shao@seeedstudio.com) & Oliver Wang (long.wang@seeedstudio.com) for seeed studio<br>
 and is licensed under [The MIT License](http://opensource.org/licenses/mit-license.php). Check License.txt for more information.<br>
 
 
@@ -62,4 +99,3 @@ global distributors and partners to push open hardware movement.<br>
 [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/Seeed-Studio/mesh_bee/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
 
 [![Analytics](https://ga-beacon.appspot.com/UA-46589105-3/Mesh_Bee)](https://github.com/igrigorik/ga-beacon)
-

@@ -1,13 +1,13 @@
-/*    
+/*
  * zigbee_join.c
- * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
- *   
- * Copyright (c) NXP B.V. 2012.   
+ * Firmware for SeeedStudio Mesh Bee(Zigbee) module
+ *
+ * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
  * Author     : Jack Shao
- * Create Time: 2013/10 
- * Change Log :   
- *   
+ * Create Time: 2013/10
+ * Change Log :
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -18,7 +18,7 @@
  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.  
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 /****************************************************************************/
@@ -74,8 +74,9 @@ PRIVATE uint8 u8LocalChannelMask = 11;
 /****************************************************************************/
 /***        Exported Functions                                            ***/
 /****************************************************************************/
+
 /****************************************************************************
- * NAME: function below
+ * NAME: AT_reScanNetwork
  *
  * DESCRIPTION:
  * At command action function
@@ -88,9 +89,11 @@ PRIVATE uint8 u8LocalChannelMask = 11;
  ****************************************************************************/
 int AT_reScanNetwork(uint16 *regAddr)
 {
+	/* Leave Nwk at first */
     ZPS_teStatus e = ZPS_eAplZdoLeaveNetwork(0, FALSE, FALSE);
     if (e)
     {
+    	/* Failed to leave,restart */
         DBG_vPrintf(TRACE_JOIN, "Leave failed.\r\n");
         g_sDevice.eState = E_NETWORK_STARTUP;
         deleteStackPDM();
@@ -98,12 +101,39 @@ int AT_reScanNetwork(uint16 *regAddr)
         return OK;
     } else
     {
+    	/* Reset Nwk stack State Machine */
         DBG_vPrintf(TRACE_JOIN, "Wait leaving...\r\n");
         g_sDevice.eSubState = E_SUB_RESCANNING;
         vStartStopTimer(APP_JoinTimer, APP_TIME_MS(5000), E_NETWORK_WAIT_LEAVE);
         return OK;
     }
-    return ERR;
+}
+
+
+
+int API_RescanNetwork_CallBack(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr)
+{
+    int ret = AT_reScanNetwork(regAddr);
+    int resp = (ret == OK) ? AT_OK:AT_ERR;
+
+    if (API_LOCAL_AT_REQ == inputApiSpec->teApiIdentifier)
+    {
+        tsLocalAtResp localAtResp;
+        int len = assembleLocalAtResp(&localAtResp,
+                                      inputApiSpec->payload.localAtReq.frameId,
+                                      inputApiSpec->payload.localAtReq.atCmdId,
+                                      resp, (uint8 *)&resp, 2);
+        assembleApiSpec(retApiSpec, API_LOCAL_AT_RESP, (uint8 *)&localAtResp, len);
+    } else if (API_REMOTE_AT_REQ == inputApiSpec->teApiIdentifier)
+    {
+        tsRemoteAtResp remoteAtResp;
+        int len = assembleRemoteAtResp(&remoteAtResp,
+                                       inputApiSpec->payload.remoteAtReq.frameId,
+                                       inputApiSpec->payload.remoteAtReq.atCmdId,
+                                       resp, (uint8 *)&resp, 2, inputApiSpec->payload.remoteAtReq.unicastAddr);
+        assembleApiSpec(retApiSpec, API_REMOTE_AT_RESP, (uint8 *)&remoteAtResp, len);
+    }
+    return OK;
 }
 
 /****************************************************************************
@@ -144,7 +174,7 @@ PUBLIC void vHandleNetworkLeave(ZPS_tsAfEvent sStackEvent)
 
     if (endUp)
     {
-        if (g_sDevice.eSubState == E_SUB_RESCANNING) 
+        if (g_sDevice.eSubState == E_SUB_RESCANNING)
         {
             g_sDevice.eState = E_NETWORK_STARTUP;
             g_sDevice.eSubState = E_SUB_NONE;
@@ -168,8 +198,6 @@ PUBLIC void vHandleNetworkLeave(ZPS_tsAfEvent sStackEvent)
  ****************************************************************************/
 int AT_joinNetworkWithIndex(uint16 *regAddr)
 {
-    ZPS_teStatus eStatus = 0xFF;
-
     uint16 idx = *regAddr;
 
     if (idx > u8DiscovedNWKListCount || u8DiscovedNWKListCount == 0)
@@ -179,13 +207,13 @@ int AT_joinNetworkWithIndex(uint16 *regAddr)
     }
 
     u8DiscovedNWKJoinCount = idx;
-    
+
     char tmp[90];
     int len;
-    
+
     if (g_sDevice.eState > E_NETWORK_JOINING)
     {
-        len = sprintf(tmp, "Due to the shortness of stack, you should re-scan with 'ATRS' cmd.\r\n"); 
+        len = sprintf(tmp, "Due to the shortness of stack, you should re-scan with 'ATRS' cmd.\r\n");
         uart_tx_data(tmp, len);
         DBG_vPrintf(TRACE_JOIN, "%s", tmp);
         return ERR;
@@ -198,8 +226,8 @@ int AT_joinNetworkWithIndex(uint16 *regAddr)
                      );
         uart_tx_data(tmp, len);
         DBG_vPrintf(TRACE_JOIN, "%s", tmp);
-        
-        eStatus = ZPS_eAplZdoJoinNetwork(&tsDiscovedNWKList[u8DiscovedNWKJoinCount]);
+
+        ZPS_teStatus eStatus = ZPS_eAplZdoJoinNetwork(&tsDiscovedNWKList[u8DiscovedNWKJoinCount]);
 
         if (ZPS_E_SUCCESS == eStatus)
         {
@@ -223,6 +251,94 @@ int AT_joinNetworkWithIndex(uint16 *regAddr)
     return ERR;
 }
 
+
+
+
+int API_JoinNetworkWithIndex_CallBack(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr)
+{
+    //save the register
+    if (inputApiSpec->payload.localAtReq.value[0] != 0)
+    {
+        memcpy((uint8 *)regAddr, inputApiSpec->payload.localAtReq.value + 1, 2);
+        PDM_vSaveRecord(&g_sDevicePDDesc);
+    }
+
+    int result = 0;
+    char tmp[90];
+    int len;
+    do
+    {
+        uint16 idx = *regAddr;
+
+        if (idx > u8DiscovedNWKListCount || u8DiscovedNWKListCount == 0)
+        {
+            len = sprintf(tmp, "Illegal Index\r\n");
+            DBG_vPrintf(TRACE_JOIN, "%s", tmp);
+            result = 1;
+            break;
+        }
+
+        u8DiscovedNWKJoinCount = idx;
+
+
+        if (g_sDevice.eState > E_NETWORK_JOINING)
+        {
+            len = sprintf(tmp, "Need ATRS\r\n");
+            DBG_vPrintf(TRACE_JOIN, "%s", tmp);
+            result = 2;
+            break;
+        } else
+        {
+            len = sprintf(tmp, "Joining PAN: %08x%08x \r\n",
+                          (uint32)(tsDiscovedNWKList[u8DiscovedNWKJoinCount].u64ExtPanId >> 32),
+                          (uint32)(tsDiscovedNWKList[u8DiscovedNWKJoinCount].u64ExtPanId)
+                         );
+            DBG_vPrintf(TRACE_JOIN, "%s", tmp);
+
+            ZPS_teStatus eStatus = ZPS_eAplZdoJoinNetwork(&tsDiscovedNWKList[u8DiscovedNWKJoinCount]);
+
+            if (ZPS_E_SUCCESS == eStatus)
+            {
+                len = sprintf(tmp, "Joined in.\r\n");
+                DBG_vPrintf(TRACE_JOIN, "%s", tmp);
+                g_sDevice.eState = E_NETWORK_JOINING;
+                u8DiscovedNWKJoinCount++;
+                result = 0;
+                break;
+            } else
+            {
+                len = sprintf(tmp, "Join ERR: %x\r\n", eStatus);
+                DBG_vPrintf(TRACE_JOIN, "%s", tmp);
+                u8DiscovedNWKJoinCount++;
+                result = 3;
+                break;
+            }
+        }
+    } while (false);
+
+    int resp = (result == 0) ? AT_OK : AT_ERR;
+
+    if (API_LOCAL_AT_REQ == inputApiSpec->teApiIdentifier)
+    {
+        tsLocalAtResp localAtResp;
+        int size = assembleLocalAtResp(&localAtResp,
+                                      inputApiSpec->payload.localAtReq.frameId,
+                                      inputApiSpec->payload.localAtReq.atCmdId,
+                                      resp, tmp, len);
+        assembleApiSpec(retApiSpec, API_LOCAL_AT_RESP, (uint8 *)&localAtResp, size);
+    } else if (API_REMOTE_AT_REQ == inputApiSpec->teApiIdentifier)
+    {
+        tsRemoteAtResp remoteAtResp;
+        int size = assembleRemoteAtResp(&remoteAtResp,
+                                       inputApiSpec->payload.remoteAtReq.frameId,
+                                       inputApiSpec->payload.remoteAtReq.atCmdId,
+                                       resp, tmp, len, inputApiSpec->payload.remoteAtReq.unicastAddr);
+        assembleApiSpec(retApiSpec, API_REMOTE_AT_RESP, (uint8 *)&remoteAtResp, size);
+    }
+    return OK;
+}
+
+
 /****************************************************************************
  *
  * NAME: vHandleStartupEvent
@@ -234,7 +350,7 @@ int AT_joinNetworkWithIndex(uint16 *regAddr)
  *             sStackEvent  R   Contains details of the stack event
  *
  * RETURNS:
- * void 
+ * void
  *
  ****************************************************************************/
 PUBLIC void vHandleStartupEvent(void)
@@ -246,7 +362,7 @@ PUBLIC void vHandleStartupEvent(void)
 
     if (OS_E_SWTIMER_RUNNING != OS_eGetSWTimerStatus(APP_JoinTimer))
     {
-        // Clear the discovery neighbour table on each scan 
+        // Clear the discovery neighbour table on each scan
         vClearDiscNT();
 
         eStatus = ZPS_eAplZdoStartStack();
@@ -306,11 +422,11 @@ PUBLIC void vHandleNetworkDiscoveryEvent(ZPS_tsAfEvent sStackEvent)
 
             DBG_vPrintf(TRACE_JOIN, "Scanned NWK: %d\r\n", sStackEvent.uEvent.sNwkDiscoveryEvent.u8NetworkCount);
 
-            
+
             vSaveDiscoveredNWKS(sStackEvent);
             vDisplayDiscoveredNWKS();
             if (g_sDevice.config.autoJoinFirst)
-            {               
+            {
                 DBG_vPrintf(TRACE_JOIN, "Auto join the recommand network. \r\n");
                 vJoinStoredNWK();
             }
@@ -496,7 +612,7 @@ PUBLIC void vJoinStoredNWK(void)
 PUBLIC void vSaveDiscoveredNWKS(ZPS_tsAfEvent sStackEvent)
 {
     uint8 i;
-    
+
     u8DiscovedNWKJoinCount = 0;
     u8DiscovedNWKListCount = 0;
     memset(&tsDiscovedNWKList, 0, ((sizeof(ZPS_tsNwkNetworkDescr)) * MAX_SINGLE_CHANNEL_NETWORKS));
@@ -523,13 +639,13 @@ PUBLIC void vSaveDiscoveredNWKS(ZPS_tsAfEvent sStackEvent)
  * NAME: vRestoreLastNWK
  *
  * DESCRIPTION:
- * 
+ *
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
- * 
+ *
  *
  ****************************************************************************/
 PUBLIC void vRestoreLastNWK(ZPS_tsNwkNetworkDescr *desc)
@@ -559,7 +675,7 @@ PUBLIC void vDisplayDiscoveredNWKS(void)
 
     DBG_vPrintf(TRACE_JOIN, "Discovered networks:\r\n--------\r\n");
 
-    if (u8DiscovedNWKListCount > 0) 
+    if (u8DiscovedNWKListCount > 0)
     {
         for (i = 0; i < u8DiscovedNWKListCount; i++)
         {
@@ -572,7 +688,7 @@ PUBLIC void vDisplayDiscoveredNWKS(void)
     }
     else
         DBG_vPrintf(TRACE_JOIN, "None. Please retry with AT CMD 'ATRS'.\r\n");
-    
+
     DBG_vPrintf(TRACE_JOIN, "--------\r\n");
 }
 
@@ -597,7 +713,7 @@ int AT_listNetworkScaned(uint16 *regAddr)
     uart_printf("Discovered networks:\r\n");
 
     char tmp[128];
-    if (u8DiscovedNWKListCount > 0) 
+    if (u8DiscovedNWKListCount > 0)
     {
         for (i = 0; i < u8DiscovedNWKListCount; i++)
         {
@@ -618,7 +734,133 @@ int AT_listNetworkScaned(uint16 *regAddr)
     return OK;
 }
 
+/****************************************************************************
+*
+* NAME: API_listNetworkScaned
+*
+* DESCRIPTION:
+*
+*
+* PARAMETERS: Name         RW  Usage
+*
+* RETURNS:
+* int
+* apiSpec, returned tsApiSpec Frame
+*
+****************************************************************************/
+int API_listNetworkScaned_CallBack(tsApiSpec *reqApiSpec, tsApiSpec *respApiSpec, uint16 *regAddr)
+{
+    int i = 0;
+    tsNwkInfo nwkInfo;
 
+	/* Response the num-1 packet through callback function, then return 2~n directly */
+
+	for (i = 0; i < u8DiscovedNWKListCount; i++)
+	{
+		memset(&nwkInfo, 0, sizeof(tsNwkInfo));
+		nwkInfo.index = i;
+		nwkInfo.isPermitJoin = tsDiscovedNWKList[i].u8PermitJoining;
+		nwkInfo.radioChannel = tsDiscovedNWKList[i].u8LogicalChan;
+		nwkInfo.panId0 = (uint32)(tsDiscovedNWKList[i].u64ExtPanId);
+		nwkInfo.panId1 = (uint32)(tsDiscovedNWKList[i].u64ExtPanId >> 32);
+		/* return num-1 */
+		if(1 == u8DiscovedNWKListCount)
+		{
+			  if(API_LOCAL_AT_REQ == reqApiSpec->teApiIdentifier)
+			  {
+					tsLocalAtResp localAtResp;
+					memset(&localAtResp, 0, sizeof(tsLocalAtResp));
+
+					/* Assemble LocalAtResp */
+					assembleLocalAtResp(&localAtResp,
+										reqApiSpec->payload.localAtReq.frameId,
+										ATLA,
+										AT_OK,
+										(uint8*)&nwkInfo,
+										sizeof(tsNwkInfo));
+
+					/* Assemble apiSpec */
+					assembleApiSpec(respApiSpec,
+									API_LOCAL_AT_RESP,
+									(uint8*)&localAtResp,
+									sizeof(tsLocalAtResp));
+			  }
+			  else if(API_REMOTE_AT_REQ == reqApiSpec->teApiIdentifier)
+			  {
+				    tsRemoteAtResp remoteAtResp;
+					memset(&remoteAtResp, 0, sizeof(tsRemoteAtResp));
+
+					/* Assemble RemoteAtResp */
+					assembleRemoteAtResp(&remoteAtResp,
+										 reqApiSpec->payload.remoteAtReq.frameId,
+										 ATLA,
+										 AT_OK,
+										 (uint8*)&nwkInfo,
+										 sizeof(tsNwkInfo),
+										 reqApiSpec->payload.remoteAtReq.unicastAddr);
+
+					/* Assemble apiSpec */
+					assembleApiSpec(respApiSpec,
+									API_REMOTE_AT_RESP,
+									(uint8*)&remoteAtResp,
+									sizeof(tsRemoteAtResp));
+			  }
+		}
+		else
+		{
+			uint8 tmp[sizeof(tsApiSpec)];
+			tsApiSpec directApiSpec;
+			memset(&directApiSpec, 0, sizeof(directApiSpec));
+
+			  if(API_LOCAL_AT_REQ == reqApiSpec->teApiIdentifier)
+			  {
+					tsLocalAtResp localAtResp;
+					memset(&localAtResp, 0, sizeof(tsLocalAtResp));
+
+					/* Assemble LocalAtResp */
+					assembleLocalAtResp(&localAtResp,
+										reqApiSpec->payload.localAtReq.frameId,
+										ATLA,
+										AT_OK,
+										(uint8*)&nwkInfo,
+										sizeof(tsNwkInfo));
+
+					/* Assemble apiSpec */
+					assembleApiSpec(&directApiSpec,
+									API_LOCAL_AT_RESP,
+									(uint8*)&localAtResp,
+									sizeof(tsLocalAtResp));
+                    /* UART ACK */
+					int size = i32CopyApiSpec(&directApiSpec, tmp);
+					CMI_vTxData(tmp, size);
+			  }
+			  else if(API_REMOTE_AT_REQ == reqApiSpec->teApiIdentifier)
+			  {
+					tsRemoteAtResp remoteAtResp;
+					memset(&remoteAtResp, 0, sizeof(tsRemoteAtResp));
+
+					/* Assemble RemoteAtResp */
+					assembleRemoteAtResp(&remoteAtResp,
+										 reqApiSpec->payload.remoteAtReq.frameId,
+										 ATLA,
+										 AT_OK,
+										 (uint8*)&nwkInfo,
+										 sizeof(tsNwkInfo),
+										 reqApiSpec->payload.remoteAtReq.unicastAddr);
+
+					/* Assemble apiSpec */
+					assembleApiSpec(&directApiSpec,
+									API_REMOTE_AT_RESP,
+									(uint8*)&remoteAtResp,
+									sizeof(tsRemoteAtResp));
+					 /* ACK unicast to u16SrcAddr */
+					 int size = i32CopyApiSpec(&directApiSpec, tmp);
+					 API_bSendToAirPort(UNICAST, reqApiSpec->payload.remoteAtReq.unicastAddr, tmp, size);
+			  }
+		}
+	}
+    return OK;
+}
 /****************************************************************************
  *
  * NAME: vUnhandledEvent

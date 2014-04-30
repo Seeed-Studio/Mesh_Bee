@@ -1,11 +1,11 @@
 /*
- * firmware_hal.h
+ * firmware_cmi.h
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module
  *
  * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
  * Author     : Oliver Wang
- * Create Time: 2014/3
+ * Create Time: 2014/04
  * Change Log :
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
@@ -21,36 +21,19 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef FIRMWARE_HAL_H_
-#define FIRMWARE_HAL_H_
-
+#ifndef FIRMWARE_CMI_H_
+#define FIRMWARE_CMI_H_
 /****************************************************************************/
-/***        Type Definitions                                              ***/
+/***        Include files                                                 ***/
+/****************************************************************************/
+#include "common.h"
+/****************************************************************************/
+/***        Exported Functions                                            ***/
 /****************************************************************************/
 
-/* Pull state machine */
-typedef enum
-{
-	E_STATE_XTAL_UNPULLED = 0,
-	E_STATE_XTAL_SEMIPULLED = 1,
-	E_STATE_XTAL_PULLED = 3
-} teXtalPullingStates;
+void CMI_vPushData(void *data, int len);
+void CMI_vTxData(void *data, int len);
 
 
-/* ADC configure parameter */
-typedef struct
-{
-  bool_t bIntEnable;		// Enable/disable interrupt when ADC conversion completes
-  uint8 u8SampleSelect;		// Sampling interval in terms of divided clock periods
-  uint8 u8ClockDivRatio;	// Clock divisor (frequencies based on16MHz peripheral clock)
-  bool_t bRefSelect;		// Source of reference voltage,Vref
-  bool_t bContinuous;		// Conversion mode of ADC
-  bool_t bInputRange;		// Input voltage range
-}tsAdcParam;
+#endif /* FIRMWARE_CMI_H_ */
 
-PUBLIC void vHAL_AdcSampleInit(tsAdcParam *param);
-PUBLIC uint16 vHAL_AdcSampleRead(uint8 u8Source);
-PUBLIC void vHAL_PullXtal(int32 i32Temperature);
-PUBLIC int16 i16HAL_GetChipTemp(uint16 u16AdcValue);
-PUBLIC void vHAL_UartRead(void *data, int len);
-#endif /* FIRMWARE_HAL_H_ */
