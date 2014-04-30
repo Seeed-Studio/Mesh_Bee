@@ -15,12 +15,15 @@ Mesh Bee will bring you lots of fun.
  
 
 #### 1.Software Architecture
-##### 1.1 Slave mode
-![image](https://raw.githubusercontent.com/CasyWang/Mesh_Bee/MeshBee_v1002/doc/MeshBeeSlave.jpg)
 
-In this mode,other MCU connects to MeshBee and sends API frame through UART.
+##### 1.1 Schematic diagram
 
-###### 1.1.1 What's API mode
+![image](https://raw.githubusercontent.com/CasyWang/Mesh_Bee/MeshBee_v1002/doc/MeshBeeArchitecture.jpg)
+
+##### 1.2 Slave mode(Also called API mode)
+Type AT command "ATAP" to enter API mode. In this mode,other MCU connects to MeshBee and sends API frame through UART.
+
+###### 1.2.1 What's API mode
 API is simplfy a set of standard interfaces created to allow other MCU to interact with MeshBee.For our purposes,API supports
 local control and remote control.For instance,PC can send an API frame to Coordinator A, A received this frame,and 
 execute sleeping command. The most important thing to note is that APIs are specifically engineered to enable MeshBee to talk 
@@ -36,20 +39,26 @@ Cmd name indicate which command you want to execute.
 
 User can use our released library(On going) to package API frame. 
 
-###### 1.1.2 Network Topology at API mode
+###### 1.2.2 Network Topology at API mode
 
 In API mode,user's MCU which connected to the Coordinator, has the ability to access every node in network.
 
 ![image](https://raw.githubusercontent.com/CasyWang/Mesh_Bee/MeshBee_v1002/doc/MeshNetwork.jpg)
 
-##### 1.2 Master mode
+##### 1.3 Master mode(Also called MCU mode)
 The most exciting thing to announce is that an arduino-ful user programming space(AUPS),by which you can treat MeshBee 
 as a wireless arduino, was provided.You can develop a stand-alone application in AUPS. The user application consists of two arduino-style functions
 at the top level: setup & loop, which act just like arduino's.
+	Just typing "ATMC", MeshBee will enter MCU mode. the arduino_loop() function will execute periodically.
 
-![image](https://raw.githubusercontent.com/CasyWang/Mesh_Bee/MeshBee_v1002/doc/MeshBeeMaster.jpg)
+##### 1.4 AT console
+	Typing "+++" will enter AT console no matter which mode you are in.
+	refer to our AT command manual.
+	
+##### 1.5 Data mode(transparent data mode)
+	Use "ATDT" to enter DATA mode, in that mode, two connected node can exchange data peer to peer. 
 
-##### 1.3 What's a Suli  
+##### 1.6 What's a Suli  
 
 We introduced Suli too. Suli means Seeed Unified Library Interface. We'll switch to Suli for our future module driver/library release. That means our suli-compatible library/driver will adapt all platforms that suli supporting. Please glance over https://github.com/Seeed-Studio/Suli for more information. 
 
