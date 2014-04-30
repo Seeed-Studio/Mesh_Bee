@@ -18,9 +18,9 @@ Mesh Bee will bring you lots of fun.
 
 ##### 1.1 Schematic diagram
 
-![image](https://github.com/CasyWang/Mesh_Bee/blob/MeshBee_v1003/doc/MeshBeeArchitecture.jpg)
+![image](https://raw.githubusercontent.com/CasyWang/Mesh_Bee/MeshBee_v1003/doc/MeshBeeArchitecture.jpg)
 
-![image](https://github.com/CasyWang/Mesh_Bee/blob/MeshBee_v1003/doc/MeshBeeLayer.jpg)
+![image](https://raw.githubusercontent.com/CasyWang/Mesh_Bee/MeshBee_v1003/doc/MeshBeeLayer.jpg)
 
 ##### 1.2 Slave mode(Also called API mode)
 Type AT command "ATAP" to enter API mode. In this mode,other MCU connects to MeshBee and sends API frame through UART.
@@ -33,7 +33,7 @@ efficiently to other MCU.
 
 Every transfer of information requires a protocol. We defined the API frame format like this(structure defined in firmware_at_api.h):
 
-![image](https://github.com/CasyWang/Mesh_Bee/blob/MeshBee_v1003/doc/ApiSpec_Frame.jpg)
+![image](https://raw.githubusercontent.com/CasyWang/Mesh_Bee/MeshBee_v1003/doc/ApiSpec_Frame.jpg)
 
 Each frame has a start delimiter for sync. 
 Different types of frames contain different types of data structures,the Api Identifier tells us what type of API frame we are looking at.
@@ -45,7 +45,7 @@ User can use our released library(On going) to package API frame.
 
 In API mode,user's MCU which connected to the Coordinator, has the ability to access every node in network.
 
-![image](https://github.com/CasyWang/Mesh_Bee/blob/MeshBee_v1003/doc/MeshNetwork.jpg)
+![image](https://raw.githubusercontent.com/CasyWang/Mesh_Bee/MeshBee_v1003/doc/MeshNetwork.jpg)
 
 ##### 1.3 Master mode(Also called MCU mode)
 The most exciting thing to announce is that an arduino-ful user programming space(AUPS),by which you can treat MeshBee 
