@@ -7,8 +7,8 @@
  * Author     : Jack Shao
  * Create Time: 2013/10
  * Change Log :
- * [2014/03/20 oliver]add api mode.
- * [2014/04/09 oliver]take endian into consideration,divide unicastAddr into two parts.
+ * [2014/03/20 oliver]add API support layer.
+ * [2014/04/10 oliver]merge apiFrame and apiSpec
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -44,7 +44,7 @@
 
 /*
   API mode index
-  Note: Concept of AT command instruction set and apiIdentifier
+  Note: Concept of AT command instruction set and apiIdentifier is different.
 */
 typedef enum
 {
@@ -67,15 +67,15 @@ typedef enum
     ATOR = 0x62,  //ota rate, client req period
     ATOA = 0x64,  //ota abort
     ATOS = 0x66,  //ota status poll
-    ATTP = 0x68,   //for test
-    ATIO = 0x70
+    ATTP = 0x68,  //for test
+    ATIO = 0x70   //set IOs
 }teAtIndex;
 
 typedef enum
 {
     FRM_CTRL,
     FRM_QUERY,
-    FRM_QUERY_RESP,		//oliver add
+    FRM_QUERY_RESP,
     FRM_DATA,
     FRM_OTA_NTF,
     FRM_OTA_REQ,
@@ -90,15 +90,8 @@ typedef enum
     FRM_TOPO_RESP
 }teFrameType;
 
-//Query type
-typedef enum
-{
-	QUERY_INNER_TEMP = 10,				//on-chip temperature
-	QUERY_INNER_VOL = 11				//on-chip voltage
-	/*your sensor data type here*/
-}teQueryType;
 
-/* API mode AT return enum */
+/* API mode AT return value */
 typedef enum
 {
 	AT_OK = 0,
@@ -107,17 +100,28 @@ typedef enum
 	INVALID_PARAM = 3
 }teAtRetVal;
 
+/* adapt RPC in the future */
 typedef enum
 {
 	/* API identifier */
-	API_LOCAL_AT_REQ = 0x08,
-	API_LOCAL_AT_RESP = 0x88,
-	API_REMOTE_AT_REQ = 0x17,
-	API_REMOTE_AT_RESP = 0x97,
-    API_TX_REQ = 0x01,          //Tx a packet to special short address
-    API_TX_RESP = 0x03,
-	API_RX_PACKET = 0x81,        //received a packet from air,send to UART
-	API_TEST = 0x8f				//Test
+	API_LOCAL_AT_REQ = 0x08,      //local At require
+	API_LOCAL_AT_RESP = 0x88,    //local At response
+	API_REMOTE_AT_REQ = 0x17,    //remote At require
+	API_REMOTE_AT_RESP = 0x97,   //remote At response
+	API_DATA_PACKET = 0x02,      //indicate that's a data packet,data packet is certainly remote packet.
+	API_TEST = 0x8f,			 //Test
+	/* recently */
+	API_OTA_NTC = 0xd3,
+	API_OTA_REQ = 0xb0,
+	API_OTA_RESP = 0x06,
+	API_OTA_ABT_REQ = 0xf7,
+	API_OTA_ABT_RESP = 0xdb,
+	API_OTA_UPG_REQ = 0x5a,
+	API_OTA_UPG_RESP = 0xe6,
+	API_OTA_ST_REQ = 0x91,
+	API_OTA_ST_RESP = 0x89,
+	API_TOPO_REQ = 0xfb,
+	API_TOPO_RESP = 0x6b
 }teApiIdentifier;
 
 //CTRL
@@ -133,6 +137,8 @@ typedef struct
     uint32              totalBytes;
     uint16              reqPeriodMs;
 }tsFrmOtaNtf;
+
+
 
 typedef struct
 {
@@ -153,11 +159,13 @@ typedef struct
     uint8               per;
 }tsFrmOtaStatusResp;
 
-//TOPO
+//TOPO for AT mode
 typedef struct
 {
     uint32              nodeMacAddr0;  //cant sent 64bit interger due to align issue
     uint32              nodeMacAddr1;
+    uint8               lqi;
+    int16               dbm;
     uint16              nodeFWVer;
 }tsFrmTOPOResp;
 
@@ -182,6 +190,39 @@ typedef struct __apiFrame
 
 
 /*--------API mode structure--------*/
+/* Information of topology */
+typedef struct
+{
+	uint8               lqi;
+	uint8               dbm;
+	uint16              nodeFWVer;
+    uint32              nodeMacAddr0;  //can not sent 64bit int due to align issue
+    uint32              nodeMacAddr1;
+}__attribute__ ((packed)) tsTopoInfo;
+
+
+/* Information of Node */
+typedef struct
+{
+	uint8               role;
+	uint8               radioChannel;
+	uint16              nodeFWVer;
+	uint16              shortAddr;
+	uint16              panId;
+    uint32              nodeMacAddr0;  //cant sent 64bit interger due to align issue
+    uint32              nodeMacAddr1;
+}__attribute__ ((packed)) tsNodeInfo;
+
+/* Information of Network */
+typedef struct
+{
+    uint8 index;
+    uint8 radioChannel;
+    uint8 isPermitJoin;
+    uint32 panId0;
+    uint32 panId1;
+}__attribute__ ((packed)) tsNwkInfo;
+
 
 /* API mode local AT Command require */
 typedef struct
@@ -210,7 +251,7 @@ typedef struct
 	uint8 option;                //0x01 Disable ACK,default: 0x00 Enable ACK
 	uint8 atCmdId;
 	uint8 value[AT_PARAM_LEN];
-	uint16 unicastAddr;          //from small to large
+	uint16 unicastAddr;
 }__attribute__ ((packed)) tsRemoteAtReq;
 
 
@@ -225,35 +266,88 @@ typedef struct
 }__attribute__ ((packed)) tsRemoteAtResp;
 
 
-/* Tx data packet */
+/* Tx data packet 24 */
 typedef struct
 {
 	uint8 frameId;
-	uint8 option;             //indicate broadcast or unicast
-	uint8 data[API_DATA_LEN];
-	uint16 unicastAddr;
+	uint8 option;             //Indicate broadcast or unicast,need ACK or not.
+	uint8 dataLen;            //data length in data array
+	uint8 data[API_DATA_LEN]; //data array
+	uint16 unicastAddr;       //unicast address
 }__attribute__ ((packed)) tsTxDataPacket;
 
+/* ATLA,list all nodes in network */
+typedef struct
+{
+    uint8 reqCmd;
+}__attribute__ ((packed)) tsNwkTopoReq;
+
+/* Network Topology response */
+typedef struct
+{
+	uint8  lqi;
+	int16  dbm;
+	uint16 nodeFWVer;
+	uint16 shortAddr;      //indicate this response comes from which node
+    uint32 nodeMacAddr0;
+    uint32 nodeMacAddr1;
+}__attribute__ ((packed)) tsNwkTopoResp;
+
+/* notice message of OTA server */
+typedef struct
+{
+    uint32 totalBytes;    //total bytes of this OTA image
+    uint16 reqPeriodMs;   //require period time of client
+}__attribute__ ((packed)) tsOtaNotice;
+
+/* OTA require */
+typedef struct
+{
+    uint32 blockIdx;
+}__attribute__ ((packed)) tsOtaReq;
+
+/* OTA response */
+typedef struct
+{
+    uint32 blockIdx;
+    uint16 len;
+    uint8  block[OTA_BLOCK_SIZE];
+    uint32 crc;
+}__attribute__ ((packed)) tsOtaResp;
+
+/* OTA status */
+typedef struct
+{
+    bool   inOTA;
+    uint8  per;    //percent
+    uint32 min;    //Remaining time
+}__attribute__ ((packed)) tsOtaStatusResp;
 
 /* API-specific structure */
 typedef struct
 {
-	uint8 startDelimiter;
+	uint8 startDelimiter;   // start delimiter '0x7e'
 	uint8 length;           // length = sizeof(payload)
-	uint8 teApiIdentifier;
+	uint8 teApiIdentifier;  //indicate what type of packets this is
 	union
 	{
 		/*diff app frame*/
+		uint8 dummyByte;			//dummy byte for non-information frame
+		tsNwkTopoReq nwkTopoReq;
+		tsNwkTopoResp nwkTopoResp;
 		tsLocalAtReq localAtReq;
 		tsLocalAtResp localAtResp;
 		tsRemoteAtReq remoteAtReq;
 		tsRemoteAtResp remoteAtResp;
-		tsTxDataPacket txDataPacket;            //No ACK, like UDP
-	}payload;
-	uint8 checkSum;
+		tsTxDataPacket txDataPacket;
+		tsOtaNotice    otaNotice;    //OTA notice message
+		tsOtaReq otaReq;
+		tsOtaResp otaResp;
+		tsOtaStatusResp otaStatusResp;
+	}__attribute__ ((packed)) payload;
+	uint8 checkSum;                             //verify byte
 }__attribute__ ((packed)) tsApiSpec;
 
-/*---------------End---------------*/
 
 //AT
 typedef int (*AT_Command_Function_t)(uint16 *);
@@ -265,11 +359,11 @@ typedef struct
 {
     const char    *name;
     uint16        *configAddr;   // the ID used in the EEPROM
-    const bool    isHex;         // whether the reg number is hex
-    const int     paramDigits;  // how many digits for the parameter
-    const uint16  maxValue;     // maximum value of the parameter
+    const bool    isHex;             // whether the reg number is hex
+    const int     paramDigits;        // how many digits for the parameter
+    const uint16  maxValue;           // maximum value of the parameter
     AT_Command_Print_t    printFunc;  //the print function of this reg
-    AT_Command_Function_t function; // the function which does the real work on change
+    AT_Command_Function_t function;   // the function which does the real work on change
 }  AT_Command_t;
 
 
@@ -279,9 +373,6 @@ typedef struct
 	const char	*name;		            //AT command name
 	uint8       atCmdIndex;             //AT command index
 	uint16		*configAddr;            //config address
-	const bool	isHex;
-	const int 	paramDigits;
-	const uint16 maxValue;
 	AT_CommandApiMode_Func_t function;  //AT commands call back function
 }AT_Command_ApiMode_t;
 
@@ -300,15 +391,24 @@ enum ErrorCode
 /****************************************************************************/
 /***        Global Function Prototypes                                    ***/
 /****************************************************************************/
-
 uint8 calCheckSum(uint8 *in, int len);
 uint16 assembleApiFrame(tsApiFrame *frm, teFrameType type, uint8 *payload, uint16 payloadLen);
 uint16 deassembleApiFrame(uint8 *buffer, int len, tsApiFrame *frm, bool *valid);
-uint16 u16DecodeApiSpec(uint8 *buffer, int len, tsApiSpec *spec, bool *valid);		//oliver add for API mode
 void copyApiFrame(tsApiFrame *frm, uint8 *dst);
 bool searchAtStarter(uint8 *buffer, int len);
-int API_i32AtProcessSerialCmd(uint8 *buf, int len);
-int API_i32UdsProcessApiCmd(tsApiSpec* apiSpec);
-int API_i32AptsProcessStackEvent(ZPS_tsAfEvent sStackEvent);
+
+int assembleLocalAtResp(tsLocalAtResp *resp, uint8 frm_id, uint8 cmd_id, uint8 status, uint8 *value, int len);
+int assembleRemoteAtResp(tsRemoteAtResp *resp, uint8 frm_id, uint8 cmd_id, uint8 status, uint8 *value, int len, uint16 addr);
+void assembleApiSpec(tsApiSpec *api, uint8 idtf, uint8 *payload, int payload_len);
+
+int API_i32AtCmdProc(uint8 *buf, int len);
+int API_i32ApiFrmCmdProc(tsApiSpec* apiSpec);
+int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent);
 bool API_bSendToAirPort(uint16 txMode, uint16 unicastDest, uint8 *buf, int len);
+void postReboot();
+
 #endif /* __AT_API_H__ */
+
+/****************************************************************************/
+/***        END OF FILE                                                   ***/
+/****************************************************************************/

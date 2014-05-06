@@ -1,13 +1,13 @@
-/*    
+/*
  * firmware_ota.c
- * Firmware for SeeedStudio Mesh Bee(Zigbee) module 
- *   
- * Copyright (c) NXP B.V. 2012.   
+ * Firmware for SeeedStudio Mesh Bee(Zigbee) module
+ *
+ * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
  * Author     : Jack Shao
- * Create Time: 2013/10 
- * Change Log :   
- *   
+ * Create Time: 2013/10
+ * Change Log :
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -18,7 +18,7 @@
  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.  
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 
@@ -40,14 +40,14 @@ static unsigned int crc_table[256];
  * NAME: function below
  *
  * DESCRIPTION:
- * 
+ *
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 PUBLIC void APP_vOtaFlashLockRead(uint32 offsetByte, uint16 len, uint8 *dest)
 {
@@ -61,14 +61,14 @@ PUBLIC void APP_vOtaFlashLockRead(uint32 offsetByte, uint16 len, uint8 *dest)
  * NAME: function below
  *
  * DESCRIPTION:
- * 
+ *
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 PUBLIC void APP_vOtaFlashLockWrite(uint32 offsetByte, uint16 len, uint8 *buff)
 {
@@ -82,14 +82,14 @@ PUBLIC void APP_vOtaFlashLockWrite(uint32 offsetByte, uint16 len, uint8 *buff)
  * NAME: function below
  *
  * DESCRIPTION:
- * 
+ *
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 PUBLIC void APP_vOtaFlashLockErase(uint8 sector)
 {
@@ -103,14 +103,14 @@ PUBLIC void APP_vOtaFlashLockErase(uint8 sector)
  * NAME: function below
  *
  * DESCRIPTION:
- * 
+ *
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 PUBLIC void APP_vOtaFlashLockEraseAll()
 {
@@ -126,14 +126,14 @@ PUBLIC void APP_vOtaFlashLockEraseAll()
  * NAME: function below
  *
  * DESCRIPTION:
- * 
+ *
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 PUBLIC void APP_vOtaKillInternalReboot()
 {
@@ -157,20 +157,20 @@ PUBLIC void APP_vOtaKillInternalReboot()
  * NAME: function below
  *
  * DESCRIPTION:
- * 
+ *
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 PUBLIC void init_crc_table(void)
 {
     unsigned int c;
     unsigned int i, j;
-    
+
     for (i = 0; i < 256; i++)
     {
         c = (unsigned int)i;
@@ -189,14 +189,14 @@ PUBLIC void init_crc_table(void)
  * NAME: function below
  *
  * DESCRIPTION:
- * 
+ *
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 PUBLIC unsigned int crc32(unsigned int crc, unsigned char *buffer, unsigned int size)
 {
@@ -213,14 +213,14 @@ PUBLIC unsigned int crc32(unsigned int crc, unsigned char *buffer, unsigned int 
  * NAME: function below
  *
  * DESCRIPTION:
- * 
+ *
  *
  * PARAMETERS: Name         RW  Usage
- *             
+ *
  *
  * RETURNS:
  * void
- * 
+ *
  ****************************************************************************/
 PUBLIC uint32 imageCrc(uint32 imageLen)
 {
@@ -239,3 +239,7 @@ PUBLIC uint32 imageCrc(uint32 imageLen)
     }
     return crc;
 }
+
+/****************************************************************************/
+/***        END OF FILE                                                   ***/
+/****************************************************************************/

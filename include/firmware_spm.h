@@ -1,11 +1,11 @@
 /*
- * firmware_hal.h
+ * firmware_core_server.h
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module
  *
  * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
- * Author     : Oliver Wang
- * Create Time: 2014/3
+ * Author     : Oliver Wang & Jack Shao
+ * Create Time: 2014/04
  * Change Log :
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
@@ -21,36 +21,20 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef FIRMWARE_HAL_H_
-#define FIRMWARE_HAL_H_
+#ifndef FIRMWARE_CORE_SERVER_H_
+#define FIRMWARE_CORE_SERVER_H_
+/****************************************************************************/
+/***        Include files                                                 ***/
+/****************************************************************************/
+#include <jendefs.h>
+//#include "zps_apl_aib.h"  //cause problem
 
 /****************************************************************************/
-/***        Type Definitions                                              ***/
+/***        Macro Definitions                                             ***/
 /****************************************************************************/
-
-/* Pull state machine */
-typedef enum
-{
-	E_STATE_XTAL_UNPULLED = 0,
-	E_STATE_XTAL_SEMIPULLED = 1,
-	E_STATE_XTAL_PULLED = 3
-} teXtalPullingStates;
+#define SPM_RX_RB_LEN    2*sizeof(tsApiSpec)    //2 API frame Caching
 
 
-/* ADC configure parameter */
-typedef struct
-{
-  bool_t bIntEnable;		// Enable/disable interrupt when ADC conversion completes
-  uint8 u8SampleSelect;		// Sampling interval in terms of divided clock periods
-  uint8 u8ClockDivRatio;	// Clock divisor (frequencies based on16MHz peripheral clock)
-  bool_t bRefSelect;		// Source of reference voltage,Vref
-  bool_t bContinuous;		// Conversion mode of ADC
-  bool_t bInputRange;		// Input voltage range
-}tsAdcParam;
-
-PUBLIC void vHAL_AdcSampleInit(tsAdcParam *param);
-PUBLIC uint16 vHAL_AdcSampleRead(uint8 u8Source);
-PUBLIC void vHAL_PullXtal(int32 i32Temperature);
-PUBLIC int16 i16HAL_GetChipTemp(uint16 u16AdcValue);
-PUBLIC void vHAL_UartRead(void *data, int len);
-#endif /* FIRMWARE_HAL_H_ */
+PUBLIC uint32 UDS_u32SpmPullData(void *data, int len);
+PUBLIC void SPM_vInit();
+#endif /* FIRMWARE_CORE_SERVER_H_ */

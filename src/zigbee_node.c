@@ -38,7 +38,7 @@
 #include "zigbee_join.h"
 #include "firmware_ota.h"
 #include "firmware_hal.h"
-
+#include "firmware_spm.h"  //for SPM_vInit()
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
@@ -624,6 +624,8 @@ PUBLIC void initDeviceDefault(tsDevice *dev)
     dev->eMode  = E_MODE_DATA;
     dev->magic  = PDM_REC_MAGIC;
     dev->len    = sizeof(tsDevice);
+    dev->rebootByCmd = false;
+    dev->rebootByRemote = false;
 
     dev->supportOTA = FALSE;
     dev->isOTASvr   = FALSE;
@@ -667,6 +669,7 @@ PUBLIC void deleteStackPDM()
     PDM_vSaveRecord(&g_sDevicePDDesc);
 }
 
+
 /****************************************************************************
  *
  * NAME: node_vInitialise
@@ -678,7 +681,6 @@ PUBLIC void deleteStackPDM()
  * void
  *
  ****************************************************************************/
-
 PUBLIC void node_vInitialise(void)
 {
     PDM_eLoadRecord(&g_sDevicePDDesc, REC_ID1, &g_sDevice, sizeof(g_sDevice), FALSE);
@@ -700,22 +702,27 @@ PUBLIC void node_vInitialise(void)
         PDM_vSaveRecord(&g_sDevicePDDesc);
     }
 
-    //Initialise ZBPro stack
+    //Initialize Application Framework
     ZPS_eAplAfInit();
 
-    DBG_vPrintf(TRACE_NODE, "PDM: Capacity %d\r\n", u8PDM_CalculateFileSystemCapacity());
-    DBG_vPrintf(TRACE_NODE, "PDM: Occupancy %d\r\n", u8PDM_GetFileSystemOccupancy());
+    DBG_vPrintf(TRACE_NODE, "PDM Free Capacity: %d sectors\r\n", u8PDM_CalculateFileSystemCapacity());
+    DBG_vPrintf(TRACE_NODE, "PDM Occupancy: %d sectors\r\n", u8PDM_GetFileSystemOccupancy());
 
     /* print working mode */
     char *mode = "";
     switch(g_sDevice.eMode)
     {
+      case E_MODE_API: mode = "API";break;
       case E_MODE_DATA: mode = "DATA"; break;
       case E_MODE_AT: mode = "AT"; break;
-      case E_MODE_API: mode = "API"; break;
+      case E_MODE_MCU: mode = "MCU"; break;
       default:break;
     }
-    DBG_vPrintf(TRACE_START, "Current Mode: %s\r\n",mode);
+    DBG_vPrintf(TRACE_START, "Current Mode: %s.\r\n",mode);
+
+    //Init SPM
+    SPM_vInit();
+    DBG_vPrintf(TRACE_START, "Initializing SPM ... \r\n",mode);
 
     //Init UART
     ringbuf_vInitialize();
@@ -739,10 +746,6 @@ PUBLIC void node_vInitialise(void)
     //init pwm for rssi
     vAHI_TimerEnable(E_AHI_TIMER_1, 4, FALSE, FALSE, TRUE);
     vAHI_TimerStartRepeat(E_AHI_TIMER_1, 1000, 1);
-
-    /* init user space */
-    DBG_vPrintf(TRUE,"Init user programming space...\r\n");
-    ups_init();
 
     /*
       If the device state has been restored from eep, re-start the stack
@@ -778,6 +781,14 @@ PUBLIC void node_vInitialise(void)
         //g_sDevice.bPermitJoining = TRUE;
     }
 
+    //if reboot by at/api cmd
+    if (g_sDevice.rebootByCmd)
+    {
+        postReboot();
+        g_sDevice.rebootByCmd = false;
+        PDM_vSaveRecord(&g_sDevicePDDesc);
+    }
+
     // Activate the radio recalibration task in 60s
 #ifdef RADIO_RECALIBRATION
     OS_eStartSWTimer(APP_RadioRecalTimer, APP_TIME_SEC(60), NULL);
@@ -785,7 +796,7 @@ PUBLIC void node_vInitialise(void)
 
     // OTA
 #ifdef CLD_OTA
-    DBG_vPrintf(TRACE_NODE, "Initializing OTA.\r\n");
+    DBG_vPrintf(TRACE_NODE, "Initializing OTA ....\r\n");
     g_sDevice.supportOTA = TRUE;
     bool bIsServer = FALSE;
 #ifdef OTA_SERVER
@@ -798,6 +809,10 @@ PUBLIC void node_vInitialise(void)
 #endif
 
     OS_eActivateTask(APP_taskNWK);
+
+    /* init arduino-ful user programming space */
+    DBG_vPrintf(TRUE, "Initializing AUPS ...\r\n");
+    ups_init();
 }
 
 

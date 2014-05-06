@@ -1,12 +1,11 @@
 /*
- * firmware_ups.h
- * - User Programming Space -
+ * firmware_cmi.h
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module
- * 
+ *
  * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
  * Author     : Oliver Wang
- * Create Time: 2014/4
+ * Create Time: 2014/04
  * Change Log :
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
@@ -22,13 +21,19 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __FIRMWARE_UPS_H__
-#define __FIRMWARE_UPS_H__
-
+#ifndef FIRMWARE_CMI_H_
+#define FIRMWARE_CMI_H_
+/****************************************************************************/
+/***        Include files                                                 ***/
+/****************************************************************************/
 #include "common.h"
+/****************************************************************************/
+/***        Exported Functions                                            ***/
+/****************************************************************************/
 
-PUBLIC void setLoopInterval(uint32 ms);
+void CMI_vPushData(void *data, int len);
+void CMI_vTxData(void *data, int len);
 
 
+#endif /* FIRMWARE_CMI_H_ */
 
-#endif

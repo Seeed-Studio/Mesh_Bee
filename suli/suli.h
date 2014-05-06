@@ -1,6 +1,8 @@
 /*
  * suli.h
  * Seeed Unified Library Interface for Mesh Bee
+ * 
+ * About Suli: https://github.com/Seeed-Studio/Suli
  *
  * 2013 Copyright (c) Seeed Technology Inc.  All right reserved.
  * Author     : Jack Shao
@@ -26,19 +28,19 @@
 
 
 /**
- * GPIO TYPE, it means the data type you gpio name,
- * such as, for Arduino, we use pinMode(pin, INPUT), and pin is int.
+ * GPIO TYPE, it means the data type you gpio name, 
+ * such as, for Arduino, we use pinMode(pin, INPUT), and pin is int. 
  * but for mbed, it's gpio_t
  * For porting, you should modify here
  */
 typedef     int     IO_T;                        // IO type
-typedef     int     PIN_T;                       // pin name
-typedef     int     DIR_T;                       // pin direction
+typedef     int     PIN_T;                      // pin name
+typedef     int     DIR_T;                 // pin direction
 
 typedef     unsigned char   ANALOG_T;                        // pin analog
 
 
-/**
+/** 
  * PIN MODE
  * INPUT or OUTPUT
  */
@@ -54,25 +56,25 @@ typedef     unsigned char   ANALOG_T;                        // pin analog
 #define HAL_PIN_LOW     0x00
 
 /**
- * PIN DEFINATIONS
- * For DIO pins, you can use 0~20 or D0~D20
- * For DO pins, you can just specify DO0/DO1
+ * PIN DEFINATIONS 
+ * For DIO pins, you can use 0~20 or D0~D20 
+ * For DO pins, you can just specify DO0/DO1 
  */
 enum
 {
     D0 = 0, D1=1, D2, D3, D4, D5, D6, D7, D8, D9, D10, D11, D12, D13, D14, D15, D16, D17, D18, D19, D20, DO0=33, DO1=34
-};
+}; 
 
 enum
 {
-    A3=0, A4=1, A2=50, A1, TEMP, VOL
-};
+    A3=0, A4=1, A2=50, A1, TEMP, VOL 
+}; 
 
 
 /**
  * DATA TYPE
- * ALL our suly-compatible library will use those data type
- * (defined in jendefs.h)
+ * ALL our suly-compatible library will use those data type 
+ * (defined in jendefs.h) 
  */
 //typedef signed char    int8;
 //typedef unsigned char  uint8;
@@ -82,10 +84,10 @@ enum
 //typedef unsigned long  uint32;
 
 /**
- * SULI INIT
- * Suli should be inited before any suli_* function call
- * Arduino & mbed platform linked some hardware initial code
- * background, so no need to call suli_init.
+ * SULI INIT 
+ * Suli should be inited before any suli_* function call 
+ * Arduino & mbed platform linked some hardware initial code 
+ * background, so no need to call suli_init. 
  */
 void suli_init(void);
 
@@ -101,16 +103,16 @@ int16 suli_pin_read(IO_T *pio);                // read pin
 
 
 /**
- * Reads a pulse (either HIGH or LOW) on a pin. For example, if value is HIGH,
- * suli_pulse_in() waits for the pin to go HIGH, starts timing,
- * then waits for the pin to go LOW and stops timing. Returns the length of the pulse in microseconds.
+ * Reads a pulse (either HIGH or LOW) on a pin. For example, if value is HIGH, 
+ * suli_pulse_in() waits for the pin to go HIGH, starts timing, 
+ * then waits for the pin to go LOW and stops timing. Returns the length of the pulse in microseconds. 
  * Gives up and returns 0 if no pulse starts within a specified time out.
  * para -
  * - pin: pins which you want to read the pulse.
  * - state: type of pulse to read: either HIGH or LOW. (int)
  * - timeout (optional): the number of microseconds to wait for the pulse to start; default is one second (unsigned long)
  */
-uint16 suli_pulse_in(IO_T *pio, uint8 state, uint32 timeout);
+uint32 suli_pulse_in(IO_T *pio, uint8 state, uint32 timeout);
 
 
 /*
@@ -131,14 +133,14 @@ void suli_delay_ms(uint32 ms);                 // delay ms
 
 
 /*
- * Returns the number of milliseconds since your board began running the current program.
+ * Returns the number of milliseconds since your board began running the current program. 
  * This number will overflow (go back to zero), after approximately 50 days.
 */
 uint32 suli_millis(void);
 
 
 /*
- * Returns the number of microseconds since your board began running the current program.
+ * Returns the number of microseconds since your board began running the current program. 
  * This number will overflow (go back to zero), after approximately 70 minutes.
  * Note: there are 1,000 microseconds in a millisecond and 1,000,000 microseconds in a second.
  */
@@ -148,7 +150,7 @@ uint32 suli_micros(void);
 // I2C
 
 /*
- * I2C interface initialize.
+ * I2C interface initialize. 
  */
 void suli_i2c_init(void * i2c_device);
 
@@ -187,12 +189,39 @@ void suli_uart_send_byte(void * uart_device, int16 uart_num, uint8 data);
 /*
  * read a byte from uart
  */
-uint8 suli_uart_read_byte(void * uart_device, int16 uart_num);
+uint8 suli_uart_read_byte(void *uart_device, int16 uart_num);
 
 
 /*
  * if uart get data, return 1-readable, 0-unreadable
  */
-uint16 suli_uart_readable(void * uart_device, int16 uart_num);
+uint16 suli_uart_readable(void *uart_device, int16 uart_num);
+
+/*
+ * write a float
+ * num - number to write
+ * decimal - x decimal point
+ */
+void suli_uart_write_float(void *uart_device, int16 uart_num, float data, uint8 prec);
+
+
+/*
+ * write an integer
+ * num - number to write
+ */
+void suli_uart_write_int(void * uart_device, int16 uart_num, int32 num);
+
+
+/*
+ * formatted print
+ * fmt - c99 printf style format string ( !!! %f not supported !!!)
+ * ... - var list 
+ * Notice: 
+ * !!!! this api function is only for JN5168, not a suli standard one. 
+ * !!!! please make sure not using this function when you release a public suli-compatible library.
+ */
+void suli_uart_printf(void *uart_device, int16 uart_num, const char *fmt, ...); 
+
+
 
 #endif

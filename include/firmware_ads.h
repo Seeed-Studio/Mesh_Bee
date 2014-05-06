@@ -1,9 +1,10 @@
 /*
- * firmware_api_codec.h
- * API codec library for MCU mode(arduino-ful MCU mode)
+ * firmware_ads.h
+ * Firmware for SeeedStudio Mesh Bee(Zigbee) module
  *
- * Copyright (c) Seeed Studio. 2014.
- * Author     : Oliver Wang
+ * Copyright (c) NXP B.V. 2012.
+ * Spread by SeeedStudio
+ * Author     : Jack Shao & Oliver Wang
  * Create Time: 2014/04
  * Change Log :
  *
@@ -20,22 +21,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef FIRMWARE_API_CODEC_H_
-#define FIRMWARE_API_CODEC_H_
+#ifndef FIRMWARE_ADS_H_
+#define FIRMWARE_ADS_H_
 
-/****************************************************************************/
-/***        Include files                                                 ***/
-/****************************************************************************/
 #include <jendefs.h>
-#include "firmware_at_api.h"
 
 
 
-
-/****************************************************************************/
-/***        Public Functions                                              ***/
-/****************************************************************************/
-uint16 u16DecodeApiSpec(uint8 *buffer, int len, tsApiSpec *spec, bool *valid);
-
-
-#endif /* FIRMWARE_API_CODEC_H_ */
+#endif /* FIRMWARE_ADS_H_ */
