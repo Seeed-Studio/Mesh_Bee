@@ -38,5 +38,7 @@
 uint16 u16DecodeApiSpec(uint8 *buffer, int len, tsApiSpec *spec, bool *valid);
 int i32CopyApiSpec(tsApiSpec *spec, uint8 *dst);
 
-void PCK_vApiSpecDataFrame(tsApiSpec *apiSpec, uint8 frameId, uint8 option, uint16 unicastAddr, void *data, int len);
+PUBLIC void PCK_vApiSpecDataFrame(tsApiSpec *apiSpec, uint8 frameId, uint8 option, uint16 unicastAddr, void *data, int len);
+PUBLIC uint8 PCK_u8ApiSpecLocalAtIo(tsApiSpec *apiSpec, uint8 pin, uint8 state);
+PUBLIC uint8 PCK_u8ApiSpecRemoteAtIo(tsApiSpec *apiSpec, uint16 unicastAddr , uint8 pin, uint8 state);
 #endif /* FIRMWARE_API_CODEC_H_ */

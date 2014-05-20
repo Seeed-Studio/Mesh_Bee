@@ -44,7 +44,6 @@
 #define TRACE_ATAPI TRUE
 #endif
 
-#define PREAMBLE                0xed
 /* API frame delimiter */
 #define API_DELIMITER 			0x7e
 #define ATHEADERLEN             4
@@ -73,7 +72,7 @@ int AT_abortOTAUpgrade(uint16 *regAddr);
 int AT_OTAStatusPoll(uint16 *regAddr);
 int AT_TestTest(uint16 *regAddr);
 int AT_i32QueryOnChipTemper(uint16 *regAddr);
-
+int AT_EnterSleepMode(uint16 *regAddr);
 
 /****************************************************************************/
 /***        Local Variables                                               ***/
@@ -120,12 +119,12 @@ static AT_Command_t atCommands[] =
     //Query On-Chip temperature
     { "QT", NULL, FALSE, 0, 0, NULL, AT_i32QueryOnChipTemper},
 
-#if 0//defined(TARGET_END)
-    //for end device: whether enter sleep mode
-    { "SL", &g_sDevice.config.sleepMode, 1, 1, FALSE, 0, FALSE },
+#ifdef TARGET_END
+    /* for end device, sleep time ms */
+    { "ST", &g_sDevice.config.sleepPeriod, FALSE, 4, 9999, NULL, NULL},
 
-    //for end: wake up duration
-    { "WD", &g_sDevice.config.wakeupDuration, 3, 999, FALSE, 0, FALSE },
+    { "SL", NULL, FALSE, 0, 0, NULL, AT_EnterSleepMode},
+
 #endif
     //show the information of node
     { "IF", NULL, FALSE, 0, 0, NULL, AT_showInfo },
@@ -138,6 +137,9 @@ static AT_Command_t atCommands[] =
 
     //exit at mode into data mode
     { "MC", NULL, FALSE, 0, 0, NULL, AT_enterMcuMode },
+
+    /* XTAL frequency of Arduino-ful MCU, rang from 10ms~3000ms */
+    { "MF", &g_sDevice.config.upsXtalPeriod, FALSE, 4, 3000, NULL, NULL},
 
 #ifdef OTA_SERVER
     //ota trigger, trigger upgrade for unicastDstAddr
@@ -194,8 +196,6 @@ static AT_Command_ApiMode_t atCommandsApiMode[] =
 	/* Set digital output */
 	{"ATIO", ATIO, NULL, API_i32SetGpio_CallBack},
 
-	//{ "LA", ATLA, NULL, API_listAllNodes },    //special ApiIdentifier
-
 #ifndef TARGET_COO
 	{ "LN", ATLN, NULL, API_listNetworkScaned_CallBack },
 #endif
@@ -231,105 +231,6 @@ uint8 calCheckSum(uint8 *in, int len)
         in++;
     }
     return sum;
-}
-
-
-/****************************************************************************
- *
- * NAME: assembleApiFrame
- *
- * DESCRIPTION:
- * assemble a tsApiFrame structure
- *
- * PARAMETERS: Name         RW  Usage
- *             frm          W   pointer to a already existing tsApiFrame sturct
- *             type         R   ENUM: teFrameType
- *             payload      R   pointer to payload
- *             payloadLen   R   payload length
- *
- * RETURNS:
- * uint16: frame length
- *
- ****************************************************************************/
-uint16 assembleApiFrame(tsApiFrame *frm, teFrameType type, uint8 *payload, uint16 payloadLen)
-{
-    frm->preamble   = PREAMBLE;
-    frm->frameType  = type;
-    frm->payloadLen = payloadLen;
-    memcpy(frm->payload.data, payload, payloadLen);
-
-    frm->checksum   = calCheckSum((uint8 * )frm, 4 + payloadLen);
-
-    return 4 + payloadLen + 1;
-}
-
-/****************************************************************************
- *
- * NAME: deassembleApiFrame
- *
- * DESCRIPTION:
- * de-assemble a tsApiFrame from a buffer
- *
- * PARAMETERS: Name         RW  Usage
- *
- *
- * RETURNS:
- * uint16: data length that consumed from the buffer stream
- *
- ****************************************************************************/
-uint16 deassembleApiFrame(uint8 *buffer, int len, tsApiFrame *frm, bool *valid)
-{
-    uint8 *ptr = buffer;
-
-    while (*ptr != PREAMBLE && len-- > 0) ptr++;
-    if (len < 4)
-    {
-        *valid = FALSE;
-        return ptr - buffer;
-    }
-    memcpy((uint8 * )frm, ptr, 4);
-    ptr += 4;
-    len -= 4;
-    if (len < (frm->payloadLen+1))
-    {
-        *valid = FALSE;
-        return ptr - buffer;
-    }
-    memcpy(frm->payload.data, ptr, frm->payloadLen);
-    ptr += frm->payloadLen;
-    frm->checksum = *ptr;
-    ptr += 1;
-    if (calCheckSum((uint8*)frm,4+frm->payloadLen) == frm->checksum)
-    {
-        *valid = TRUE;
-    } else
-    {
-        *valid = FALSE;
-    }
-    return ptr-buffer;
-}
-
-/****************************************************************************
- *
- * NAME: copyApiFrame
- *
- * DESCRIPTION:
- * copy the payload part of a tsApiFrame into a buffer.
- *
- * PARAMETERS: Name         RW  Usage
- *
- *
- * RETURNS:
- * void
- *
- ****************************************************************************/
-void copyApiFrame(tsApiFrame *frm, uint8 *dst)
-{
-    memcpy(dst, (uint8 * )frm, 4);
-    dst += 4;
-    memcpy(dst, frm->payload.data, frm->payloadLen);
-    dst += frm->payloadLen;
-    memcpy(dst, &(frm->checksum), 1);
 }
 
 /****************************************************************************
@@ -656,24 +557,38 @@ int AT_enterDataMode(uint16 *regAddr)
 {
     g_sDevice.eMode = E_MODE_DATA;
     PDM_vSaveRecord(&g_sDevicePDDesc);
+    uart_printf("Enter Data Mode.\r\n");
     return OK;
 }
 
+/* Enter API mode */
 int AT_enterApiMode(uint16 *regAddr)
 {
     g_sDevice.eMode = E_MODE_API;
     PDM_vSaveRecord(&g_sDevicePDDesc);
+    uart_printf("Enter API Mode.\r\n");
     return OK;
 }
 
+/* Enter MCU mode */
 int AT_enterMcuMode(uint16 *regAddr)
 {
     g_sDevice.eMode = E_MODE_MCU;
     PDM_vSaveRecord(&g_sDevicePDDesc);
+    uart_printf("Enter MCU Mode.\r\n");
+    ups_init();
     return OK;
 }
 
+/* Sleep ms */
+int AT_EnterSleepMode(uint16 *regAddr)
+{
+	uint32 ms = g_sDevice.config.sleepPeriod;
+	uart_printf("Sleep %ld ms.\r\n", ms);
 
+	/* Sleep */
+	Sleep(ms);
+}
 /****************************************************************************
  *
  * NAME: AT_showInfo
@@ -775,15 +690,14 @@ int AT_triggerOTAUpgrade(uint16 *regAddr)
     uint8 au8Values[OTA_MAGIC_NUM_LEN];
     uint32 u32TotalImage = 0;
 
-
-    //first, check external flash to detect image header
+    /* check external flash to detect image header at first */
     APP_vOtaFlashLockRead(OTA_MAGIC_OFFSET, OTA_MAGIC_NUM_LEN, au8Values);
 
     if (memcmp(magicNum, au8Values, OTA_MAGIC_NUM_LEN) == 0)
     {
         uart_printf("Found valid image at external flash.\r\n");
 
-        //read the image length out
+        /* read the image length */
         APP_vOtaFlashLockRead(OTA_IMAGE_LEN_OFFSET, 4, (uint8 * )(&u32TotalImage));
 
         if (u32TotalImage > 256 * 1024)
@@ -797,30 +711,44 @@ int AT_triggerOTAUpgrade(uint16 *regAddr)
         return ERR;
     }
 
-    //calculate crc
+    /* calculate crc */
     g_sDevice.otaCrc = imageCrc(u32TotalImage);
     uart_printf("Image CRC: 0x%08x.\r\n", g_sDevice.otaCrc);
 
-    //second, notify client node
-    tsFrmOtaNtf ntf;
-    tsApiFrame frm;
-    ntf.reqPeriodMs = g_sDevice.config.reqPeriodMs;
-    ntf.totalBytes = u32TotalImage;
-    g_sDevice.otaTotalBytes = ntf.totalBytes;
+    /* server notify client,here comes an OTA upgrade event */
+    tsOtaNotice otaNotice;
+    memset(&otaNotice, 0, sizeof(tsOtaNotice));
+
+    uint8 tmp[sizeof(tsApiSpec)] = {0};
+    tsApiSpec apiSpec;
+    memset(&apiSpec, 0, sizeof(tsApiSpec));
+
+    /* package OtaNotice */
+    otaNotice.reqPeriodMs = g_sDevice.config.reqPeriodMs;
+    otaNotice.totalBytes = u32TotalImage;
+
+    /* package ApiSpec */
+    apiSpec.startDelimiter = API_START_DELIMITER;
+    apiSpec.length = sizeof(tsOtaNotice);
+    apiSpec.teApiIdentifier = API_OTA_NTC;
+    apiSpec.payload.otaNotice = otaNotice;
+    apiSpec.checkSum = calCheckSum((uint8*)&otaNotice, apiSpec.length);
+
+    /* calculate how many blocks of this OTA image */
+    g_sDevice.otaTotalBytes = otaNotice.totalBytes;
     g_sDevice.otaTotalBlocks = (g_sDevice.otaTotalBytes % OTA_BLOCK_SIZE == 0)?
     (g_sDevice.otaTotalBytes / OTA_BLOCK_SIZE):
     (g_sDevice.otaTotalBytes / OTA_BLOCK_SIZE + 1);
 
-    uart_printf("Total bytes: %d, client req period: %dms \r\n", ntf.totalBytes, ntf.reqPeriodMs);
+    uart_printf("Total bytes: %d, client req period: %dms \r\n", otaNotice.totalBytes, otaNotice.reqPeriodMs);
 
-    if (sendToAir(UNICAST, g_sDevice.config.unicastDstAddr,
-                  &frm, FRM_OTA_NTF, (uint8 * )(&ntf), sizeof(ntf)))
+    /* send through AirPort */
+    int size = i32CopyApiSpec(&apiSpec, tmp);
+    if(API_bSendToAirPort(UNICAST, g_sDevice.config.unicastDstAddr, tmp, size))
     {
-        PDM_vSaveRecord(&g_sDevicePDDesc);
-        return OK;
+    	 PDM_vSaveRecord(&g_sDevicePDDesc);
+    	 return OK;
     }
-
-
     return ERR;
 }
 
@@ -840,20 +768,27 @@ int AT_triggerOTAUpgrade(uint16 *regAddr)
  ****************************************************************************/
 int AT_abortOTAUpgrade(uint16 *regAddr)
 {
-    uint8 dummy = 0;
-    tsApiFrame frm;
+	uint8 tmp[sizeof(tsApiSpec)]={0};
+    tsApiSpec apiSpec;
+    memset(&apiSpec, 0, sizeof(tsApiSpec));
 
-    if (sendToAir(UNICAST, g_sDevice.config.unicastDstAddr,
-                  &frm, FRM_OTA_ABT_REQ, (uint8 * )(&dummy), 1))
-    {
-        return OK;
-    } else
-    {
-        return ERR;
-    }
+	apiSpec.startDelimiter = API_START_DELIMITER;
+	apiSpec.length = 1;
+	apiSpec.teApiIdentifier = API_OTA_ABT_REQ;
+	apiSpec.payload.dummyByte = 0;
+	apiSpec.checkSum = 0;
 
+	 /* send through AirPort */
+	int size = i32CopyApiSpec(&apiSpec, tmp);
+	if(API_bSendToAirPort(UNICAST, g_sDevice.config.unicastDstAddr, tmp, size))
+	{
+		return OK;
+	}
+	else
+	{
+	    return ERR;
+	}
 }
-
 /****************************************************************************
  *
  * NAME: AT_OTAStatusPoll
@@ -870,22 +805,27 @@ int AT_abortOTAUpgrade(uint16 *regAddr)
  ****************************************************************************/
 int AT_OTAStatusPoll(uint16 *regAddr)
 {
-    uint8 dummy = 0;
-    tsApiFrame frm;
+	uint8 tmp[sizeof(tsApiSpec)]={0};
+    tsApiSpec apiSpec;
+    memset(&apiSpec, 0, sizeof(tsApiSpec));
 
-    if (sendToAir(UNICAST, g_sDevice.config.unicastDstAddr,
-                  &frm, FRM_OTA_ST_REQ, (uint8 *)(&dummy), 1))
-    {
-        return OK;
-    }
-    else
-    {
-        return ERR;
-    }
+	apiSpec.startDelimiter = API_START_DELIMITER;
+	apiSpec.length = 1;
+	apiSpec.teApiIdentifier = API_OTA_ST_REQ;
+	apiSpec.payload.dummyByte = 0;
+	apiSpec.checkSum = 0;
 
+	 /* send through AirPort */
+	int size = i32CopyApiSpec(&apiSpec, tmp);
+	if(API_bSendToAirPort(UNICAST, g_sDevice.config.unicastDstAddr, tmp, size))
+	{
+		return OK;
+	}
+	else
+	{
+	    return ERR;
+	}
 }
-
-
 /****************************************************************************
  *
  * NAME: AT_listAllNodes
@@ -900,21 +840,6 @@ int AT_OTAStatusPoll(uint16 *regAddr)
  * void
  *
  ****************************************************************************/
-//int AT_listAllNodes(uint16 *regAddr)
-//{
-//    tsApiFrame frm;
-//    uint8 dummy = 0;
-//
-//    if (sendToAir(BROADCAST, 0, &frm, FRM_TOPO_REQ, (&dummy), 1))
-//    {
-//        uart_printf("The request has been sent.\r\n");
-//        uart_printf("Wait for response...\r\n");
-//        return OK;
-//    }
-//    return ERR;
-//}
-
-
 int AT_listAllNodes(uint16 *regAddr)
 {
 	uint8 tmp[sizeof(tsApiSpec)] = {0};
@@ -1586,7 +1511,9 @@ int API_i32AtCmdProc(uint8 *buf, int len)
     uint16 paraValue;   // the ID used in the EEPROM
 
     len = adjustLen(buf, len);
-    if (len < ATHEADERLEN)
+    if(0 == len)                 //Generally a CR or CR/LF will product an "OK" prompt
+    	return OK;
+    else if (len < ATHEADERLEN)  //Error command format
         return ERRNCMD;
 
     // read the AT
@@ -1655,7 +1582,7 @@ int API_i32AtCmdProc(uint8 *buf, int len)
 
 /****************************************************************************
 *
-* NAME: API_u8ProcessApiCmd
+* NAME: API_i32ApiFrmCmdProc
 *
 * DESCRIPTION:
 * API support layer entry,Processing Api Spec Frame
@@ -1667,7 +1594,7 @@ int API_i32AtCmdProc(uint8 *buf, int len)
 *
 *
 ****************************************************************************/
-int API_i32ApiFrmCmdProc(tsApiSpec* apiSpec)
+int API_i32ApiFrmProc(tsApiSpec* apiSpec)
 {
 	int i = 0;
 	int cnt = 0;
@@ -1676,7 +1603,7 @@ int API_i32ApiFrmCmdProc(tsApiSpec* apiSpec)
 	uint8 tmp[sizeof(tsApiSpec)] = {0};
 	uint16 txMode;
 	bool ret;
-	tsLocalAtReq *localAtReq;
+
     tsApiSpec retApiSpec;
     memset(&retApiSpec, 0, sizeof(tsApiSpec));
 
@@ -1689,7 +1616,8 @@ int API_i32ApiFrmCmdProc(tsApiSpec* apiSpec)
           2.UART DataPort ACK[tsLocalAtResp]
 	    */
 	    case API_LOCAL_AT_REQ:
-	    	localAtReq = &(apiSpec->payload.localAtReq);
+	    {
+	    	tsLocalAtReq *localAtReq = &(apiSpec->payload.localAtReq);
 
             cnt = sizeof(atCommandsApiMode)/sizeof(AT_Command_ApiMode_t);
             for(i = 0; i < cnt; i++)
@@ -1703,15 +1631,22 @@ int API_i32ApiFrmCmdProc(tsApiSpec* apiSpec)
                     }
                 }
             }
-        	/* UART ACK,if frameId ==0,No ACK */
+        	/* UART ACK,if frameId ==0,No ACK(not implement in v1003) */
             size = i32CopyApiSpec(&retApiSpec, tmp);
             CMI_vTxData(tmp, size);       //pay attention to this
-	    	break;
+            break;
+	    }
+
 	    /*
 	      remote AT Require:
 	      1.Directly send to AirPort.
 	    */
 	    case API_REMOTE_AT_REQ:
+	    {
+	    	uint16 destAddr = apiSpec->payload.remoteAtReq.unicastAddr;
+	    	apiSpec->payload.remoteAtReq.unicastAddr = (uint16)ZPS_u16AplZdoGetNwkAddr();
+	    	apiSpec->checkSum = calCheckSum((uint8*)(&(apiSpec->payload)), apiSpec->length);
+
 	    	/* Option CastBit[8:2] */
             if(0 == ((apiSpec->payload.remoteAtReq.option) & OPTION_CAST_MASK))
             	txMode = UNICAST;
@@ -1720,33 +1655,40 @@ int API_i32ApiFrmCmdProc(tsApiSpec* apiSpec)
 
             /* Send to AirPort */
             size = i32CopyApiSpec(apiSpec, tmp);
-	    	ret = API_bSendToAirPort(txMode, apiSpec->payload.remoteAtReq.unicastAddr, tmp, size);
+	    	ret = API_bSendToAirPort(txMode, destAddr, tmp, size);
 	    	if(!ret)
 	    		result = ERR;
 	    	else
 	    		result = OK;
+	    	/* Now, don't reply here in local device */
+	    	break;
+	    }
 
-	    	/* Now, don't reply here */
-	        break;
-
-	    /* TX Data packet require(not in transparent mode) */
+	    /*
+	      TX Data packet require(not in transparent mode but MCU or API mode)
+	      1.Send to unicast address directly.
+	    */
 	    case API_DATA_PACKET:
+	    {
+	    	uint16 destAddr = apiSpec->payload.txDataPacket.unicastAddr;
+
+	    	/* change unicast address of data frame to localAddr */
+	    	apiSpec->payload.txDataPacket.unicastAddr = (uint16)ZPS_u16AplZdoGetNwkAddr();
+            apiSpec->checkSum = calCheckSum((uint8*)(&(apiSpec->payload)), apiSpec->length); //modify payload, should refresh checkSum too
+
 	    	if(0 == ((apiSpec->payload.txDataPacket.option) & OPTION_CAST_MASK))
 				txMode = UNICAST;
 			else
 				txMode = BROADCAST;
             /* Send to AirPort */
 	    	size = i32CopyApiSpec(apiSpec, tmp);
-	    	ret = API_bSendToAirPort(txMode, apiSpec->payload.txDataPacket.unicastAddr, tmp, size);
+	    	ret = API_bSendToAirPort(txMode, destAddr, tmp, size);
 			if(!ret)
 				result = ERR;
 			else
 				result = OK;
-	        break;
-
-	    /* default:do nothing */
-	    default:
-	        break;
+			break;
+	    }
 	}
 	return result;
 }
@@ -1809,7 +1751,6 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
     /* Get frame source address */
     uint16 u16SrcAddr = sStackEvent->uEvent.sApsDataIndEvent.uSrcAddress.u16Addr;
 
-    tsRemoteAtReq *remoteAtReq;
     tsApiSpec respApiSpec;
     memset(&respApiSpec, 0, sizeof(tsApiSpec));
 
@@ -1822,14 +1763,14 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
         2.AirPort ACK[tsRemoteAtResp]
       */
       case API_REMOTE_AT_REQ:
+      {
     	  /* Free APDU at first */
     	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
 
-          remoteAtReq = &(apiSpec.payload.remoteAtReq);
           cnt = sizeof(atCommandsApiMode)/sizeof(AT_Command_ApiMode_t);
           for(i = 0; i < cnt; i++)
           {
-              if(atCommandsApiMode[i].atCmdIndex == remoteAtReq->atCmdId)
+        	  if(atCommandsApiMode[i].atCmdIndex == apiSpec.payload.remoteAtReq.atCmdId)
               {
                   if(NULL != atCommandsApiMode[i].function)
                   {
@@ -1842,33 +1783,34 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
           size = i32CopyApiSpec(&respApiSpec, tmp);
           ret = API_bSendToAirPort(UNICAST, u16SrcAddr, tmp, size);
           if(!ret)
-          {
         	  result = ERR;
-          }
           else
-          {
         	  result = OK;
-          }
           break;
+      }
 
       /*
         Remote AT response:
         1.directly send to UART DataPort,user can handle this response frame
       */
       case API_REMOTE_AT_RESP:
+      {
     	  size = i32CopyApiSpec(&apiSpec, tmp);
     	  CMI_vTxData(tmp, size);
     	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
     	  result = OK;
-          break;
+    	  break;
+      }
 
       /* Data */
       case API_DATA_PACKET:
+      {
     	  size = i32CopyApiSpec(&apiSpec, tmp);
           CMI_vTxData(tmp, size);
           PDUM_eAPduFreeAPduInstance(hapdu_ins);
           result = OK;
-    	  break;
+          break;
+      }
 
       /*
         Nwk Topo require:
@@ -1876,6 +1818,7 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
         2.AirPort ACK to source address
       */
       case API_TOPO_REQ:
+      {
     	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
           DBG_vPrintf(TRACE_EP, "NWK_TOPO_REQ: from 0x%04x \r\n", u16SrcAddr);
 
@@ -1901,28 +1844,295 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
           size = i32CopyApiSpec(&respApiSpec, tmp);
 		  ret = API_bSendToAirPort(UNICAST, u16SrcAddr, tmp, size);
 		  if(!ret)
-		  {
 		    result = ERR;
-		  }
 		  else
-		  {
 		    result = OK;
-		  }
-    	  break;
+		  break;
+      }
 
       /*
         Nwk Topo Response
         1.Send to CMI directly,let CMI handle this.
       */
       case API_TOPO_RESP:
+      {
     	  size = i32CopyApiSpec(&apiSpec, tmp);
 		  CMI_vTxData(tmp, size);
 		  PDUM_eAPduFreeAPduInstance(hapdu_ins);
 		  result = OK;
-    	  break;
+		  break;
+      }
+
+#ifdef OTA_CLIENT
+      /*
+        OTA notice message
+        1.Save parameter from notice message;
+        2.Erase external flash;
+        3.Activate require Task
+      */
+      case API_OTA_NTC:
+      {
+    	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
+    	  if (!g_sDevice.supportOTA)
+    		  break;
+          g_sDevice.otaReqPeriod  = apiSpec.payload.otaNotice.reqPeriodMs;
+          g_sDevice.otaTotalBytes = apiSpec.payload.otaNotice.totalBytes;
+          g_sDevice.otaSvrAddr16  = u16SrcAddr;
+          g_sDevice.otaCurBlock   = 0;
+          g_sDevice.otaTotalBlocks = (g_sDevice.otaTotalBytes % OTA_BLOCK_SIZE == 0) ?
+                                     (g_sDevice.otaTotalBytes / OTA_BLOCK_SIZE) :
+                                     (g_sDevice.otaTotalBytes / OTA_BLOCK_SIZE + 1);
+          g_sDevice.otaDownloading = 1;
+          DBG_vPrintf(TRUE, "OTA_NTC: %d blks \r\n", g_sDevice.otaTotalBlocks);
+          PDM_vSaveRecord(&g_sDevicePDDesc);
+
+          /* erase covered sectors */
+          APP_vOtaFlashLockEraseAll();
+
+          /* Activate OTA require Task */
+          OS_eActivateTask(APP_taskOTAReq);
+          result = OK;
+          break;
+      }
+
+      /*
+        OTA response hold a block
+        1. Write this block into external flash.
+        2. If this is the last block, activate upgrade.
+      */
+      case API_OTA_RESP:
+      {
+          PDUM_eAPduFreeAPduInstance(hapdu_ins);
+          uint32 blkIdx = apiSpec.payload.otaResp.blockIdx;
+          uint32 offset = blkIdx * OTA_BLOCK_SIZE;
+          uint16 len    = apiSpec.payload.otaResp.len;
+          uint32 crc    = apiSpec.payload.otaResp.crc;
+
+          /* Synchronous blocks */
+          if (blkIdx == g_sDevice.otaCurBlock)
+          {
+              DBG_vPrintf(TRUE, "OTA_RESP: Blk: %d\r\n", blkIdx);
+              APP_vOtaFlashLockWrite(offset, len, apiSpec.payload.otaResp.block);
+              g_sDevice.otaCurBlock += 1;
+              g_sDevice.otaCrc = crc;
+              if (g_sDevice.otaCurBlock % 100 == 0)
+                  PDM_vSaveRecord(&g_sDevicePDDesc);
+          }
+          else
+          {
+              DBG_vPrintf(TRUE, "OTA_RESP: DesireBlk: %d, RecvBlk: %d \r\n", g_sDevice.otaCurBlock, blkIdx);
+          }
+
+          /* if this is the last block,client start to upgrade */
+          if (g_sDevice.otaCurBlock >= g_sDevice.otaTotalBlocks)
+          {
+              clientOtaFinishing();
+          }
+          result = OK;
+          break;
+      }
+
+      /*
+        OTA upgrade response
+        1.Allowed to activate the upgrade by server
+      */
+      case API_OTA_UPG_RESP:
+      {
+          PDUM_eAPduFreeAPduInstance(hapdu_ins);
+          DBG_vPrintf(TRACE_EP, "FRM_OTA_UPG_RESP: from 0x%04x \r\n", u16SrcAddr);
+
+          g_sDevice.otaDownloading = 0;
+          PDM_vSaveRecord(&g_sDevicePDDesc);
+
+          APP_vOtaKillInternalReboot();
+          result = OK;
+          break;
+      }
+
+      /*
+        Client received OTA abort command from server
+        1.Set OTA state machine to zero(IDLE).
+        2.Reset parameter of OTA.
+        3.Response to server.
+      */
+      case API_OTA_ABT_REQ:
+      {
+    	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
+		  DBG_vPrintf(TRUE, "FRM_OTA_ABT_REQ: from 0x%04x \r\n", u16SrcAddr);
+		  if (g_sDevice.otaDownloading > 0)
+		  {
+			  g_sDevice.otaDownloading = 0;
+			  g_sDevice.otaCurBlock = 0;
+			  g_sDevice.otaTotalBytes = 0;
+			  g_sDevice.otaTotalBlocks = 0;
+			  PDM_vSaveRecord(&g_sDevicePDDesc);
+		  }
+
+    	  /* package apiSpec */
+    	  respApiSpec.startDelimiter = API_START_DELIMITER;
+    	  respApiSpec.length = 1;
+    	  respApiSpec.teApiIdentifier = API_OTA_ABT_RESP;
+    	  respApiSpec.payload.dummyByte = 0;
+    	  respApiSpec.checkSum = 0;
+
+		  /* send through AirPort */
+		  size = i32CopyApiSpec(&respApiSpec, tmp);
+		  ret = API_bSendToAirPort(UNICAST, u16SrcAddr, tmp, size);
+          if(!ret)
+        	  result = ERR;
+          else
+        	  result = OK;
+          break;
+      }
+
+
+      /*
+        OTA status require:
+        1.
+      */
+      case API_OTA_ST_REQ:
+      {
+    	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
+		  DBG_vPrintf(TRACE_EP, "FRM_OTA_ST_REQ: from 0x%04x \r\n", u16SrcAddr);
+
+		  tsOtaStatusResp otaStatusResp;
+		  otaStatusResp.inOTA = (g_sDevice.otaDownloading > 0);
+		  otaStatusResp.per = 0;
+		  if (otaStatusResp.inOTA && g_sDevice.otaTotalBlocks > 0)
+		  {
+			  otaStatusResp.per = (uint8)((g_sDevice.otaCurBlock * 100) / g_sDevice.otaTotalBlocks);
+			  otaStatusResp.min = g_sDevice.config.reqPeriodMs * (g_sDevice.otaTotalBlocks - g_sDevice.otaCurBlock) / 60000;
+		  }
+
+		  /* response */
+		  respApiSpec.startDelimiter = API_START_DELIMITER;
+		  respApiSpec.length = sizeof(tsOtaStatusResp);
+		  respApiSpec.teApiIdentifier = API_OTA_ST_RESP;
+		  respApiSpec.payload.otaStatusResp = otaStatusResp;
+		  respApiSpec.checkSum = calCheckSum((uint8*)&otaStatusResp, respApiSpec.length);
+
+		  /* ACK unicast to u16SrcAddr */
+		  size = i32CopyApiSpec(&respApiSpec, tmp);
+		  ret = API_bSendToAirPort(UNICAST, u16SrcAddr, tmp, size);
+		  if(!ret)
+			result = ERR;
+		  else
+			result = OK;
+		  break;
+      }
+
+#endif
+
+#ifdef OTA_SERVER
+      /*
+        OTA data block require
+        1. return block data
+      */
+      case API_OTA_REQ:
+      {
+    	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
+    	  uint32 blkIdx  = apiSpec.payload.otaReq.blockIdx;
+		  if (blkIdx >= g_sDevice.otaTotalBlocks)
+		 	  break;
+
+		  uint8 buff[OTA_BLOCK_SIZE];
+		  uint16 rdLen = ((blkIdx + 1) * OTA_BLOCK_SIZE > g_sDevice.otaTotalBytes) ?
+						 (g_sDevice.otaTotalBytes - blkIdx * OTA_BLOCK_SIZE) :
+						 (OTA_BLOCK_SIZE);
+		  if (rdLen > OTA_BLOCK_SIZE)
+			  rdLen = OTA_BLOCK_SIZE;
+
+		  /* read a block from flash */
+		  APP_vOtaFlashLockRead(blkIdx * OTA_BLOCK_SIZE, rdLen, buff);
+
+		  DBG_vPrintf(TRUE, "OTA_REQ: blkIdx: %d \r\n", blkIdx);
+
+		  tsOtaResp resp;
+		  resp.blockIdx = blkIdx;
+		  memcpy(&resp.block[0], buff, rdLen);
+		  resp.len = rdLen;
+		  resp.crc = g_sDevice.otaCrc;
+
+		  respApiSpec.startDelimiter = API_START_DELIMITER;
+		  respApiSpec.length = sizeof(tsOtaResp);
+		  respApiSpec.teApiIdentifier = API_OTA_RESP;
+		  respApiSpec.payload.otaResp = resp;
+		  respApiSpec.checkSum = calCheckSum((uint8*)&resp, respApiSpec.length);
+
+		  /* ACK unicast to u16SrcAddr */
+		  size = i32CopyApiSpec(&respApiSpec, tmp);
+		  ret = API_bSendToAirPort(UNICAST, u16SrcAddr, tmp, size);
+		  if(!ret)
+			result = ERR;
+		  else
+			result = OK;
+		  break;
+      }
+
+       /*
+         Upgrade require from OTA client device
+         1.Permit client to activate upgrade
+       */
+      case API_OTA_UPG_REQ:
+      {
+    	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
+    	  DBG_vPrintf(TRUE, "FRM_OTA_UPG_REQ: from 0x%04x \r\n", u16SrcAddr);
+    	  uart_printf("OTA: Node 0x%04x's OTA download done, crc check ok.\r\n", u16SrcAddr);
+
+    	  /* package apiSpec */
+    	  respApiSpec.startDelimiter = API_START_DELIMITER;
+    	  respApiSpec.length = 1;
+    	  respApiSpec.teApiIdentifier = API_OTA_UPG_RESP;
+    	  respApiSpec.payload.dummyByte = 0;
+    	  respApiSpec.checkSum = 0;
+
+		  /* send through AirPort */
+		  size = i32CopyApiSpec(&respApiSpec, tmp);
+		  ret = API_bSendToAirPort(UNICAST, u16SrcAddr, tmp, size);
+          if(!ret)
+        	  result = ERR;
+          else
+        	  result = OK;
+          break;
+      }
+
+      /* Telling server, abort OK */
+      case API_OTA_ABT_RESP:
+      {
+    	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
+		  DBG_vPrintf(TRACE_EP, "FRM_OTA_ABT_RESP: from 0x%04x \r\n", u16SrcAddr);
+		  uart_printf("OTA: abort ack from 0x%04x.\r\n", u16SrcAddr);
+		  result = OK;
+		  break;
+      }
+
+      /* interact with user */
+      case API_OTA_ST_RESP:
+      {
+    	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
+		  DBG_vPrintf(TRACE_EP, "FRM_OTA_ST_RESP: from 0x%04x \r\n", u16SrcAddr);
+		  if (apiSpec.payload.otaStatusResp.inOTA)
+		  {
+			  uart_printf(" -------------------- \r\n");
+			  uart_printf("     OTA status       \r\n");
+              uart_printf(" Node: 0x%04x         \r\n", u16SrcAddr);
+              uart_printf(" Finished: %d%%       \r\n", apiSpec.payload.otaStatusResp.per);
+              uart_printf(" Remaining: %ld min   \r\n", apiSpec.payload.otaStatusResp.min);
+			  uart_printf(" -------------------- \r\n");
+		  }
+		  else
+		  {
+			  uart_printf("OTA: Node 0x%04x's is not in OTA or OTA finished.\r\n");
+		  }
+		  break;
+      }
+
+#endif
+
       /* default:free APDU only */
       default:
     	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
+    	  result = OK;
     	  break;
       }
     return result;
@@ -1999,3 +2209,7 @@ bool API_bSendToAirPort(uint16 txMode, uint16 unicastDest, uint8 *buf, int len)
   }
   return TRUE;
 }
+
+/****************************************************************************/
+/***        END OF FILE                                                   ***/
+/****************************************************************************/

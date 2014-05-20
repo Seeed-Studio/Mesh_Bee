@@ -6,7 +6,7 @@
  * Spread by SeeedStudio
  * Author     : Jack Shao
  * Create Time: 2013/10
- * Change Log :
+ * Change Log : [2014/04 oliver] support for API network operation
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -32,7 +32,8 @@
 #include "firmware_at_api.h"
 #include "firmware_uart.h"
 #include "zigbee_node.h"
-
+#include "firmware_api_pack.h"
+#include "firmware_cmi.h"
 
 #ifndef TRACE_JOIN
 #define TRACE_JOIN   FALSE
@@ -248,7 +249,6 @@ int AT_joinNetworkWithIndex(uint16 *regAddr)
         }
     }
 
-    return ERR;
 }
 
 

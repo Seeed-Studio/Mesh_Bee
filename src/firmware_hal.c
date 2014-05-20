@@ -246,3 +246,47 @@ void vHAL_UartRead(void *data, int len)
     }
     OS_eExitCriticalSection(mutexRxRb);
 }
+
+/****************************************************************************
+ *
+ * NAME: randomSeed
+ *
+ * DESCRIPTION:
+ * initialize the random number generator
+ *
+ * PARAMETERS:  len
+ *
+ *
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
+PUBLIC void randomSeed(void *seed)
+{
+  //not support yet
+}
+
+/****************************************************************************
+ *
+ * NAME: random
+ *
+ * DESCRIPTION:
+ * Read a 16 bits random number
+ *
+ * PARAMETERS:  len
+ *
+ *
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
+PUBLIC uint16 random()
+{
+	/* Stop generator after one random number */
+	vAHI_StartRandomNumberGenerator(E_AHI_RND_SINGLE_SHOT, E_AHI_INTS_DISABLED);
+
+	/* wait until random number is available */
+	while(!bAHI_RndNumPoll());
+
+	return u16AHI_ReadRandomNumber();
+}

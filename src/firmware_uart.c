@@ -79,7 +79,7 @@ OS_ISR(APP_isrUART1)
 
     intrpt = (u8AHI_UartReadInterruptStatus(UART_COMM) >> 1) & 0x7;
 
-    DBG_vPrintf(TRACE_NODE, "\r\nuart interrupt: %d \r\n", intrpt);
+    DBG_vPrintf(TRACE_UART, "\r\nUART interrupt: %d \r\n", intrpt);
     if (intrpt == E_AHI_UART_INT_RXDATA)
     {
         avlb_cnt = u16AHI_UartReadRxFifoLevel(UART_COMM);
@@ -330,3 +330,6 @@ int uart_printf(const char *fmt, ...)
 
 
 
+/****************************************************************************/
+/***        END OF FILE                                                   ***/
+/****************************************************************************/

@@ -29,6 +29,7 @@
 #include "firmware_uart.h"
 #include "firmware_ringbuffer.h"
 #include "firmware_at_api.h"
+#include "firmware_api_pack.h"
 #include "common.h"
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
@@ -44,7 +45,7 @@
 /****************************************************************************/
 /***        External Function Prototypes                                     ***/
 /****************************************************************************/
-extern uint32 UDS_u32SpmPullData(void *data, int len);
+extern uint32 SPM_u32PullData(void *data, int len);
 
 /****************************************************************************/
 /***        Exported Variables                                            ***/
@@ -141,84 +142,6 @@ void CMI_vPushData(void *data, int len)
 
 }
 
-//void CMI_vPushData_bak2014(void *data, int len)
-//{
-//    uint32 free_cnt = 0;    //free count
-//    uint32 min_cnt = 0;     //min count
-//	/* Master mode,data to AUPS ringbuffer */
-//#ifdef FW_MODE_MASTER
-//    if(E_MODE_MCU == g_sDevice.eMode)
-//    {
-//    	OS_eEnterCriticalSection(mutexRxRb);
-//    	free_cnt = ringbuffer_free_space(&rb_uart_aups);
-//    	OS_eExitCriticalSection(mutexRxRb);
-//
-//    	min_cnt = MIN(free_cnt, len);
-//        DBG_vPrintf(TRACE_CMI, "rev_cnt: %u, free_cnt: %u \r\n", len, free_cnt);
-//    	/* If ringbuffer is full,don't push */
-//    	if(min_cnt > 0)
-//    	{
-//    	    OS_eEnterCriticalSection(mutexRxRb);
-//    	    ringbuffer_push(&rb_uart_aups, data, min_cnt);
-//    	    OS_eExitCriticalSection(mutexRxRb);
-//    	}
-//    }
-//    else  // AT/Data Mode, data-->rb_rx_uart
-//    {
-//        OS_eEnterCriticalSection(mutexRxRb);
-//        free_cnt = ringbuffer_free_space(&rb_rx_uart);
-//        OS_eExitCriticalSection(mutexRxRb);
-//
-//        min_cnt = MIN(free_cnt, len);
-//        DBG_vPrintf(TRACE_CMI, "rev_cnt: %u, free_cnt: %u \r\n", len, free_cnt);
-//        if(min_cnt > 0)
-//        {
-//        	OS_eEnterCriticalSection(mutexRxRb);
-//        	ringbuffer_push(&rb_rx_uart, data, min_cnt);
-//        	uint32 size = ringbuffer_data_size(&rb_rx_uart);
-//        	OS_eExitCriticalSection(mutexRxRb);
-//        	/*
-//        	  the following mechanism is to improve the effective of every ZigBee packet frame
-//        	  by avoiding sending packet that is too short.
-//        	*/
-//        	if (size >= THRESHOLD_READ)
-//        	{
-//        		OS_eActivateTask(APP_taskHandleUartRx);             //Activate AT commands execution thread immediately
-//        	}
-//        	else
-//        	{
-//        		vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(5));  //Activate AT commands execution thread 5ms later
-//        	}
-//        }
-//    }
-//
-//#else
-//    OS_eEnterCriticalSection(mutexRxRb);
-//    free_cnt = ringbuffer_free_space(&rb_rx_uart);
-//    OS_eExitCriticalSection(mutexRxRb);
-//
-//    min_cnt = MIN(free_cnt, len);
-//    if(min_cnt > 0)
-//    {
-//    	OS_eEnterCriticalSection(mutexRxRb);
-//    	ringbuffer_push(&rb_rx_uart, data, min_cnt);
-//    	uint32 size = ringbuffer_data_size(&rb_rx_uart);
-//    	OS_eExitCriticalSection(mutexRxRb);
-//    	/*
-//    	  the following mechanism is to improve the effective of every ZigBee packet frame
-//    	  by avoiding sending packet that is too short.
-//    	*/
-//    	if (size >= THRESHOLD_READ)
-//    	{
-//    		OS_eActivateTask(APP_taskHandleUartRx);             //Activate AT commands execution thread immediately
-//    	}
-//    	else
-//    	{
-//    		vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(5));  //Activate AT commands execution thread 5ms later
-//    	}
-//    }
-//#endif
-//}
 
 /****************************************************************************
  *
@@ -301,39 +224,6 @@ void CMI_vTxData(void *data, int len)
 
 }
 
-
-int CMI_vTxData_bak2014(void *data, int len)
-{
-#ifdef FW_MODE_MASTER
-	/* At Data mode,data send to UART1 directly */
-	if(E_MODE_DATA == g_sDevice.eMode)
-	{
-		uart_tx_data(data, len);
-	}
-	else
-	{
-	    OS_eEnterCriticalSection(mutexAirPort);
-        uint32 free_cnt = ringbuffer_free_space(&rb_air_aups);
-	    OS_eExitCriticalSection(mutexAirPort);
-
-	    /*
-	      if free size < len, discard it,return ERR immediately,
-	      waiting may result in a blocking of AUPS thread.
-        */
-	    if(free_cnt >= len)
-	    {
-		    OS_eEnterCriticalSection(mutexAirPort);
-		    ringbuffer_push(&rb_air_aups, data, len);
-		    OS_eExitCriticalSection(mutexAirPort);
-	    }
-	    else
-	    {
-            return false;
-	    }
-	}
-#else
-	/* Mechanism: wait until ringbuffer has enough space */
-    uart_tx_data(data, len);
-#endif
-    return true;
-}
+/****************************************************************************/
+/***        END OF FILE                                                   ***/
+/****************************************************************************/

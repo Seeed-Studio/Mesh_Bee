@@ -33,6 +33,8 @@
 #include "firmware_at_api.h"
 #include "firmware_hal.h"
 
+#include "suli.h"
+
 #ifdef RADIO_RECALIBRATION
 #include "recal.h"
 #endif
@@ -83,14 +85,14 @@ PRIVATE void vPdmEventHandlerCallback(uint32 u32EventNumber, PDM_eSystemEventCod
 /****************************************************************************/
 /***        Local Variables                                               ***/
 /****************************************************************************/
-
 static PWRM_DECLARE_CALLBACK_DESCRIPTOR(PreSleep);
 static PWRM_DECLARE_CALLBACK_DESCRIPTOR(Wakeup);
 
 /* encryption key for PDM */
 PRIVATE const tsReg128 g_sKey = { 0x45FDF4C9, 0xAE9A6214, 0x7B27285B, 0xDB7E4557 };
 
-
+/* On/Sleep Led */
+extern IO_T SleepLed;
 /****************************************************************************/
 /***        External Variables                                            ***/
 /****************************************************************************/
@@ -101,7 +103,7 @@ extern uint16 u16ImageStartSector;
 uint16 u16ImageStartSector = 0;
 #endif
 
-/* Linker script externs */
+/* Linker script extern */
 extern void *stack_low_water_mark;
 extern void *stack_size;
 extern void *free_ram_len;
@@ -114,28 +116,70 @@ extern void *free_ram_len;
 /***        Exported Functions                                            ***/
 /****************************************************************************/
 
+  /*
+   * The Power Manager is initialized and started using the function PWRM_vInit()
+   * here, the 32-kHz oscillator and memory are left running during sleep,
+   * PWRM_vScheduleActivity() can schedule the wake point,refer to firmware_sleep.c
+  */
+
+/****************************************************************************
+ *
+ * NAME: PreSleep
+ *
+ * DESCRIPTION:
+ * Will be called before sleep
+ *
+ * RETURNS:
+ * none
+ *
+ ****************************************************************************/
 PWRM_CALLBACK(PreSleep)
 {
     DBG_vPrintf(TRACE_START, "APP: Going to sleep (CB) ... ");
+
+    /* Turn off On/Sleep Led */
+    suli_pin_write(&SleepLed, HAL_PIN_LOW);
+
+    /* Turn radio off */
     vAppApiSaveMacSettings();
     vAHI_AdcDisable();
 	vAHI_SiMasterDisable();
+
+	/* Clear DIO interrupts */
     u32AHI_DioInterruptStatus();
     DBG_vPrintf(TRACE_START, "gone\n\n");
 }
 
+
+/****************************************************************************
+ *
+ * NAME: Wakeup
+ *
+ * DESCRIPTION:
+ * Will be called after waking up in any mode
+ *
+ * RETURNS:
+ * none
+ *
+ ****************************************************************************/
 PWRM_CALLBACK(Wakeup)
 {
-    // Check that the clock source is the external 32MHz, needed for accurate UART timings
+	/* Make sure the clock source is the external 32MHz XTAL, required for UART timings */
     while (bAHI_GetClkSource() == TRUE);
-    // Now we are running on the XTAL, optimise the flash memory wait states.
+
+    /*
+	  This function recalculates the wait-state settings for the internal Flash memory and
+	  EEPROM devices after the system clock source or CPU  clock frequency has been
+	  changed to minimise the Flash access time.
+	*/
     vAHI_OptimiseWaitStates();
 
+    /* Need to reInitialise the SPI bus for external PDM */
 #ifndef PDM_EEPROM
-     // Need to re initialise the spi bus for external pdm
     PDM_vWarmInitHW();
 #endif
 
+    /* Init UART0 */
     DBG_vUartInit(DBG_E_UART_0, DBG_E_UART_BAUD_RATE_115200);
 
     DBG_vPrintf(TRACE_START, "\r\n\r\nAPP: Woken up (CB)\r\n");
@@ -147,39 +191,64 @@ PWRM_CALLBACK(Wakeup)
 		DBG_vPrintf(TRACE_START, "APP: MAC settings restored\n");
 
 		vAHI_HighPowerModuleEnable(TRUE, TRUE);
+
+		/* Limit the module to +8dB for ETSI compliance */
 #ifdef ETSI
-		vAHI_ETSIHighPowerModuleEnable(TRUE);									// Limit the module to +8dB for ETSI compliance
+		vAHI_ETSIHighPowerModuleEnable(TRUE);
 #endif
-		// Re-initialise the hardware peripherals
+
+		/* Re-initialise the hardware peripherals */
         uart_initialize();
 
-        //Init ADC
+        /* Init ADC */
         tsAdcParam tsParm;
         tsParm.u8SampleSelect = E_AHI_AP_SAMPLE_8;
         tsParm.u8ClockDivRatio = E_AHI_AP_CLOCKDIV_500KHZ;
         tsParm.bRefSelect = E_AHI_AP_INTREF;
 
-        vHAL_AdcSampleInit(&tsParm);                        //sample on-chip temperature
+        vHAL_AdcSampleInit(&tsParm);
 
-        //init pwm for rssi
+        /* Init PWM for RSSI Led */
         vAHI_TimerEnable(E_AHI_TIMER_1, 4, FALSE, FALSE, TRUE);
         vAHI_TimerStartRepeat(E_AHI_TIMER_1, 1000, 1);
 
         bAHI_FlashInit(E_FL_CHIP_ST_M25P40_A, NULL);
 
+        /* Restart the RTOS */
         DBG_vPrintf(TRACE_START, "APP: Restarting OS\n");
         OS_vRestart();
 
+        /* Restart essential task here */
+
+        /* Turn on On/Sleep Led when we are awake */
+        suli_pin_write(&SleepLed, HAL_PIN_HIGH);
     }
 }
 
 
+/****************************************************************************
+ *
+ * NAME: vAppRegisterPWRMCallbacks
+ *
+ * DESCRIPTION:
+ * Register call back
+ *
+ * RETURNS:
+ * none
+ *
+ ****************************************************************************/
 void vAppRegisterPWRMCallbacks(void)
 {
     PWRM_vRegisterPreSleepCallback(PreSleep);
     PWRM_vRegisterWakeupCallback(Wakeup);
 }
 
+
+/* Wakeup timer callback */
+//void PWRM_vWakeInterruptCallback()
+//{
+//
+//}
 
 /****************************************************************************
  *
@@ -196,11 +265,12 @@ PUBLIC void vAppMain(void)
 {
     //vInitStackMeasure();
 
-    /* Check that the clock source is the external 32MHz, needed for
-    * accurate UART timings
+    /*
+     * Check that the clock source is the external 32MHz, needed for
+     * accurate UART timings
     */
     while (bAHI_GetClkSource() == TRUE);
-    // Now we are running on the XTAL, optimise the flash memory wait states.
+    // Now we are running on the XTAL, optimize the flash memory wait states.
     vAHI_OptimiseWaitStates();
 
     DBG_vUartInit(DBG_E_UART_0, DBG_E_UART_BAUD_RATE_115200);
@@ -210,7 +280,6 @@ PUBLIC void vAppMain(void)
     DBG_vPrintf(TRACE_START, "  Zigbee module from seeedstudio \r\n");
     DBG_vPrintf(TRACE_START, "     Firmware Version: 0x%04x \r\n", FW_VERSION);
     DBG_vPrintf(TRACE_START, "=================================\r\n");
-
 
     DBG_vPrintf(TRACE_START, "Stack overflow mark: 0x%08x\r\n", &stack_low_water_mark);
 
@@ -223,24 +292,38 @@ PUBLIC void vAppMain(void)
     if (bAHI_WatchdogResetEvent())
     {
         DBG_vPrintf(TRACE_START, "Last reset is caused by Watchdog\r\n");
+
         /* invoking here means software has some lock-up situations, stop it */
         vAHI_WatchdogStop();
-        //while (1);
+        //while (1);  //let watchdog reset the CPU
     }
 
     u32AppApiInit(NULL, NULL, NULL, NULL, NULL, NULL);
 
-    vAHI_HighPowerModuleEnable(TRUE, TRUE);  //
+    vAHI_HighPowerModuleEnable(TRUE, TRUE);
+
 #ifdef ETSI
     vAHI_ETSIHighPowerModuleEnable(TRUE);                                   // Limit the module to +8dB for ETSI compliance
 #endif
 
+    /* Start the RTOS */
     OS_vStart(vInitialiseApp, vUnclaimedInterrupt, vOSError);
 
-    /* idle task commences on exit from OS start call */
+    /* idle task(Lowest priority task) commences on exit from OS start call */
     while (TRUE)
     {
+        /*
+         * Re-load the watch-dog timer. Execution must return through the idle
+         * task before the CPU is suspended by the power manager. This ensures
+         * that at least one task / ISR has executed within the watchdog period
+         * otherwise the system will be reset.
+        */
         vAHI_WatchdogRestart();
+
+        /*
+         * suspends CPU operation when the system is idle or puts the device to
+         * sleep if there are no activities in progress
+        */
 #ifdef TARGET_END
         PWRM_vManagePower();
 #endif
@@ -263,12 +346,13 @@ PUBLIC void vAppMain(void)
  * void
  *
  ****************************************************************************/
-
 PRIVATE void vInitialiseApp(void)
 {
     /* initialise JenOS modules */
-    DBG_vPrintf(TRACE_START, "Initialising PWRM ... \r\n");
+
 #ifdef TARGET_END
+    /* xtal on, ram on */
+	DBG_vPrintf(TRACE_START, "Initialising PWRM ... \r\n");
     PWRM_vInit(E_AHI_SLEEP_OSCON_RAMON);
 #endif
 

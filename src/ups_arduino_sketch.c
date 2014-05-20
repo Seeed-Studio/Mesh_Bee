@@ -23,6 +23,8 @@
  */
 
 #include "common.h"
+#include "firmware_api_pack.h"
+#include "firmware_at_api.h"
 #include "firmware_aups.h"
 #include "firmware_sleep.h"
 #include "suli.h"
@@ -97,25 +99,43 @@ void arduino_loop(void)
 }
 */
 
-IO_T led_io;
-int16 state = HAL_PIN_HIGH;
+//IO_T led_io;
+//int16 state = HAL_PIN_HIGH;
+ANALOG_T temp_pin;
+
 void arduino_setup(void)
 {
-    setLoopIntervalMs(1000);   //default: 500ms per loop
-    suli_pin_init(&led_io, 9);
-    suli_pin_dir(&led_io, HAL_PIN_OUTPUT);
+    //setLoopIntervalMs(1000);   //default: 500ms per loop
+    suli_analog_init(&temp_pin, TEMP);
 }
 
 void arduino_loop(void)
 {
-	suli_pin_write(&led_io, state);
-	if(state == HAL_PIN_HIGH)
-		state = HAL_PIN_LOW;
-	else
-		state = HAL_PIN_HIGH;
-    //goSleepMs(3000);
-    //OS_eStartSWTimer(PollTimer, APP_TIME_MS(1), NULL);   //cause printf Network Evt: loop
+#ifdef TARGET_COO
+	vDelayMsec(100);
+	suli_uart_printf(NULL, NULL, "random:%d\r\n", random());
+#else
+	/* Finish user job */
+	uint8 tmp[sizeof(tsApiSpec)]={0};
+	tsApiSpec apiSpec;
+
+	int16 temper = suli_analog_read(temp_pin);
+	sprintf(tmp, "HeartBeat:%ld\r\n", temper);
+	PCK_vApiSpecDataFrame(&apiSpec, 0xec, 0x00, 0x0000, tmp, strlen(tmp));
+
+	/* Air to Coordinator */
+	uint16 size = i32CopyApiSpec(&apiSpec, tmp);
+	if(API_bSendToAirPort(UNICAST, 0x0000, tmp, size))
+	{
+		suli_uart_printf(NULL, NULL, "<HeartBeat>\r\n");
+	}
+
+	/* Sleep 3000ms */
+	Sleep(10000);
+#endif
 }
 
 
-
+/****************************************************************************/
+/***        END OF FILE                                                   ***/
+/****************************************************************************/
