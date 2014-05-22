@@ -7,7 +7,8 @@
  * Spread by SeeedStudio
  * Author     : Jack Shao
  * Create Time: 2014/4
- * Change Log : [Oliver Modify 2014/05] Remove SleepEnableTask, adjust SWTimer
+ * Change Log : [Oliver: Modify 2014/05] Remove SleepEnableTask, adjust SWTimer
+ *              [Oliver: Modify 2014/05] Poll period set to 500ms
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -34,7 +35,7 @@
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
 #ifndef TRACE_SLEEP
-#define TRACE_SLEEP TRUE
+#define TRACE_SLEEP FALSE
 #endif
 
 /****************************************************************************/
@@ -180,6 +181,7 @@ PUBLIC void vWakeCallBack(void)
 OS_TASK(WakeUpTask)
 {
     DBG_vPrintf(TRACE_SLEEP, "Wakeup task\r\n");
+
     u16AHI_UartBlockWriteData(UART_COMM, "wake\r\n", 7);
 
     /* When end device wake up, poll immediately */

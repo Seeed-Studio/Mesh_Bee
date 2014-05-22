@@ -27,13 +27,15 @@
 /***        Include files                                                 ***/
 /****************************************************************************/
 #include "common.h"
+#include "firmware_at_api.h"
 /****************************************************************************/
 /***        Exported Functions                                            ***/
 /****************************************************************************/
 
 void CMI_vPushData(void *data, int len);
-void CMI_vTxData(void *data, int len);
-
-
+//void CMI_vTxData(void *data, int len);
+PUBLIC void CMI_vAirDataDistributor(tsApiSpec *apiSpec);
+PUBLIC void CMI_vUrtRevDataDistributor(void *data, int len);
+PUBLIC void CMI_vUrtAckDistributor(tsApiSpec *apiSpec);
 #endif /* FIRMWARE_CMI_H_ */
 

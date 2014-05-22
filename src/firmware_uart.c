@@ -26,7 +26,7 @@
 /****************************************************************************/
 #include "common.h"
 #include "firmware_uart.h"
-
+#include "firmware_cmi.h"
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
@@ -43,10 +43,8 @@ unsigned char txfifo[TXFIFOLEN];
 unsigned char rxfifo[RXFIFOLEN];
 PRIVATE  volatile bool txbusy = FALSE;
 
-//struct ringbuffer rb_rx_uart;
-struct ringbuffer rb_tx_uart;    //for UART transfer data
-
-//uint8 rb_rx_mempool[UART_RX_RB_LEN];
+/* for UART transfer data */
+struct ringbuffer rb_tx_uart;
 uint8 rb_tx_mempool[UART_TX_RB_LEN];
 
 
@@ -93,8 +91,8 @@ OS_ISR(APP_isrUART1)
             */
             u16AHI_UartBlockReadData(UART_COMM, tmp, avlb_cnt);
 
-            /* Push data into ringbuffer through CMI switcher */
-            CMI_vPushData(tmp, avlb_cnt);
+            /* Push data into ringbuffer through CMI Distributor */
+            CMI_vUrtRevDataDistributor(tmp, avlb_cnt);
         }
     }
     else if (intrpt == E_AHI_UART_INT_TX) //tx empty

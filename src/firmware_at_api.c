@@ -487,8 +487,7 @@ void postReboot()
             apiSpec.length = len;
             apiSpec.teApiIdentifier = API_LOCAL_AT_RESP;
             apiSpec.checkSum = calCheckSum((uint8 *)&apiSpec.payload.localAtResp, len);
-            int size = i32CopyApiSpec(&apiSpec, tmp);
-            CMI_vTxData(tmp, size);
+            CMI_vUrtAckDistributor(&apiSpec);
         }
     }
 
@@ -1631,9 +1630,12 @@ int API_i32ApiFrmProc(tsApiSpec* apiSpec)
                     }
                 }
             }
-        	/* UART ACK,if frameId ==0,No ACK(not implement in v1003) */
-            size = i32CopyApiSpec(&retApiSpec, tmp);
-            CMI_vTxData(tmp, size);       //pay attention to this
+
+            /* UART ACK,if frameId ==0,No ACK(implement in v1003) */
+            if(0 != apiSpec->payload.localAtReq.frameId)
+            {
+            	CMI_vUrtAckDistributor(&retApiSpec);
+            }
             break;
 	    }
 
@@ -1795,8 +1797,7 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
       */
       case API_REMOTE_AT_RESP:
       {
-    	  size = i32CopyApiSpec(&apiSpec, tmp);
-    	  CMI_vTxData(tmp, size);
+    	  CMI_vAirDataDistributor(&apiSpec);
     	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
     	  result = OK;
     	  break;
@@ -1805,8 +1806,7 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
       /* Data */
       case API_DATA_PACKET:
       {
-    	  size = i32CopyApiSpec(&apiSpec, tmp);
-          CMI_vTxData(tmp, size);
+    	  CMI_vAirDataDistributor(&apiSpec);
           PDUM_eAPduFreeAPduInstance(hapdu_ins);
           result = OK;
           break;
@@ -1856,8 +1856,7 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
       */
       case API_TOPO_RESP:
       {
-    	  size = i32CopyApiSpec(&apiSpec, tmp);
-		  CMI_vTxData(tmp, size);
+    	  CMI_vAirDataDistributor(&apiSpec);
 		  PDUM_eAPduFreeAPduInstance(hapdu_ins);
 		  result = OK;
 		  break;

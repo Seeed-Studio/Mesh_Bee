@@ -123,7 +123,7 @@ uint32 SPM_u32PullData(void *data, int len)
  * NAME: APP_taskHandleUartRx
  *
  * DESCRIPTION:
- * Stream Processing Machine(SPM), driving by software timer
+ * Stream Processing Machine(SPM), driving by ISR
  * Main state machine
  * State:  E_MODE_AT/E_MODE_DATA/E_MODE_API/E_MODE_MCU
  *
@@ -248,10 +248,12 @@ OS_TASK(APP_taskHandleUartRx)
         		PCK_vApiSpecDataFrame(&apiSpec, 0x00, 0x00, g_sDevice.config.unicastDstAddr, tmp, popCnt);
         		memset(tmp, 0, RXFIFOLEN);
         		size = i32CopyApiSpec(&apiSpec, tmp);
+
         		API_bSendToAirPort(g_sDevice.config.txMode, apiSpec.payload.txDataPacket.unicastAddr, tmp, size);
+
         	}
 
-        	/* Activate */
+        	/* Activate again */
         	if ((dataCnt - popCnt) >= THRESHOLD_READ)
 				OS_eActivateTask(APP_taskHandleUartRx);
 			else if ((dataCnt - popCnt) > 0)

@@ -831,8 +831,7 @@ int API_listNetworkScaned_CallBack(tsApiSpec *reqApiSpec, tsApiSpec *respApiSpec
 									(uint8*)&localAtResp,
 									sizeof(tsLocalAtResp));
                     /* UART ACK */
-					int size = i32CopyApiSpec(&directApiSpec, tmp);
-					CMI_vTxData(tmp, size);
+					CMI_vUrtAckDistributor(&directApiSpec);
 			  }
 			  else if(API_REMOTE_AT_REQ == reqApiSpec->teApiIdentifier)
 			  {
