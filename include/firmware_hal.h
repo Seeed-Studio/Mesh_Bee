@@ -53,4 +53,5 @@ PUBLIC uint16 vHAL_AdcSampleRead(uint8 u8Source);
 PUBLIC void vHAL_PullXtal(int32 i32Temperature);
 PUBLIC int16 i16HAL_GetChipTemp(uint16 u16AdcValue);
 PUBLIC void vHAL_UartRead(void *data, int len);
+PUBLIC uint16 random();
 #endif /* FIRMWARE_HAL_H_ */

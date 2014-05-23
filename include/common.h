@@ -93,6 +93,10 @@
 #endif
 #endif
 
+#ifdef TARGET_END
+#define EN_UPS_SLEEP    //oliver add
+#endif
+
 #define true                            1
 #define false                           0
 
@@ -149,7 +153,9 @@ typedef struct
     uint16             baudRateUart1;
     uint16             sleepMode;
     uint16             wakeupDuration;
+    uint16             sleepPeriod;      //ticks of sleep period
     uint16             reqPeriodMs;
+    uint16             upsXtalPeriod;    //simulate crystal oscillator frequency of AUPS
 }tsConfig;
 
 
@@ -196,6 +202,6 @@ extern PDM_tsRecordDescriptor g_sDevicePDDesc;
 /***        Exported Functions                                            ***/
 /****************************************************************************/
 PUBLIC void vResetATimer(OS_thSWTimer hSWTimer, uint32 u32Ticks);
-PUBLIC void ups_init();
+PUBLIC void ups_init(void);
 
 #endif /* GLOBAL_DEF_H_ */

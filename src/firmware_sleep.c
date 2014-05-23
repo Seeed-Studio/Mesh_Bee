@@ -7,7 +7,8 @@
  * Spread by SeeedStudio
  * Author     : Jack Shao
  * Create Time: 2014/4
- * Change Log :
+ * Change Log : [Oliver: Modify 2014/05] Remove SleepEnableTask, adjust SWTimer
+ *              [Oliver: Modify 2014/05] Poll period set to 500ms
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -45,6 +46,7 @@
 /****************************************************************************/
 /***        Local Function Prototypes                                     ***/
 /****************************************************************************/
+/* wake up call back */
 PUBLIC void vWakeCallBack(void);
 
 /****************************************************************************/
@@ -56,6 +58,8 @@ PUBLIC void vWakeCallBack(void);
 /***        Local Variables                                               ***/
 /****************************************************************************/
 PRIVATE uint32 _wakeupTime = 0;
+
+/* Pointer to a structure to be populated with the wake point and callback function */
 PRIVATE	pwrm_tsWakeTimerEvent	sWake;
 
 /****************************************************************************/
@@ -67,9 +71,11 @@ PRIVATE	pwrm_tsWakeTimerEvent	sWake;
 /***        Exported Functions                                            ***/
 /****************************************************************************/
 
+
+
 /****************************************************************************
  *
- * NAME: goSleepMs
+ * NAME: Sleep
  *
  * DESCRIPTION:
  * set the End Device into sleep mode for n ms
@@ -81,33 +87,63 @@ PRIVATE	pwrm_tsWakeTimerEvent	sWake;
  * void
  *
  ****************************************************************************/
-void goSleepMs(uint32 ms)
+PUBLIC void Sleep(uint32 ms)
 {
 #ifdef TARGET_END
-    _wakeupTime = ms;
-    OS_eActivateTask(SleepEnableTask);
+	DBG_vPrintf(TRACE_SLEEP, "Sleep %ld ms\r\n", ms);
+
+	u16AHI_UartBlockWriteData(UART_COMM, "sleep\r\n", 8);
+
+	/* Set the next wake point */
+	_wakeupTime = ms;
+	PWRM_eScheduleActivity(&sWake, _wakeupTime*32 , vWakeCallBack);
+
+	/*
+	 * Stop all software timers, prepare for sleeping
+	 * Must stop all of the swTimers, otherwise can not enter sleep mode again
+    */
+    stopAllSwTimers();
 #endif
 }
 
+/****************************************************************************
+ *
+ * NAME: sleep
+ *
+ * DESCRIPTION:
+ * set the End Device into sleep mode for n s
+ *
+ * PARAMETERS: Name         RW  Usage
+ *             s            W   s
+ *
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
+PUBLIC void sleep(uint16 s)
+{
+    uint32 ms = s*1000;
+    Sleep(ms);
+}
 
 /****************************************************************************
  *
- * NAME: SleepEnableTask
+ * NAME: usleep
  *
  * DESCRIPTION:
- * task for enabling sleep mode
- * runs at lowest priority to ensure all other tasks are inactive
+ * set the End Device into sleep mode for n us
+ *
+ * PARAMETERS: Name         RW  Usage
+ *             us           W   us
+ *
+ * RETURNS:
+ * void
  *
  ****************************************************************************/
-OS_TASK(SleepEnableTask)
+PUBLIC void usleep(uint32 us)
 {
-#ifdef TARGET_END
-    DBG_vPrintf(TRACE_SLEEP, "SleepEnable Task\r\n");
-
-    PWRM_eScheduleActivity(&sWake, _wakeupTime*32 , vWakeCallBack);		// Schedule the next sleep point
-
-    stopAllSwTimers();
-#endif
+    uint32 ms = us/1000;
+    Sleep(ms);
 }
 
 
@@ -124,9 +160,11 @@ OS_TASK(SleepEnableTask)
  ****************************************************************************/
 PUBLIC void vWakeCallBack(void)
 {
-	// Cannot schedule the next wake event until the wake up callback
-	// function has completed. Instead, activate a high priority task
-	// so that it runs immediately after the callback
+	/*
+	 * Cannot schedule the next wake event until the wake up callback
+	 * function has completed. Instead, activate a high priority task
+	 * so that it runs immediately after the callback
+	*/
 	OS_eActivateTask(WakeUpTask);
 }
 
@@ -135,27 +173,39 @@ PUBLIC void vWakeCallBack(void)
  * NAME: APP_WakeUpTask
  *
  * DESCRIPTION:
- * Wakeup initialisation task
+ * Wake up initialization task
  * RETURNS:
  * void
  *
  ****************************************************************************/
 OS_TASK(WakeUpTask)
 {
-    DBG_vPrintf(TRACE_SLEEP, "Wake up task\r\n");
+    DBG_vPrintf(TRACE_SLEEP, "Wakeup task\r\n");
 
+    u16AHI_UartBlockWriteData(UART_COMM, "wake\r\n", 7);
+
+    /* When end device wake up, poll immediately */
     OS_eActivateTask(PollTask);
-#ifdef FW_MODE_MASTER
-    ups_init();
-#endif
+
+    /*
+     * Continuous Sleep: MCU mode, restart AUPS(it will trigger a sleep again) when the node is awake;
+     * One time Sleep: AT mode (ATSL)
+    */
+    if(g_sDevice.eMode == E_MODE_MCU)
+    {
+    	/* start Arduino_LoopTimer, it's the lowest priority task, so it's no need to wait */
+        ups_init();
+    }
 }
 
 /****************************************************************************
  *
- * NAME: APP_WakeUpTask
+ * NAME: PollTask
  *
  * DESCRIPTION:
- * Wakeup initialisation task
+ * Polling Task requests the buffered data and should normally be
+ * called immediately after waking from sleep.
+ *
  * RETURNS:
  * void
  *
@@ -171,7 +221,11 @@ OS_TASK(PollTask)
         DBG_vPrintf(TRACE_SLEEP, "\nPoll Failed %d\n", u8PStatus);
     }
 
-    //OS_eStartSWTimer(PollTimer, APP_TIME_MS(1), NULL);
+    /*
+     * poll period 500ms, if there is no other task on the node,
+     * IDLE task seems to be broken too.
+    */
+    OS_eStartSWTimer(PollTimer, APP_TIME_MS(500), NULL);
 }
 
 
@@ -180,10 +234,10 @@ OS_TASK(PollTask)
  * NAME: stopAllSwTimers
  *
  * DESCRIPTION:
- * set the End Device into sleep mode after n ms
+ * stop all of the software timers, prepare for a sleeping
  *
  * PARAMETERS: Name         RW  Usage
- *             ms           W   ms
+ *
  *
  * RETURNS:
  * void
@@ -228,9 +282,17 @@ void stopAllSwTimers()
     {
         OS_eStopSWTimer(Arduino_LoopTimer);
     }
+    if(OS_eGetSWTimerStatus(PollTimer) != OS_E_SWTIMER_STOPPED)
+    {
+    	OS_eStopSWTimer(PollTimer);
+    }
 #endif
 }
+
 /****************************************************************************/
 /***        Local Functions                                               ***/
 /****************************************************************************/
 
+/****************************************************************************/
+/***        END OF FILE                                                   ***/
+/****************************************************************************/

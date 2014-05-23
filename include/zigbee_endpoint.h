@@ -50,19 +50,13 @@ typedef struct
 	int16 datapoint[DATA_POINT_NUM];	//a series of data points
 }tsDataStream;
 
-typedef enum
-{
-	INNER_TEMP = 1,
-	INNER_VOL = 2
-	/*your own data type here*/
-}teDataType;
+
 
 /****************************************************************************/
 /***        Exported Functions                                            ***/
 /****************************************************************************/
-
 void clientOtaFinishing();
-bool sendToAir(uint16 txmode, uint16 unicastDest, tsApiFrame *apiFrame,  teFrameType type, uint8 *buff, int len);
+
 /****************************************************************************/
 /***        External Variables                                            ***/
 /****************************************************************************/

@@ -44,7 +44,6 @@
 #define TRACE_ATAPI TRUE
 #endif
 
-#define PREAMBLE                0xed
 /* API frame delimiter */
 #define API_DELIMITER 			0x7e
 #define ATHEADERLEN             4
@@ -73,7 +72,7 @@ int AT_abortOTAUpgrade(uint16 *regAddr);
 int AT_OTAStatusPoll(uint16 *regAddr);
 int AT_TestTest(uint16 *regAddr);
 int AT_i32QueryOnChipTemper(uint16 *regAddr);
-
+int AT_EnterSleepMode(uint16 *regAddr);
 
 /****************************************************************************/
 /***        Local Variables                                               ***/
@@ -120,12 +119,12 @@ static AT_Command_t atCommands[] =
     //Query On-Chip temperature
     { "QT", NULL, FALSE, 0, 0, NULL, AT_i32QueryOnChipTemper},
 
-#if 0//defined(TARGET_END)
-    //for end device: whether enter sleep mode
-    { "SL", &g_sDevice.config.sleepMode, 1, 1, FALSE, 0, FALSE },
+#ifdef TARGET_END
+    /* for end device, sleep time ms */
+    { "ST", &g_sDevice.config.sleepPeriod, FALSE, 4, 9999, NULL, NULL},
 
-    //for end: wake up duration
-    { "WD", &g_sDevice.config.wakeupDuration, 3, 999, FALSE, 0, FALSE },
+    { "SL", NULL, FALSE, 0, 0, NULL, AT_EnterSleepMode},
+
 #endif
     //show the information of node
     { "IF", NULL, FALSE, 0, 0, NULL, AT_showInfo },
@@ -138,6 +137,9 @@ static AT_Command_t atCommands[] =
 
     //exit at mode into data mode
     { "MC", NULL, FALSE, 0, 0, NULL, AT_enterMcuMode },
+
+    /* XTAL frequency of Arduino-ful MCU, rang from 10ms~3000ms */
+    { "MF", &g_sDevice.config.upsXtalPeriod, FALSE, 4, 3000, NULL, NULL},
 
 #ifdef OTA_SERVER
     //ota trigger, trigger upgrade for unicastDstAddr
@@ -194,8 +196,6 @@ static AT_Command_ApiMode_t atCommandsApiMode[] =
 	/* Set digital output */
 	{"ATIO", ATIO, NULL, API_i32SetGpio_CallBack},
 
-	//{ "LA", ATLA, NULL, API_listAllNodes },    //special ApiIdentifier
-
 #ifndef TARGET_COO
 	{ "LN", ATLN, NULL, API_listNetworkScaned_CallBack },
 #endif
@@ -231,105 +231,6 @@ uint8 calCheckSum(uint8 *in, int len)
         in++;
     }
     return sum;
-}
-
-
-/****************************************************************************
- *
- * NAME: assembleApiFrame
- *
- * DESCRIPTION:
- * assemble a tsApiFrame structure
- *
- * PARAMETERS: Name         RW  Usage
- *             frm          W   pointer to a already existing tsApiFrame sturct
- *             type         R   ENUM: teFrameType
- *             payload      R   pointer to payload
- *             payloadLen   R   payload length
- *
- * RETURNS:
- * uint16: frame length
- *
- ****************************************************************************/
-uint16 assembleApiFrame(tsApiFrame *frm, teFrameType type, uint8 *payload, uint16 payloadLen)
-{
-    frm->preamble   = PREAMBLE;
-    frm->frameType  = type;
-    frm->payloadLen = payloadLen;
-    memcpy(frm->payload.data, payload, payloadLen);
-
-    frm->checksum   = calCheckSum((uint8 * )frm, 4 + payloadLen);
-
-    return 4 + payloadLen + 1;
-}
-
-/****************************************************************************
- *
- * NAME: deassembleApiFrame
- *
- * DESCRIPTION:
- * de-assemble a tsApiFrame from a buffer
- *
- * PARAMETERS: Name         RW  Usage
- *
- *
- * RETURNS:
- * uint16: data length that consumed from the buffer stream
- *
- ****************************************************************************/
-uint16 deassembleApiFrame(uint8 *buffer, int len, tsApiFrame *frm, bool *valid)
-{
-    uint8 *ptr = buffer;
-
-    while (*ptr != PREAMBLE && len-- > 0) ptr++;
-    if (len < 4)
-    {
-        *valid = FALSE;
-        return ptr - buffer;
-    }
-    memcpy((uint8 * )frm, ptr, 4);
-    ptr += 4;
-    len -= 4;
-    if (len < (frm->payloadLen+1))
-    {
-        *valid = FALSE;
-        return ptr - buffer;
-    }
-    memcpy(frm->payload.data, ptr, frm->payloadLen);
-    ptr += frm->payloadLen;
-    frm->checksum = *ptr;
-    ptr += 1;
-    if (calCheckSum((uint8*)frm,4+frm->payloadLen) == frm->checksum)
-    {
-        *valid = TRUE;
-    } else
-    {
-        *valid = FALSE;
-    }
-    return ptr-buffer;
-}
-
-/****************************************************************************
- *
- * NAME: copyApiFrame
- *
- * DESCRIPTION:
- * copy the payload part of a tsApiFrame into a buffer.
- *
- * PARAMETERS: Name         RW  Usage
- *
- *
- * RETURNS:
- * void
- *
- ****************************************************************************/
-void copyApiFrame(tsApiFrame *frm, uint8 *dst)
-{
-    memcpy(dst, (uint8 * )frm, 4);
-    dst += 4;
-    memcpy(dst, frm->payload.data, frm->payloadLen);
-    dst += frm->payloadLen;
-    memcpy(dst, &(frm->checksum), 1);
 }
 
 /****************************************************************************
@@ -586,8 +487,7 @@ void postReboot()
             apiSpec.length = len;
             apiSpec.teApiIdentifier = API_LOCAL_AT_RESP;
             apiSpec.checkSum = calCheckSum((uint8 *)&apiSpec.payload.localAtResp, len);
-            int size = i32CopyApiSpec(&apiSpec, tmp);
-            CMI_vTxData(tmp, size);
+            CMI_vUrtAckDistributor(&apiSpec);
         }
     }
 
@@ -675,10 +575,19 @@ int AT_enterMcuMode(uint16 *regAddr)
     g_sDevice.eMode = E_MODE_MCU;
     PDM_vSaveRecord(&g_sDevicePDDesc);
     uart_printf("Enter MCU Mode.\r\n");
+    ups_init();
     return OK;
 }
 
+/* Sleep ms */
+int AT_EnterSleepMode(uint16 *regAddr)
+{
+	uint32 ms = g_sDevice.config.sleepPeriod;
+	uart_printf("Sleep %ld ms.\r\n", ms);
 
+	/* Sleep */
+	Sleep(ms);
+}
 /****************************************************************************
  *
  * NAME: AT_showInfo
@@ -893,23 +802,6 @@ int AT_abortOTAUpgrade(uint16 *regAddr)
  * void
  *
  ****************************************************************************/
-int AT_OTAStatusPollbak(uint16 *regAddr)
-{
-    uint8 dummy = 0;
-    tsApiFrame frm;
-
-    if (sendToAir(UNICAST, g_sDevice.config.unicastDstAddr,
-                  &frm, FRM_OTA_ST_REQ, (uint8 *)(&dummy), 1))
-    {
-        return OK;
-    }
-    else
-    {
-        return ERR;
-    }
-
-}
-
 int AT_OTAStatusPoll(uint16 *regAddr)
 {
 	uint8 tmp[sizeof(tsApiSpec)]={0};
@@ -1618,7 +1510,9 @@ int API_i32AtCmdProc(uint8 *buf, int len)
     uint16 paraValue;   // the ID used in the EEPROM
 
     len = adjustLen(buf, len);
-    if (len < ATHEADERLEN)
+    if(0 == len)                 //Generally a CR or CR/LF will product an "OK" prompt
+    	return OK;
+    else if (len < ATHEADERLEN)  //Error command format
         return ERRNCMD;
 
     // read the AT
@@ -1699,7 +1593,7 @@ int API_i32AtCmdProc(uint8 *buf, int len)
 *
 *
 ****************************************************************************/
-int API_i32ApiFrmCmdProc(tsApiSpec* apiSpec)
+int API_i32ApiFrmProc(tsApiSpec* apiSpec)
 {
 	int i = 0;
 	int cnt = 0;
@@ -1736,9 +1630,12 @@ int API_i32ApiFrmCmdProc(tsApiSpec* apiSpec)
                     }
                 }
             }
-        	/* UART ACK,if frameId ==0,No ACK(not implement in v1003) */
-            size = i32CopyApiSpec(&retApiSpec, tmp);
-            CMI_vTxData(tmp, size);       //pay attention to this
+
+            /* UART ACK,if frameId ==0,No ACK(implement in v1003) */
+            if(0 != apiSpec->payload.localAtReq.frameId)
+            {
+            	CMI_vUrtAckDistributor(&retApiSpec);
+            }
             break;
 	    }
 
@@ -1748,6 +1645,10 @@ int API_i32ApiFrmCmdProc(tsApiSpec* apiSpec)
 	    */
 	    case API_REMOTE_AT_REQ:
 	    {
+	    	uint16 destAddr = apiSpec->payload.remoteAtReq.unicastAddr;
+	    	apiSpec->payload.remoteAtReq.unicastAddr = (uint16)ZPS_u16AplZdoGetNwkAddr();
+	    	apiSpec->checkSum = calCheckSum((uint8*)(&(apiSpec->payload)), apiSpec->length);
+
 	    	/* Option CastBit[8:2] */
             if(0 == ((apiSpec->payload.remoteAtReq.option) & OPTION_CAST_MASK))
             	txMode = UNICAST;
@@ -1756,7 +1657,7 @@ int API_i32ApiFrmCmdProc(tsApiSpec* apiSpec)
 
             /* Send to AirPort */
             size = i32CopyApiSpec(apiSpec, tmp);
-	    	ret = API_bSendToAirPort(txMode, apiSpec->payload.remoteAtReq.unicastAddr, tmp, size);
+	    	ret = API_bSendToAirPort(txMode, destAddr, tmp, size);
 	    	if(!ret)
 	    		result = ERR;
 	    	else
@@ -1771,13 +1672,19 @@ int API_i32ApiFrmCmdProc(tsApiSpec* apiSpec)
 	    */
 	    case API_DATA_PACKET:
 	    {
+	    	uint16 destAddr = apiSpec->payload.txDataPacket.unicastAddr;
+
+	    	/* change unicast address of data frame to localAddr */
+	    	apiSpec->payload.txDataPacket.unicastAddr = (uint16)ZPS_u16AplZdoGetNwkAddr();
+            apiSpec->checkSum = calCheckSum((uint8*)(&(apiSpec->payload)), apiSpec->length); //modify payload, should refresh checkSum too
+
 	    	if(0 == ((apiSpec->payload.txDataPacket.option) & OPTION_CAST_MASK))
 				txMode = UNICAST;
 			else
 				txMode = BROADCAST;
             /* Send to AirPort */
 	    	size = i32CopyApiSpec(apiSpec, tmp);
-	    	ret = API_bSendToAirPort(txMode, apiSpec->payload.txDataPacket.unicastAddr, tmp, size);
+	    	ret = API_bSendToAirPort(txMode, destAddr, tmp, size);
 			if(!ret)
 				result = ERR;
 			else
@@ -1890,8 +1797,7 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
       */
       case API_REMOTE_AT_RESP:
       {
-    	  size = i32CopyApiSpec(&apiSpec, tmp);
-    	  CMI_vTxData(tmp, size);
+    	  CMI_vAirDataDistributor(&apiSpec);
     	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
     	  result = OK;
     	  break;
@@ -1900,8 +1806,7 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
       /* Data */
       case API_DATA_PACKET:
       {
-    	  size = i32CopyApiSpec(&apiSpec, tmp);
-          CMI_vTxData(tmp, size);
+    	  CMI_vAirDataDistributor(&apiSpec);
           PDUM_eAPduFreeAPduInstance(hapdu_ins);
           result = OK;
           break;
@@ -1951,8 +1856,7 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
       */
       case API_TOPO_RESP:
       {
-    	  size = i32CopyApiSpec(&apiSpec, tmp);
-		  CMI_vTxData(tmp, size);
+    	  CMI_vAirDataDistributor(&apiSpec);
 		  PDUM_eAPduFreeAPduInstance(hapdu_ins);
 		  result = OK;
 		  break;

@@ -28,7 +28,6 @@
 #include "firmware_cmi.h"
 #include "firmware_uart.h"
 #include "firmware_ringbuffer.h"
-#include "firmware_at_api.h"
 #include "firmware_api_pack.h"
 #include "common.h"
 /****************************************************************************/
@@ -58,7 +57,7 @@ extern uint32 SPM_u32PullData(void *data, int len);
 
 /****************************************************************************
  *
- * NAME: CMI_vPushData
+ * NAME: CMI_vUrtRevDataDistributor
  *
  * DESCRIPTION:
  * Communication interface layer
@@ -73,7 +72,7 @@ extern uint32 SPM_u32PullData(void *data, int len);
  * bool: TRUE - busy
  *
  ****************************************************************************/
-void CMI_vPushData(void *data, int len)
+void CMI_vUrtRevDataDistributor(void *data, int len)
 {
 	uint32 avlb_cnt = 0;    //avlb count
 	uint32 free_cnt = 0;
@@ -88,40 +87,40 @@ void CMI_vPushData(void *data, int len)
 	*/
 	switch(g_sDevice.eMode)
 	{
-	    /* AT mode */
-	    case E_MODE_AT:
-	    	avlb_cnt = SPM_u32PullData(data, len);
-	    	break;
+		/* AT mode */
+		case E_MODE_AT:
+			avlb_cnt = SPM_u32PullData(data, len);
+			break;
 
-        /* API mode */
-	    case E_MODE_API:
-	    	avlb_cnt = SPM_u32PullData(data, len);
-	    	break;
+		/* API mode */
+		case E_MODE_API:
+			avlb_cnt = SPM_u32PullData(data, len);
+			break;
 
-	    /* DATA mode */
-	    case E_MODE_DATA:
-	    	avlb_cnt = SPM_u32PullData(data, len);
-	    	break;
+		/* DATA mode */
+		case E_MODE_DATA:
+			avlb_cnt = SPM_u32PullData(data, len);
+			break;
 
-	    /* Arduino-ful MCU mode */
-	    case E_MODE_MCU:
-	    	OS_eEnterCriticalSection(mutexRxRb);
-	    	free_cnt = ringbuffer_free_space(&rb_uart_aups);
-	    	OS_eExitCriticalSection(mutexRxRb);
+		/* Arduino-ful MCU mode */
+		case E_MODE_MCU:
+			OS_eEnterCriticalSection(mutexRxRb);
+			free_cnt = ringbuffer_free_space(&rb_uart_aups);
+			OS_eExitCriticalSection(mutexRxRb);
 
-	    	min_cnt = MIN(free_cnt, len);
-	    	DBG_vPrintf(TRACE_CMI, "aups_rb, rev_cnt: %u, free_cnt: %u \r\n", len, free_cnt);
-	    	/* If ringbuffer is full,don't push */
-	    	if(min_cnt > 0)
-	    	{
-	    		OS_eEnterCriticalSection(mutexRxRb);
-	    	    ringbuffer_push(&rb_uart_aups, data, min_cnt);
-	    	    OS_eExitCriticalSection(mutexRxRb);
-	    	}
-	    	break;
+			min_cnt = MIN(free_cnt, len);
+			DBG_vPrintf(TRACE_CMI, "aups_rb, rev_cnt: %u, free_cnt: %u \r\n", len, free_cnt);
+			/* If ringbuffer is full,don't push */
+			if(min_cnt > 0)
+			{
+				OS_eEnterCriticalSection(mutexRxRb);
+				ringbuffer_push(&rb_uart_aups, data, min_cnt);
+				OS_eExitCriticalSection(mutexRxRb);
+			}
+			break;
 
-        /* default:do nothing */
-	    default:break;
+		/* default:do nothing */
+		default:break;
 	}
 
 	/*
@@ -133,97 +132,69 @@ void CMI_vPushData(void *data, int len)
 		if (avlb_cnt >= THRESHOLD_READ)
 		{
 			OS_eActivateTask(APP_taskHandleUartRx);             //Activate SPM immediately
-	    }
+		}
 		else
 		{
 			vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(5));  //Activate SPM 5ms later
 		}
 	}
-
 }
-
-//void CMI_vPushData_bak2014(void *data, int len)
-//{
-//    uint32 free_cnt = 0;    //free count
-//    uint32 min_cnt = 0;     //min count
-//	/* Master mode,data to AUPS ringbuffer */
-//#ifdef FW_MODE_MASTER
-//    if(E_MODE_MCU == g_sDevice.eMode)
-//    {
-//    	OS_eEnterCriticalSection(mutexRxRb);
-//    	free_cnt = ringbuffer_free_space(&rb_uart_aups);
-//    	OS_eExitCriticalSection(mutexRxRb);
-//
-//    	min_cnt = MIN(free_cnt, len);
-//        DBG_vPrintf(TRACE_CMI, "rev_cnt: %u, free_cnt: %u \r\n", len, free_cnt);
-//    	/* If ringbuffer is full,don't push */
-//    	if(min_cnt > 0)
-//    	{
-//    	    OS_eEnterCriticalSection(mutexRxRb);
-//    	    ringbuffer_push(&rb_uart_aups, data, min_cnt);
-//    	    OS_eExitCriticalSection(mutexRxRb);
-//    	}
-//    }
-//    else  // AT/Data Mode, data-->rb_rx_uart
-//    {
-//        OS_eEnterCriticalSection(mutexRxRb);
-//        free_cnt = ringbuffer_free_space(&rb_rx_uart);
-//        OS_eExitCriticalSection(mutexRxRb);
-//
-//        min_cnt = MIN(free_cnt, len);
-//        DBG_vPrintf(TRACE_CMI, "rev_cnt: %u, free_cnt: %u \r\n", len, free_cnt);
-//        if(min_cnt > 0)
-//        {
-//        	OS_eEnterCriticalSection(mutexRxRb);
-//        	ringbuffer_push(&rb_rx_uart, data, min_cnt);
-//        	uint32 size = ringbuffer_data_size(&rb_rx_uart);
-//        	OS_eExitCriticalSection(mutexRxRb);
-//        	/*
-//        	  the following mechanism is to improve the effective of every ZigBee packet frame
-//        	  by avoiding sending packet that is too short.
-//        	*/
-//        	if (size >= THRESHOLD_READ)
-//        	{
-//        		OS_eActivateTask(APP_taskHandleUartRx);             //Activate AT commands execution thread immediately
-//        	}
-//        	else
-//        	{
-//        		vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(5));  //Activate AT commands execution thread 5ms later
-//        	}
-//        }
-//    }
-//
-//#else
-//    OS_eEnterCriticalSection(mutexRxRb);
-//    free_cnt = ringbuffer_free_space(&rb_rx_uart);
-//    OS_eExitCriticalSection(mutexRxRb);
-//
-//    min_cnt = MIN(free_cnt, len);
-//    if(min_cnt > 0)
-//    {
-//    	OS_eEnterCriticalSection(mutexRxRb);
-//    	ringbuffer_push(&rb_rx_uart, data, min_cnt);
-//    	uint32 size = ringbuffer_data_size(&rb_rx_uart);
-//    	OS_eExitCriticalSection(mutexRxRb);
-//    	/*
-//    	  the following mechanism is to improve the effective of every ZigBee packet frame
-//    	  by avoiding sending packet that is too short.
-//    	*/
-//    	if (size >= THRESHOLD_READ)
-//    	{
-//    		OS_eActivateTask(APP_taskHandleUartRx);             //Activate AT commands execution thread immediately
-//    	}
-//    	else
-//    	{
-//    		vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(5));  //Activate AT commands execution thread 5ms later
-//    	}
-//    }
-//#endif
-//}
 
 /****************************************************************************
  *
- * NAME: CMI_vTxData
+ * NAME: CMI_vUrtAckDistributor
+ *
+ * DESCRIPTION:
+ * Communication interface layer
+ *
+ * PARAMETERS: Name         RW  Usage
+ *             apiSpec      R   tsApiSpec frame
+ *
+ * RETURNS:
+ * none
+ *
+ ****************************************************************************/
+void CMI_vUrtAckDistributor(tsApiSpec *apiSpec)
+{
+	uint8 tmp[sizeof(tsApiSpec)] = {0};
+    uint32 len = 0;
+
+    len = i32CopyApiSpec(apiSpec, tmp);
+
+    switch(g_sDevice.eMode)
+	{
+		/* API mode */
+		case E_MODE_API:
+		{
+			/* Mechanism: wait until ringbuffer has enough space */
+			uart_tx_data(tmp, len);
+			break;
+		}
+		case E_MODE_MCU:
+		{
+			len = i32CopyApiSpec(apiSpec, tmp);
+		    OS_eEnterCriticalSection(mutexAirPort);
+		    uint32 free_cnt = ringbuffer_free_space(&rb_air_aups);
+			OS_eExitCriticalSection(mutexAirPort);
+
+			/* if free size < len, discard it */
+			if(free_cnt >= len)
+			{
+			 	OS_eEnterCriticalSection(mutexAirPort);
+				ringbuffer_push(&rb_air_aups, tmp, len);
+				OS_eExitCriticalSection(mutexAirPort);
+			}
+			break;
+		}
+		/* Only in MCU/API mode, UART need ACK */
+		default:break;
+	}
+}
+
+
+/****************************************************************************
+ *
+ * NAME: CMI_vAirDataDistributor
  *
  * DESCRIPTION:
  * Communication interface layer
@@ -232,28 +203,28 @@ void CMI_vPushData(void *data, int len)
  *             data         R   Data from UART1
  *
  * RETURNS:
- * bool: TRUE - busy
+ * none
  *
  ****************************************************************************/
-void CMI_vTxData(void *data, int len)
+void CMI_vAirDataDistributor(tsApiSpec *apiSpec)
 {
-	bool bValid = FALSE;
-	tsApiSpec apiSpec;
-    memset(&apiSpec, 0, sizeof(tsApiSpec));
+    uint8 tmp[sizeof(tsApiSpec)] = {0};
+
+    uint32 len = 0;
 
     switch(g_sDevice.eMode)
     {
         /* AT mode */
         case E_MODE_AT:
-        /* print */
-        	u16DecodeApiSpec(data, len, &apiSpec, &bValid);
-        	if(API_TOPO_RESP == apiSpec.teApiIdentifier)
-        	{
-                tsNwkTopoResp nwkTopoResp;
-                memset(&nwkTopoResp, 0, sizeof(tsNwkTopoResp));
-                nwkTopoResp = apiSpec.payload.nwkTopoResp;
+        {
+			/* distribute to console */
+			if(API_TOPO_RESP == apiSpec->teApiIdentifier)
+			{
+				tsNwkTopoResp nwkTopoResp;
+			    memset(&nwkTopoResp, 0, sizeof(tsNwkTopoResp));
+			    nwkTopoResp = apiSpec->payload.nwkTopoResp;
 
-                DBG_vPrintf(TRACE_EP, "NWK_TOPO_RESP: from 0x%04x \r\n", nwkTopoResp.shortAddr);
+			    DBG_vPrintf(TRACE_EP, "NWK_TOPO_RESP: from 0x%04x \r\n", nwkTopoResp.shortAddr);
 
 				uart_printf("+--Node resp--\r\n|--0x%04x,%08lx%08lx,LQI:%d,DBm:%d,Ver:0x%04x\r\n",
 						   nwkTopoResp.shortAddr,
@@ -262,79 +233,44 @@ void CMI_vTxData(void *data, int len)
 						   nwkTopoResp.lqi,
 						   nwkTopoResp.dbm,
 						   nwkTopoResp.nodeFWVer);
-        	}
-        	break;
+			}
+			break;
+        }
+	    /* API mode */
+	    case E_MODE_API:
+	    {
+			/* Mechanism: wait until ringbuffer has enough space */
+	    	   len = i32CopyApiSpec(apiSpec, tmp);
+			   uart_tx_data(tmp, len);
+			break;
+	    }
+	    /* DATA mode */
+	    case E_MODE_DATA:
+	    {
+			/* Mechanism: wait until ringbuffer has enough space */
+			uart_tx_data(apiSpec->payload.txDataPacket.data, apiSpec->payload.txDataPacket.dataLen);
+			break;
+	    }
+	    /* MCU mode */
+	    case E_MODE_MCU:
+	    {
+	    	len = i32CopyApiSpec(apiSpec, tmp);
+			OS_eEnterCriticalSection(mutexAirPort);
+			uint32 free_cnt = ringbuffer_free_space(&rb_air_aups);
+			OS_eExitCriticalSection(mutexAirPort);
 
-        /* API mode */
-        case E_MODE_API:
-        	/* Mechanism: wait until ringbuffer has enough space */
-            uart_tx_data(data, len);
-        	break;
-
-        /* DATA mode */
-        case E_MODE_DATA:
-        	/* Mechanism: wait until ringbuffer has enough space */
-        	u16DecodeApiSpec(data, len, &apiSpec, &bValid);
-        	if(bValid)
-        	{
-        		uart_tx_data(apiSpec.payload.txDataPacket.data, apiSpec.payload.txDataPacket.dataLen);
-        	}
-
-        	break;
-
-        /* MCU mode */
-        case E_MODE_MCU:
-        	OS_eEnterCriticalSection(mutexAirPort);
-        	uint32 free_cnt = ringbuffer_free_space(&rb_air_aups);
-        	OS_eExitCriticalSection(mutexAirPort);
-
-        	/* if free size < len, discard it */
-        	if(free_cnt >= len)
-        	{
-        		OS_eEnterCriticalSection(mutexAirPort);
-        		ringbuffer_push(&rb_air_aups, data, len);
-        		OS_eExitCriticalSection(mutexAirPort);
-        	}
-        	break;
-
-        default:break;
-    }
-
+			/* if free size < len, discard it */
+			if(free_cnt >= len)
+			{
+				OS_eEnterCriticalSection(mutexAirPort);
+				ringbuffer_push(&rb_air_aups, tmp, len);
+				OS_eExitCriticalSection(mutexAirPort);
+			}
+			break;
+	    }
+   }
 }
 
-
-int CMI_vTxData_bak2014(void *data, int len)
-{
-#ifdef FW_MODE_MASTER
-	/* At Data mode,data send to UART1 directly */
-	if(E_MODE_DATA == g_sDevice.eMode)
-	{
-		uart_tx_data(data, len);
-	}
-	else
-	{
-	    OS_eEnterCriticalSection(mutexAirPort);
-        uint32 free_cnt = ringbuffer_free_space(&rb_air_aups);
-	    OS_eExitCriticalSection(mutexAirPort);
-
-	    /*
-	      if free size < len, discard it,return ERR immediately,
-	      waiting may result in a blocking of AUPS thread.
-        */
-	    if(free_cnt >= len)
-	    {
-		    OS_eEnterCriticalSection(mutexAirPort);
-		    ringbuffer_push(&rb_air_aups, data, len);
-		    OS_eExitCriticalSection(mutexAirPort);
-	    }
-	    else
-	    {
-            return false;
-	    }
-	}
-#else
-	/* Mechanism: wait until ringbuffer has enough space */
-    uart_tx_data(data, len);
-#endif
-    return true;
-}
+/****************************************************************************/
+/***        END OF FILE                                                   ***/
+/****************************************************************************/

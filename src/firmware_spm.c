@@ -33,6 +33,9 @@
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
+#ifndef TRACE_SPM
+#define TRACE_SPM TRUE
+#endif
 
 /****************************************************************************/
 /***        Local Function Prototypes                                     ***/
@@ -102,7 +105,7 @@ uint32 SPM_u32PullData(void *data, int len)
 	OS_eExitCriticalSection(mutexRxRb);
 
     min_cnt = MIN(free_cnt, len);
-    DBG_vPrintf(TRACE_NODE, "rev_cnt: %u, free_cnt: %u \r\n", len, free_cnt);
+    DBG_vPrintf(TRACE_SPM, "rev_cnt: %u, free_cnt: %u \r\n", len, free_cnt);
     if(min_cnt > 0)
     {
     	OS_eEnterCriticalSection(mutexRxRb);
@@ -120,7 +123,7 @@ uint32 SPM_u32PullData(void *data, int len)
  * NAME: APP_taskHandleUartRx
  *
  * DESCRIPTION:
- * Stream Processing Machine(SPM), driving by software timer
+ * Stream Processing Machine(SPM), driving by ISR
  * Main state machine
  * State:  E_MODE_AT/E_MODE_DATA/E_MODE_API/E_MODE_MCU
  *
@@ -149,13 +152,14 @@ OS_TASK(APP_taskHandleUartRx)
     /* if there is no data in SPM data pool, return */
     if (dataCnt == 0)  return;
 
-    DBG_vPrintf(TRACE_EP, "-SPM running- \r\n");
+    DBG_vPrintf(TRACE_SPM, "-SPM running- \r\n");
 
     /* SPM State Machine */
     switch(g_sDevice.eMode)
     {
         /* AT mode */
         case E_MODE_AT:
+        {
         	 popCnt = MIN(dataCnt, RXFIFOLEN);
         	 OS_eEnterCriticalSection(mutexRxRb);
         	 ringbuffer_read(&rb_rx_spm, tmp, popCnt);
@@ -193,9 +197,10 @@ OS_TASK(APP_taskHandleUartRx)
         	 ringbuffer_pop(&rb_rx_spm, tmp, popCnt);
         	 OS_eExitCriticalSection(mutexRxRb);
         	 break;
-
+        }
         /* API mode */
         case E_MODE_API:
+        {
         	/* read some data from ringbuffer */
         	popCnt = MIN(dataCnt, THRESHOLD_READ);
 
@@ -209,13 +214,15 @@ OS_TASK(APP_taskHandleUartRx)
         		uart_printf("Enter AT Mode.\r\n");
         		clear_ringbuffer(&rb_rx_spm);
         	}
+        	else
         	{
         	    SPM_vProcStream(dataCnt);
         	}
         	break;
-
+        }
         /* Data mode */
         case E_MODE_DATA:
+        {
         	/* read some data from ringbuffer */
         	popCnt = MIN(dataCnt, THRESHOLD_READ);
 
@@ -223,10 +230,7 @@ OS_TASK(APP_taskHandleUartRx)
         	ringbuffer_pop(&rb_rx_spm, tmp, popCnt);
         	OS_eExitCriticalSection(mutexRxRb);
 
-        	if ((dataCnt - popCnt) >= THRESHOLD_READ)
-        		OS_eActivateTask(APP_taskHandleUartRx);
-        	else if ((dataCnt - popCnt) > 0)
-        		vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(1));
+        	/* pre pos */
 
         	/* AT filter to find AT delimiter */
         	if (searchAtStarter(tmp, popCnt))
@@ -244,15 +248,24 @@ OS_TASK(APP_taskHandleUartRx)
         		PCK_vApiSpecDataFrame(&apiSpec, 0x00, 0x00, g_sDevice.config.unicastDstAddr, tmp, popCnt);
         		memset(tmp, 0, RXFIFOLEN);
         		size = i32CopyApiSpec(&apiSpec, tmp);
-        		API_bSendToAirPort(g_sDevice.config.txMode, apiSpec.payload.txDataPacket.unicastAddr, tmp, size);
-        	}
-        	break;
 
+        		API_bSendToAirPort(g_sDevice.config.txMode, apiSpec.payload.txDataPacket.unicastAddr, tmp, size);
+
+        	}
+
+        	/* Activate again */
+        	if ((dataCnt - popCnt) >= THRESHOLD_READ)
+				OS_eActivateTask(APP_taskHandleUartRx);
+			else if ((dataCnt - popCnt) > 0)
+				vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(1));
+        	break;
+        }
         /* Arduino-ful MCU mode */
         case E_MODE_MCU:
+        {
         	SPM_vProcStream(dataCnt);
         	break;
-        default:break;
+        }
     }
 }
 
@@ -299,7 +312,7 @@ PRIVATE void SPM_vProcStream(uint32 dataCnt)
 	else
 	{
 		/* Process API frame using API support layer's api */
-		API_i32ApiFrmCmdProc(&apiSpec);
+		API_i32ApiFrmProc(&apiSpec);
 	}
 	/* Discard already processed part */
 	OS_eEnterCriticalSection(mutexRxRb);
@@ -307,3 +320,6 @@ PRIVATE void SPM_vProcStream(uint32 dataCnt)
 	OS_eExitCriticalSection(mutexRxRb);
 }
 
+/****************************************************************************/
+/***        END OF FILE                                                   ***/
+/****************************************************************************/

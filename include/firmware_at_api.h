@@ -71,26 +71,6 @@ typedef enum
     ATIO = 0x70   //set IOs
 }teAtIndex;
 
-typedef enum
-{
-    FRM_CTRL,
-    FRM_QUERY,
-    FRM_QUERY_RESP,
-    FRM_DATA,
-    FRM_OTA_NTF,
-    FRM_OTA_REQ,
-    FRM_OTA_RESP,
-    FRM_OTA_ABT_REQ,
-    FRM_OTA_ABT_RESP,
-    FRM_OTA_UPG_REQ,
-    FRM_OTA_UPG_RESP,
-    FRM_OTA_ST_REQ,
-    FRM_OTA_ST_RESP,
-    FRM_TOPO_REQ,
-    FRM_TOPO_RESP
-}teFrameType;
-
-
 /* API mode AT return value */
 typedef enum
 {
@@ -123,70 +103,6 @@ typedef enum
 	API_TOPO_REQ = 0xfb,
 	API_TOPO_RESP = 0x6b
 }teApiIdentifier;
-
-//CTRL
-typedef struct
-{
-    uint8               reg[2];
-    uint8               value[16];
-}tsFrmControl;
-
-//OTA
-typedef struct
-{
-    uint32              totalBytes;
-    uint16              reqPeriodMs;
-}tsFrmOtaNtf;
-
-
-
-typedef struct
-{
-    uint32              blockIdx;
-}tsFrmOtaReq;
-
-typedef struct
-{
-    uint32              blockIdx;
-    uint16              len;
-    uint8               block[OTA_BLOCK_SIZE];
-    uint32              crc;
-}tsFrmOtaResp;
-
-typedef struct
-{
-    bool                inOTA;
-    uint8               per;
-}tsFrmOtaStatusResp;
-
-//TOPO for AT mode
-typedef struct
-{
-    uint32              nodeMacAddr0;  //cant sent 64bit interger due to align issue
-    uint32              nodeMacAddr1;
-    uint8               lqi;
-    int16               dbm;
-    uint16              nodeFWVer;
-}tsFrmTOPOResp;
-
-//API frame, external layer structure
-typedef struct __apiFrame
-{
-    uint8               preamble;
-    uint8               frameType;
-    uint16              payloadLen;
-    union
-    {
-        uint8           data[RXFIFOLEN];
-        tsFrmControl    frmCtrl;
-        tsFrmOtaNtf     frmOtaNtf;
-        tsFrmOtaReq     frmOtaReq;
-        tsFrmOtaResp    frmOtaResp;
-        tsFrmOtaStatusResp    frmOtaStResp;
-        tsFrmTOPOResp   frmTopoResp;
-    }payload;
-    uint8               checksum;
-}tsApiFrame;
 
 
 /*--------API mode structure--------*/
@@ -254,7 +170,6 @@ typedef struct
 	uint16 unicastAddr;
 }__attribute__ ((packed)) tsRemoteAtReq;
 
-
 /* API mode remote AT command response */
 typedef struct
 {
@@ -264,7 +179,6 @@ typedef struct
 	uint8 value[AT_PARAM_HEX_LEN];
 	uint16 unicastAddr;
 }__attribute__ ((packed)) tsRemoteAtResp;
-
 
 /* Tx data packet 24 */
 typedef struct
@@ -392,17 +306,13 @@ enum ErrorCode
 /***        Global Function Prototypes                                    ***/
 /****************************************************************************/
 uint8 calCheckSum(uint8 *in, int len);
-uint16 assembleApiFrame(tsApiFrame *frm, teFrameType type, uint8 *payload, uint16 payloadLen);
-uint16 deassembleApiFrame(uint8 *buffer, int len, tsApiFrame *frm, bool *valid);
-void copyApiFrame(tsApiFrame *frm, uint8 *dst);
 bool searchAtStarter(uint8 *buffer, int len);
-
 int assembleLocalAtResp(tsLocalAtResp *resp, uint8 frm_id, uint8 cmd_id, uint8 status, uint8 *value, int len);
 int assembleRemoteAtResp(tsRemoteAtResp *resp, uint8 frm_id, uint8 cmd_id, uint8 status, uint8 *value, int len, uint16 addr);
 void assembleApiSpec(tsApiSpec *api, uint8 idtf, uint8 *payload, int payload_len);
 
 int API_i32AtCmdProc(uint8 *buf, int len);
-int API_i32ApiFrmCmdProc(tsApiSpec* apiSpec);
+int API_i32ApiFrmProc(tsApiSpec* apiSpec);
 int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent);
 bool API_bSendToAirPort(uint16 txMode, uint16 unicastDest, uint8 *buf, int len);
 void postReboot();

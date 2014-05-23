@@ -113,7 +113,7 @@ int i32CopyApiSpec(tsApiSpec *spec, uint8 *dst)
 
 /****************************************************************************
  *
- * NAME: PAK_vApiSpecDataFrame
+ * NAME: PCK_vApiSpecDataFrame
  *
  * DESCRIPTION:
  * Pack data frame
@@ -122,7 +122,7 @@ int i32CopyApiSpec(tsApiSpec *spec, uint8 *dst)
  * tsApiSpec
  *
  ****************************************************************************/
-void PCK_vApiSpecDataFrame(tsApiSpec *apiSpec, uint8 frameId, uint8 option, uint16 unicastAddr, void *data, int len)
+PUBLIC void PCK_vApiSpecDataFrame(tsApiSpec *apiSpec, uint8 frameId, uint8 option, uint16 unicastAddr, void *data, int len)
 {
 	tsTxDataPacket txDataPacket;
     memset(&txDataPacket, 0, sizeof(tsTxDataPacket));
@@ -143,8 +143,18 @@ void PCK_vApiSpecDataFrame(tsApiSpec *apiSpec, uint8 frameId, uint8 option, uint
     apiSpec->checkSum = calCheckSum((uint8*)&txDataPacket, apiSpec->length);
 }
 
-
-uint8 PCK_u8ApiSpecLocalAtIo(tsApiSpec *apiSpec, uint8 pin, uint8 state)
+/****************************************************************************
+ *
+ * NAME: PCK_u8ApiSpecLocalAtIo
+ *
+ * DESCRIPTION:
+ * Pack local ATIO frame
+ *
+ * RETURNS:
+ * tsApiSpec
+ *
+ ****************************************************************************/
+PUBLIC uint8 PCK_u8ApiSpecLocalAtIo(tsApiSpec *apiSpec, uint8 pin, uint8 state)
 {
   apiSpec->startDelimiter = API_START_DELIMITER;
   apiSpec->length = sizeof(tsLocalAtReq);           //Note: union length != tsLocalAtReq length
@@ -165,7 +175,18 @@ uint8 PCK_u8ApiSpecLocalAtIo(tsApiSpec *apiSpec, uint8 pin, uint8 state)
   return 3 + sizeof(tsLocalAtReq) + 1;
 }
 
-uint8 PCK_u8ApiSpecRemoteAtIo(tsApiSpec *apiSpec, uint16 unicastAddr , uint8 pin, uint8 state)
+/****************************************************************************
+ *
+ * NAME: PCK_u8ApiSpecRemoteAtIo
+ *
+ * DESCRIPTION:
+ * Pack remote ATIO frame
+ *
+ * RETURNS:
+ * tsApiSpec
+ *
+ ****************************************************************************/
+PUBLIC uint8 PCK_u8ApiSpecRemoteAtIo(tsApiSpec *apiSpec, uint16 unicastAddr , uint8 pin, uint8 state)
 {
   apiSpec->startDelimiter = API_START_DELIMITER;
   apiSpec->length = sizeof(tsRemoteAtReq);           //Note: union length != tsLocalAtReq length

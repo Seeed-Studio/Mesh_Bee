@@ -34,6 +34,6 @@
 
 PUBLIC void setLoopIntervalMs(uint32 ms);
 PUBLIC void setNodeState(uint32 state);
-
+PUBLIC void vDelayMsec(uint32 u32Period);
 
 #endif
