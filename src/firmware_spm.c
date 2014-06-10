@@ -34,7 +34,7 @@
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
 #ifndef TRACE_SPM
-#define TRACE_SPM TRUE
+#define TRACE_SPM FALSE
 #endif
 
 /****************************************************************************/
@@ -207,6 +207,7 @@ OS_TASK(APP_taskHandleUartRx)
         	OS_eEnterCriticalSection(mutexRxRb);
         	ringbuffer_read(&rb_rx_spm, tmp, popCnt);
         	OS_eExitCriticalSection(mutexRxRb);
+
         	if (searchAtStarter(tmp, popCnt))
         	{
         		g_sDevice.eMode = E_MODE_AT;
@@ -248,9 +249,7 @@ OS_TASK(APP_taskHandleUartRx)
         		PCK_vApiSpecDataFrame(&apiSpec, 0x00, 0x00, g_sDevice.config.unicastDstAddr, tmp, popCnt);
         		memset(tmp, 0, RXFIFOLEN);
         		size = i32CopyApiSpec(&apiSpec, tmp);
-
         		API_bSendToAirPort(g_sDevice.config.txMode, apiSpec.payload.txDataPacket.unicastAddr, tmp, size);
-
         	}
 
         	/* Activate again */

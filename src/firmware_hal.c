@@ -32,7 +32,7 @@
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
 #ifndef TRACE_HAL
-#define TRACE_HAL TRUE
+#define TRACE_HAL FALSE
 #endif
 
 #define TEMP_XTAL_HALF_PULL             95  /*  95C */

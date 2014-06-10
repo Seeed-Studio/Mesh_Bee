@@ -27,7 +27,7 @@
 
 
 #ifndef TRACE_OTA
-#define TRACE_OTA TRUE
+#define TRACE_OTA FALSE
 #endif
 
 

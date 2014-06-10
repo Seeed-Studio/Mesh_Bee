@@ -114,24 +114,43 @@ void arduino_loop(void)
 #ifdef TARGET_COO
 	vDelayMsec(100);
 	suli_uart_printf(NULL, NULL, "random:%d\r\n", random());
-#else
-	/* Finish user job */
+#elif TARGET_ROU
 	uint8 tmp[sizeof(tsApiSpec)]={0};
 	tsApiSpec apiSpec;
 
 	int16 temper = suli_analog_read(temp_pin);
-	sprintf(tmp, "HeartBeat:%ld\r\n", temper);
+	sprintf(tmp, "R-HeartBeat:%ld\r\n", temper);
 	PCK_vApiSpecDataFrame(&apiSpec, 0xec, 0x00, 0x0000, tmp, strlen(tmp));
 
 	/* Air to Coordinator */
 	uint16 size = i32CopyApiSpec(&apiSpec, tmp);
 	if(API_bSendToAirPort(UNICAST, 0x0000, tmp, size))
 	{
-		suli_uart_printf(NULL, NULL, "<HeartBeat>\r\n");
+		suli_uart_printf(NULL, NULL, "<HeartBeat%d>\r\n", random());
+	}
+#else
+	/* Finish user job */
+	static jobCnt = 0;
+	uint8 tmp[sizeof(tsApiSpec)]={0};
+	tsApiSpec apiSpec;
+
+	int16 temper = suli_analog_read(temp_pin);
+	sprintf(tmp, "E-HeartBeat:%ld\r\n", temper);
+	PCK_vApiSpecDataFrame(&apiSpec, 0xec, 0x00, 0x0000, tmp, strlen(tmp));
+
+	/* Air to Coordinator */
+	uint16 size = i32CopyApiSpec(&apiSpec, tmp);
+	if(API_bSendToAirPort(UNICAST, 0x0000, tmp, size))
+	{
+		suli_uart_printf(NULL, NULL, "<HeartBeat%d>\r\n", jobCnt);
+		jobCnt++;
+	}
+	if(10 == jobCnt)
+	{
+		jobCnt = 0;
+		Sleep(3000);
 	}
 
-	/* Sleep 3000ms */
-	Sleep(10000);
 #endif
 }
 

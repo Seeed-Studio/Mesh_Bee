@@ -60,10 +60,6 @@
 /****************************************************************************/
 /***        Configurations                                                ***/
 /****************************************************************************/
-
-//#define FW_MODE_MASTER                                              //un-comment this line to enable the master mode
-                                                                    //or define FW_MODE_MASTER in Makefile to enable
-                                                                    //about master mode: https://github.com/Seeed-Studio/Mesh_Bee/blob/master/README.md
 #define FW_VERSION                      0x1003
 
 #define RADIO_RECALIBRATION                                         //re-calibrate the radio per 1min
@@ -142,6 +138,15 @@ enum teTxMode
     UNICAST         //send to specified node
 };
 
+/* Sleep mode */
+enum eSleepMode
+{
+    SLEEP_MODE_NONE = 0,               //don't sleep
+    SLEEP_MODE_WAKE_BY_DIO = 1,        //wake up by DIO
+    SLEEP_MODE_WAKE_BY_TIMER = 4,      //wake up by periodic timer
+    SLEEP_MODE_WAKE_BY_DIO_TIMER = 5   //wake up by periodic timer and DIO both
+};
+
 typedef struct
 {
     uint16             powerupApi;
@@ -151,11 +156,11 @@ typedef struct
     uint16             txMode;
     uint16             unicastDstAddr;
     uint16             baudRateUart1;
-    uint16             sleepMode;
-    uint16             wakeupDuration;
-    uint16             sleepPeriod;      //ticks of sleep period
+    uint16             sleepMode;         //sleep mode
+    uint16             sleepWaitingTime;  //waiting time
+    uint16             sleepPeriod;       //sleep period
     uint16             reqPeriodMs;
-    uint16             upsXtalPeriod;    //simulate crystal oscillator frequency of AUPS
+    uint16             upsXtalPeriod;     //simulate crystal oscillator frequency of AUPS
 }tsConfig;
 
 
@@ -189,8 +194,7 @@ typedef struct
 /****************************************************************************/
 /***        Exported Variables                                            ***/
 /****************************************************************************/
-//extern struct ringbuffer rb_rx_uart;
-extern struct ringbuffer rb_tx_uart;
+extern struct ringbuffer rb_tx_uart;      //for direct UART
 extern struct ringbuffer rb_rx_spm;       //for SPM input resource pool
 extern struct ringbuffer rb_uart_aups;    //for AUPS UART
 extern struct ringbuffer rb_air_aups;     //for AUPS AirPort response

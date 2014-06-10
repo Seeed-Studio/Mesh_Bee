@@ -27,13 +27,12 @@
 
 #include "common.h"
 
-/* oliver */
+/* [macro definition] */
 #define AUPS_UART_RB_LEN          50
 #define AUPS_AIR_RB_LEN           50
 
-
-PUBLIC void setLoopIntervalMs(uint32 ms);
+/* [public functions] */
 PUBLIC void setNodeState(uint32 state);
 PUBLIC void vDelayMsec(uint32 u32Period);
-
+PUBLIC void ups_init(void);
 #endif

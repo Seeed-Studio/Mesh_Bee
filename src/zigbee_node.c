@@ -38,17 +38,20 @@
 #include "zigbee_join.h"
 #include "firmware_ota.h"
 #include "firmware_hal.h"
-#include "firmware_spm.h"  //for SPM_vInit()
+#include "firmware_spm.h"   //for SPM_vInit()
+#include "firmware_sleep.h" //for scheduleSleep()
 #include "suli.h"
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
 
 #ifndef TRACE_NODE
-#define TRACE_NODE TRUE
+#define TRACE_NODE FALSE
 #endif
 
-
+#ifndef TRACE_NWK
+#define TRACE_NWK  FALSE
+#endif
 /****************************************************************************/
 /***        Type Definitions                                              ***/
 /****************************************************************************/
@@ -385,15 +388,15 @@ OS_TASK(APP_taskNWK)
 
     sStackEvent.eType = ZPS_EVENT_NONE;
 
-    DBG_vPrintf(TRACE_NODE, "\r\n-NWK-\r\n");
+    DBG_vPrintf(TRACE_NWK, "\r\n-NWK-\r\n");
 
     if (OS_E_OK  == OS_eCollectMessage(APP_msgZpsEvents, &sStackEvent))
     {
-        DBG_vPrintf(TRACE_NODE, "Stack Evt: 0x%02x\r\n", sStackEvent.eType);
+        DBG_vPrintf(TRACE_NWK, "Stack Evt: 0x%02x\r\n", sStackEvent.eType);
 
         if (sStackEvent.eType == ZPS_EVENT_ERROR)
         {
-            DBG_vPrintf(TRACE_NODE, "ZigBee ERR: %x \r\n", sStackEvent.uEvent.sAfErrorEvent.eError);
+            DBG_vPrintf(TRACE_NWK, "ZigBee ERR: %x \r\n", sStackEvent.uEvent.sAfErrorEvent.eError);
         }
     }
 
@@ -402,13 +405,13 @@ OS_TASK(APP_taskNWK)
     {
         //config------------------------
     case E_NETWORK_CONFIG:
-        DBG_vPrintf(TRACE_NODE, "Handle State: E_NETWORK_CONFIG\r\n");
+        DBG_vPrintf(TRACE_NWK, "Handle State: E_NETWORK_CONFIG\r\n");
         vHandleConfigureNetworkEvent(sStackEvent);
         vAHI_DioSetOutput(0, (1 << DIO_ASSOC));
         break;
         //start-up------------------------
     case E_NETWORK_STARTUP:
-        DBG_vPrintf(TRACE_NODE, "Handle State: E_NETWORK_STARTUP\r\n");
+        DBG_vPrintf(TRACE_NWK, "Handle State: E_NETWORK_STARTUP\r\n");
 #ifdef TARGET_COO
         vHandleCOOStartupEvent(sStackEvent);
 #else
@@ -418,41 +421,41 @@ OS_TASK(APP_taskNWK)
         break;
         //wait formation done------------------------
     case E_NETWORK_WAIT_FORMATION:
-        DBG_vPrintf(TRACE_NODE, "Handle State: E_NETWORK_WAIT_FORMATION\r\n");
+        DBG_vPrintf(TRACE_NWK, "Handle State: E_NETWORK_WAIT_FORMATION\r\n");
         vHandleNetworkFormationEvent(sStackEvent);
         vAHI_DioSetOutput(0, (1 << DIO_ASSOC));
         break;
         //discovery------------------------
     case E_NETWORK_DISCOVERY:
-        DBG_vPrintf(TRACE_NODE, "Handle State: E_NETWORK_DISCOVERY \r\n");
+        DBG_vPrintf(TRACE_NWK, "Handle State: E_NETWORK_DISCOVERY \r\n");
         vHandleNetworkDiscoveryEvent(sStackEvent);
         vAHI_DioSetOutput(0, (1 << DIO_ASSOC));
         break;
         //joining------------------------
     case E_NETWORK_JOINING:
-        DBG_vPrintf(TRACE_NODE, "Handle State: E_NETWORK_JOINING \r\n");
+        DBG_vPrintf(TRACE_NWK, "Handle State: E_NETWORK_JOINING \r\n");
         vHandleNetworkJoinEvent(sStackEvent);
         vAHI_DioSetOutput(0, (1 << DIO_ASSOC));
         break;
         //init------------------------
     case E_NETWORK_INIT:
-        DBG_vPrintf(TRACE_NODE, "Handle State: E_NETWORK_INIT \r\n");
+        DBG_vPrintf(TRACE_NWK, "Handle State: E_NETWORK_INIT \r\n");
 
         break;
         //rescan
     case E_NETWORK_RESCAN:
-        DBG_vPrintf(TRACE_NODE, "Handle State: E_NETWORK_RESCAN \r\n");
+        DBG_vPrintf(TRACE_NWK, "Handle State: E_NETWORK_RESCAN \r\n");
 
         break;
         //wait leaving
     case E_NETWORK_WAIT_LEAVE:
-        DBG_vPrintf(TRACE_NODE, "Handle State: E_NETWORK_WAIT_LEAVE \r\n");
+        DBG_vPrintf(TRACE_NWK, "Handle State: E_NETWORK_WAIT_LEAVE \r\n");
         vHandleNetworkLeave(sStackEvent);
         vAHI_DioSetOutput(0, (1 << DIO_ASSOC));
         break;
         //run------------------------
     case E_NETWORK_RUN:
-        DBG_vPrintf(TRACE_NODE, "Handle State: E_NETWORK_RUN\r\n");
+        DBG_vPrintf(TRACE_NWK, "Handle State: E_NETWORK_RUN\r\n");
         vHandleRunningEvent(sStackEvent);
 #ifdef TARGET_ROU
         //router should discovery the route to coo periodly.
@@ -462,7 +465,7 @@ OS_TASK(APP_taskNWK)
         break;
 
     default:
-        DBG_vPrintf(TRACE_NODE, "Unexpected state in NWK Task: %d\r\n", sStackEvent.eType);
+        DBG_vPrintf(TRACE_NWK, "Unexpected state in NWK Task: %d\r\n", sStackEvent.eType);
         break;
     }
 }
@@ -723,11 +726,11 @@ PUBLIC void node_vInitialise(void)
       case E_MODE_MCU: mode = "MCU"; break;
       default:break;
     }
-    DBG_vPrintf(TRACE_START, "Current Mode: %s.\r\n",mode);
+    DBG_vPrintf(TRACE_NODE, "Current Mode: %s.\r\n",mode);
 
     /* Init SPM */
     SPM_vInit();
-    DBG_vPrintf(TRACE_START, "Initializing SPM ... \r\n",mode);
+    DBG_vPrintf(TRACE_NODE, "Initializing SPM ... \r\n",mode);
 
     /* Init UART */
     ringbuf_vInitialize();
@@ -827,14 +830,22 @@ PUBLIC void node_vInitialise(void)
 
     OS_eActivateTask(APP_taskNWK);
 
-    /* init arduino-ful user programming space */
+    /* when reset the node, initialize by specify mode */
     if(E_MODE_MCU == g_sDevice.eMode)
     {
     	uint32 xtalPeriod = g_sDevice.config.upsXtalPeriod < 10 ? 10 : g_sDevice.config.upsXtalPeriod;
     	uint32 xtalFreq = (uint32)(1000 / xtalPeriod);
-    	DBG_vPrintf(TRUE, "Initializing AUPS , simulation xtal freq : %ld Hz...\r\n", xtalFreq);
+    	DBG_vPrintf(TRACE_NODE, "Initializing AUPS , simulation xtal freq : %ld Hz...\r\n", xtalFreq);
     	ups_init();
     }
+    else if(E_MODE_API == g_sDevice.eMode || E_MODE_DATA == g_sDevice.eMode)
+    {
+        /* end device schedule a sleep */
+#ifdef TARGET_END
+    	vSleepSchedule();
+#endif
+    }
+    /* AT mode don't need init */
 }
 
 

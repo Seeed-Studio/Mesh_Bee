@@ -34,7 +34,7 @@
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
 #ifndef TRACE_UPS
-#define TRACE_UPS TRUE
+#define TRACE_UPS FALSE
 #endif
 
 /****************************************************************************/
@@ -106,7 +106,7 @@ void UPS_vInitRingbuffer()
  * void
  *
  ****************************************************************************/
-void ups_init(void)
+PUBLIC void ups_init(void)
 {
 	/* Init ringbuffer */
 	UPS_vInitRingbuffer();
@@ -121,29 +121,6 @@ void ups_init(void)
     OS_eStartSWTimer(Arduino_LoopTimer, APP_TIME_MS(500), NULL);
 }
 
-
-
-
-/****************************************************************************
- *
- * NAME: setLoopInterval
- *
- * DESCRIPTION:
- * set the interval between loops
- * End Device enters sleep mode only if idle task get CPU, so Arduino Loop MUST NOT
- * continues without interval.
- *
- * PARAMETERS: Name         RW  Usage
- *             ms           W   interval in ms
- *
- * RETURNS:
- * void
- *
- ****************************************************************************/
-void setLoopIntervalMs(uint32 ms)
-{
-    _loopInterval = ms;
-}
 
 /****************************************************************************
  *
@@ -230,12 +207,13 @@ OS_TASK(Arduino_Loop)
 		    arduino_loop();
 		}
 
-		/*
-		 * If node acts as EndDevice, we don't need to restart the timer
-		 * because it has already gone to sleep.
-		 * If node acts as Coordinator/Router, restart the timer.
-	    */
-#ifndef TARGET_END
+        /*
+         * If a sleep event has already been scheduled in arduino_loop,
+         * don't set a new arduino_loop
+        */
+		if(true == bGetSleepStatus())
+			return;
+
         /* re-activate Arduino_Loop */
 		if(g_sDevice.config.upsXtalPeriod > 0)
 		{
@@ -243,10 +221,8 @@ OS_TASK(Arduino_Loop)
 		}
 		else
 		{
-			OS_eActivateTask(Arduino_Loop);
+			OS_eActivateTask(Arduino_Loop);  //this task is the lowest priority
 		}
-#endif
-
 	}
 }
 

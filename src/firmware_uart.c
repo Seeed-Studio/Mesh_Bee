@@ -31,7 +31,7 @@
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
 #ifndef TRACE_UART
-#define TRACE_UART TRUE
+#define TRACE_UART FALSE
 #endif
 
 extern void CMI_vPushData(void *data, int len);
@@ -90,6 +90,14 @@ OS_ISR(APP_isrUART1)
               if not do so, ISR will occur again and again
             */
             u16AHI_UartBlockReadData(UART_COMM, tmp, avlb_cnt);
+
+        	/* if UART receive a event, sleep later */
+#ifdef TARGET_END
+        	if(E_MODE_API == g_sDevice.eMode || E_MODE_DATA == g_sDevice.eMode)
+        	{
+        	    vSleepSchedule();
+        	}
+#endif
 
             /* Push data into ringbuffer through CMI Distributor */
             CMI_vUrtRevDataDistributor(tmp, avlb_cnt);

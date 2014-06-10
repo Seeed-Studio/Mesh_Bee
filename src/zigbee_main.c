@@ -49,7 +49,7 @@ PUBLIC uint8 u8PDM_GetFileSystemOccupancy(void);
 /****************************************************************************/
 
 #ifndef TRACE_START
-#define TRACE_START        FALSE
+#define TRACE_START       FALSE
 #endif
 
 #ifndef TRACE_OVERLAYS
@@ -61,7 +61,7 @@ PUBLIC uint8 u8PDM_GetFileSystemOccupancy(void);
 #endif
 
 #define RAM_HELD    2
-
+#define WAKE_BTN  (1)    //WakeUp IO
 /****************************************************************************/
 /***        Type Definitions                                              ***/
 /****************************************************************************/
@@ -73,7 +73,7 @@ PUBLIC uint8 u8PDM_GetFileSystemOccupancy(void);
 PRIVATE void vInitialiseApp(void);
 PRIVATE void vUnclaimedInterrupt(void);
 PRIVATE void vOSError(OS_teStatus eStatus, void *hObject);
-
+PRIVATE void vSetUpWakeUpConditions(void);
 
 #ifdef PDM_EEPROM
 PRIVATE void vPdmEventHandlerCallback(uint32 u32EventNumber, PDM_eSystemEventCode eSystemEventCode);
@@ -148,8 +148,16 @@ PWRM_CALLBACK(PreSleep)
 	/* Clear DIO interrupts */
     u32AHI_DioInterruptStatus();
     DBG_vPrintf(TRACE_START, "gone\n\n");
-}
 
+    /* Disable UART */
+    vAHI_UartDisable(E_AHI_UART_0);
+
+    /* if wake by DIO, Set up wake up input */
+    if(SLEEP_MODE_WAKE_BY_DIO_TIMER == g_sDevice.config.sleepMode)
+    {
+        vSetUpWakeUpConditions();
+    }
+}
 
 /****************************************************************************
  *
@@ -215,13 +223,23 @@ PWRM_CALLBACK(Wakeup)
         bAHI_FlashInit(E_FL_CHIP_ST_M25P40_A, NULL);
 
         /* Restart the RTOS */
-        DBG_vPrintf(TRACE_START, "APP: Restarting OS\n");
         OS_vRestart();
+        DBG_vPrintf(TRACE_START, "APP: Restarting OS\n");
 
         /* Restart essential task here */
 
         /* Turn on On/Sleep Led when we are awake */
         suli_pin_write(&SleepLed, HAL_PIN_HIGH);
+
+        if(SLEEP_MODE_WAKE_BY_DIO_TIMER == g_sDevice.config.sleepMode)
+        {
+        	/* Clean DIO interrupt flag and activate WakeUpTask */
+			if(WAKE_BTN & u32AHI_DioWakeStatus())
+			{
+				DBG_vPrintf(TRACE_START, "Wake up by DIO.\n");
+				OS_eActivateTask(WakeUpTask);
+			}
+        }
     }
 }
 
@@ -334,7 +352,31 @@ PUBLIC void vAppMain(void)
 /****************************************************************************/
 /***        Local Functions                                               ***/
 /****************************************************************************/
+/****************************************************************************
+ *
+ * NAME: vSetUpWakeUpConditions
+ *
+ * DESCRIPTION:
+ *
+ * Set up the wake up inputs while going to sleep.
+ *
+ * PARAMETERS:      Name            RW  Usage
+ *
+ *
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
+PRIVATE void vSetUpWakeUpConditions(void)
+{
+   /*
+    * Set the DIO with the right stages for wake up
+    * */
 
+    vAHI_DioSetDirection(WAKE_BTN,0);	/* Set as Wake up Button(DIO0) as Input */
+    vAHI_DioWakeEdge(0,WAKE_BTN);   	/* Set the wake up DIO Edge - Falling Edge */
+    vAHI_DioWakeEnable(WAKE_BTN,0); 	/* Set the Wake up DIO Power Button */
+}
 /****************************************************************************
  *
  * NAME: vInitialiseApp

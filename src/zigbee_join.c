@@ -37,8 +37,6 @@
 
 #ifndef TRACE_JOIN
 #define TRACE_JOIN   FALSE
-#else
-#define TRACE_JOIN   TRUE
 #endif
 
 /****************************************************************************/

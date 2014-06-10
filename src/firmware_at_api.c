@@ -35,13 +35,14 @@
 #include "firmware_hal.h"
 #include "firmware_api_pack.h"
 #include "firmware_cmi.h"
+#include "firmware_sleep.h"
 #include "suli.h"
 
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
 #ifndef TRACE_ATAPI
-#define TRACE_ATAPI TRUE
+#define TRACE_ATAPI FALSE
 #endif
 
 /* API frame delimiter */
@@ -72,8 +73,7 @@ int AT_abortOTAUpgrade(uint16 *regAddr);
 int AT_OTAStatusPoll(uint16 *regAddr);
 int AT_TestTest(uint16 *regAddr);
 int AT_i32QueryOnChipTemper(uint16 *regAddr);
-int AT_EnterSleepMode(uint16 *regAddr);
-
+int AT_SleepTest(uint16 *regAddr);
 /****************************************************************************/
 /***        Local Variables                                               ***/
 /****************************************************************************/
@@ -121,10 +121,13 @@ static AT_Command_t atCommands[] =
 
 #ifdef TARGET_END
     /* for end device, sleep time ms */
-    { "ST", &g_sDevice.config.sleepPeriod, FALSE, 4, 9999, NULL, NULL},
+    { "SM", &g_sDevice.config.sleepMode, FALSE, 1, 5, NULL, NULL},
 
-    { "SL", NULL, FALSE, 0, 0, NULL, AT_EnterSleepMode},
+    { "SP", &g_sDevice.config.sleepPeriod, FALSE, 4, 9999, NULL, NULL},
 
+    { "ST", &g_sDevice.config.sleepWaitingTime, FALSE, 4, 9999, NULL, NULL},
+
+    { "SL", NULL, FALSE, 0, 0, NULL, AT_SleepTest},  //for inner test
 #endif
     //show the information of node
     { "IF", NULL, FALSE, 0, 0, NULL, AT_showInfo },
@@ -206,7 +209,11 @@ static AT_Command_ApiMode_t atCommandsApiMode[] =
 
 
 
-
+int AT_SleepTest(uint16 *regAddr)
+{
+	uart_printf("sleep %d ms\r\n", g_sDevice.config.sleepPeriod);
+    Sleep(g_sDevice.config.sleepPeriod);
+}
 /****************************************************************************
  *
  * NAME: calCheckSum
@@ -256,7 +263,10 @@ bool searchAtStarter(uint8 *buffer, int len)
         {
             plusCnt++;
             if (plusCnt == 3)
+            {
+            	plusCnt = 0;   //must clean, because plusCnt is static
                 return TRUE;
+            }
         }else
         {
             plusCnt = 0;
@@ -543,7 +553,7 @@ int AT_powerUpActionSet(uint16 *regAddr)
  * NAME: AT_enterDataMode
  *
  * DESCRIPTION:
- *
+ * When a enddevice enter data mode
  *
  * PARAMETERS: Name         RW  Usage
  *
@@ -557,37 +567,64 @@ int AT_enterDataMode(uint16 *regAddr)
     g_sDevice.eMode = E_MODE_DATA;
     PDM_vSaveRecord(&g_sDevicePDDesc);
     uart_printf("Enter Data Mode.\r\n");
+    /* Enable sleep Mode */
+#ifdef TARGET_END
+    vSleepSchedule();
+#endif
     return OK;
 }
 
-/* Enter API mode */
+/****************************************************************************
+ *
+ * NAME: AT_enterApiMode
+ *
+ * DESCRIPTION:
+ *
+ *
+ * PARAMETERS: Name         RW  Usage
+ *
+ *
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
 int AT_enterApiMode(uint16 *regAddr)
 {
     g_sDevice.eMode = E_MODE_API;
     PDM_vSaveRecord(&g_sDevicePDDesc);
     uart_printf("Enter API Mode.\r\n");
+    /* Enable sleep Mode */
+#ifdef TARGET_END
+    vSleepSchedule();
+#endif
     return OK;
 }
 
-/* Enter MCU mode */
+/****************************************************************************
+ *
+ * NAME: AT_enterMcuMode
+ *
+ * DESCRIPTION:
+ * When the device enter MCU mode, the Arduino_Loop thread start running
+ *
+ * PARAMETERS: Name         RW  Usage
+ *
+ *
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
 int AT_enterMcuMode(uint16 *regAddr)
 {
     g_sDevice.eMode = E_MODE_MCU;
     PDM_vSaveRecord(&g_sDevicePDDesc);
     uart_printf("Enter MCU Mode.\r\n");
+
+    /* Arduino-MCU thread start */
     ups_init();
     return OK;
 }
 
-/* Sleep ms */
-int AT_EnterSleepMode(uint16 *regAddr)
-{
-	uint32 ms = g_sDevice.config.sleepPeriod;
-	uart_printf("Sleep %ld ms.\r\n", ms);
-
-	/* Sleep */
-	Sleep(ms);
-}
 /****************************************************************************
  *
  * NAME: AT_showInfo
@@ -1745,7 +1782,7 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
     u16DecodeApiSpec(payload_addr, u16PayloadSize, &apiSpec, &bValid);
     if (!bValid)
     {
-        DBG_vPrintf(TRACE_NODE, "Not a valid frame, discard it.\r\n");
+        DBG_vPrintf(TRACE_ATAPI, "Not a valid frame, discard it.\r\n");
         PDUM_eAPduFreeAPduInstance(hapdu_ins);
         return ERR;
     }
@@ -1820,7 +1857,7 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
       case API_TOPO_REQ:
       {
     	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
-          DBG_vPrintf(TRACE_EP, "NWK_TOPO_REQ: from 0x%04x \r\n", u16SrcAddr);
+          DBG_vPrintf(TRACE_ATAPI, "NWK_TOPO_REQ: from 0x%04x \r\n", u16SrcAddr);
 
           /* Pack a NwkTopoResp,AirPort ACK */
           tsNwkTopoResp nwkTopoResp;
@@ -1882,7 +1919,7 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
                                      (g_sDevice.otaTotalBytes / OTA_BLOCK_SIZE) :
                                      (g_sDevice.otaTotalBytes / OTA_BLOCK_SIZE + 1);
           g_sDevice.otaDownloading = 1;
-          DBG_vPrintf(TRUE, "OTA_NTC: %d blks \r\n", g_sDevice.otaTotalBlocks);
+          DBG_vPrintf(TRACE_ATAPI, "OTA_NTC: %d blks \r\n", g_sDevice.otaTotalBlocks);
           PDM_vSaveRecord(&g_sDevicePDDesc);
 
           /* erase covered sectors */
@@ -1910,7 +1947,7 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
           /* Synchronous blocks */
           if (blkIdx == g_sDevice.otaCurBlock)
           {
-              DBG_vPrintf(TRUE, "OTA_RESP: Blk: %d\r\n", blkIdx);
+              DBG_vPrintf(TRACE_ATAPI, "OTA_RESP: Blk: %d\r\n", blkIdx);
               APP_vOtaFlashLockWrite(offset, len, apiSpec.payload.otaResp.block);
               g_sDevice.otaCurBlock += 1;
               g_sDevice.otaCrc = crc;
@@ -1919,7 +1956,7 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
           }
           else
           {
-              DBG_vPrintf(TRUE, "OTA_RESP: DesireBlk: %d, RecvBlk: %d \r\n", g_sDevice.otaCurBlock, blkIdx);
+              DBG_vPrintf(TRACE_ATAPI, "OTA_RESP: DesireBlk: %d, RecvBlk: %d \r\n", g_sDevice.otaCurBlock, blkIdx);
           }
 
           /* if this is the last block,client start to upgrade */
@@ -1938,7 +1975,7 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
       case API_OTA_UPG_RESP:
       {
           PDUM_eAPduFreeAPduInstance(hapdu_ins);
-          DBG_vPrintf(TRACE_EP, "FRM_OTA_UPG_RESP: from 0x%04x \r\n", u16SrcAddr);
+          DBG_vPrintf(TRACE_ATAPI, "FRM_OTA_UPG_RESP: from 0x%04x \r\n", u16SrcAddr);
 
           g_sDevice.otaDownloading = 0;
           PDM_vSaveRecord(&g_sDevicePDDesc);
@@ -1957,7 +1994,7 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
       case API_OTA_ABT_REQ:
       {
     	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
-		  DBG_vPrintf(TRUE, "FRM_OTA_ABT_REQ: from 0x%04x \r\n", u16SrcAddr);
+		  DBG_vPrintf(TRACE_ATAPI, "FRM_OTA_ABT_REQ: from 0x%04x \r\n", u16SrcAddr);
 		  if (g_sDevice.otaDownloading > 0)
 		  {
 			  g_sDevice.otaDownloading = 0;
@@ -1992,7 +2029,7 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
       case API_OTA_ST_REQ:
       {
     	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
-		  DBG_vPrintf(TRACE_EP, "FRM_OTA_ST_REQ: from 0x%04x \r\n", u16SrcAddr);
+		  DBG_vPrintf(TRACE_ATAPI, "FRM_OTA_ST_REQ: from 0x%04x \r\n", u16SrcAddr);
 
 		  tsOtaStatusResp otaStatusResp;
 		  otaStatusResp.inOTA = (g_sDevice.otaDownloading > 0);
@@ -2044,7 +2081,7 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
 		  /* read a block from flash */
 		  APP_vOtaFlashLockRead(blkIdx * OTA_BLOCK_SIZE, rdLen, buff);
 
-		  DBG_vPrintf(TRUE, "OTA_REQ: blkIdx: %d \r\n", blkIdx);
+		  DBG_vPrintf(TRACE_ATAPI, "OTA_REQ: blkIdx: %d \r\n", blkIdx);
 
 		  tsOtaResp resp;
 		  resp.blockIdx = blkIdx;
@@ -2075,7 +2112,7 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
       case API_OTA_UPG_REQ:
       {
     	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
-    	  DBG_vPrintf(TRUE, "FRM_OTA_UPG_REQ: from 0x%04x \r\n", u16SrcAddr);
+    	  DBG_vPrintf(TRACE_ATAPI, "FRM_OTA_UPG_REQ: from 0x%04x \r\n", u16SrcAddr);
     	  uart_printf("OTA: Node 0x%04x's OTA download done, crc check ok.\r\n", u16SrcAddr);
 
     	  /* package apiSpec */
@@ -2099,7 +2136,7 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
       case API_OTA_ABT_RESP:
       {
     	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
-		  DBG_vPrintf(TRACE_EP, "FRM_OTA_ABT_RESP: from 0x%04x \r\n", u16SrcAddr);
+		  DBG_vPrintf(TRACE_ATAPI, "FRM_OTA_ABT_RESP: from 0x%04x \r\n", u16SrcAddr);
 		  uart_printf("OTA: abort ack from 0x%04x.\r\n", u16SrcAddr);
 		  result = OK;
 		  break;
@@ -2109,7 +2146,7 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
       case API_OTA_ST_RESP:
       {
     	  PDUM_eAPduFreeAPduInstance(hapdu_ins);
-		  DBG_vPrintf(TRACE_EP, "FRM_OTA_ST_RESP: from 0x%04x \r\n", u16SrcAddr);
+		  DBG_vPrintf(TRACE_ATAPI, "FRM_OTA_ST_RESP: from 0x%04x \r\n", u16SrcAddr);
 		  if (apiSpec.payload.otaStatusResp.inOTA)
 		  {
 			  uart_printf(" -------------------- \r\n");
@@ -2169,7 +2206,7 @@ bool API_bSendToAirPort(uint16 txMode, uint16 unicastDest, uint8 *buf, int len)
   ZPS_teStatus st;
   if(BROADCAST == txMode)
   {
-    DBG_vPrintf(TRACE_EP, "Broadcast %d ...\r\n", len);
+    DBG_vPrintf(TRACE_ATAPI, "Broadcast %d ...\r\n", len);
 
     /* APDU will be released by the stack automatically after the APDU is send */
     st = ZPS_eAplAfBroadcastDataReq(hapdu_ins,
@@ -2183,7 +2220,7 @@ bool API_bSendToAirPort(uint16 txMode, uint16 unicastDest, uint8 *buf, int len)
   }
   else if(UNICAST == txMode)
   {
-    DBG_vPrintf(TRACE_EP, "Unicast %d ...\r\n", len);
+    DBG_vPrintf(TRACE_ATAPI, "Unicast %d ...\r\n", len);
 
     st = ZPS_eAplAfUnicastDataReq(hapdu_ins,
     		                      TRANS_CLUSTER_ID,
@@ -2202,7 +2239,7 @@ bool API_bSendToAirPort(uint16 txMode, uint16 unicastDest, uint8 *buf, int len)
       even block the following waiting data. So just let it go and focus on the next data.You can implement this
       mechanism in application layer.
     */
-    DBG_vPrintf(TRACE_EP, "Fail to send: 0x%x, discard it... \r\n", st);
+    DBG_vPrintf(TRACE_ATAPI, "Fail to send: 0x%x, discard it... \r\n", st);
     PDUM_eAPduFreeAPduInstance(hapdu_ins);
     return FALSE;
   }
