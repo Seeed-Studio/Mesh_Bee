@@ -250,6 +250,7 @@ OS_TASK(APP_taskHandleUartRx)
         		memset(tmp, 0, RXFIFOLEN);
         		size = i32CopyApiSpec(&apiSpec, tmp);
         		API_bSendToAirPort(g_sDevice.config.txMode, apiSpec.payload.txDataPacket.unicastAddr, tmp, size);
+        		//API_bSendToEndPoint(g_sDevice.config.txMode, g_sDevice.config.unicastDstAddr, 2, 2, tmp, popCnt);
         	}
 
         	/* Activate again */

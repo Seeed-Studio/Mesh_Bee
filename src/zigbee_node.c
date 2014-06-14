@@ -41,6 +41,7 @@
 #include "firmware_spm.h"   //for SPM_vInit()
 #include "firmware_sleep.h" //for scheduleSleep()
 #include "suli.h"
+#include "firmware_rpc.h"
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
@@ -829,6 +830,10 @@ PUBLIC void node_vInitialise(void)
 #endif
 
     OS_eActivateTask(APP_taskNWK);
+
+    /* RPC Initialize */
+    DBG_vPrintf(TRACE_NODE, "Initializing RPC ....\r\n");
+    RPC_vInit();
 
     /* when reset the node, initialize by specify mode */
     if(E_MODE_MCU == g_sDevice.eMode)

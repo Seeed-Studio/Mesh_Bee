@@ -315,6 +315,8 @@ int API_i32AtCmdProc(uint8 *buf, int len);
 int API_i32ApiFrmProc(tsApiSpec* apiSpec);
 int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent);
 bool API_bSendToAirPort(uint16 txMode, uint16 unicastDest, uint8 *buf, int len);
+bool API_bSendToEndPoint(uint16 txMode, uint16 unicastDest, uint8 srcEpId, uint8 dstEpId, char *buf, int len);
+bool API_bSendToMacDev(uint64 unicastMacAddr, uint8 srcEpId, uint8 dstEpId, char *buf, int len);  /*[Override]*/
 void postReboot();
 
 #endif /* __AT_API_H__ */

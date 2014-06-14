@@ -37,7 +37,6 @@
 #include "firmware_cmi.h"
 #include "firmware_sleep.h"
 #include "suli.h"
-
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
@@ -74,6 +73,7 @@ int AT_OTAStatusPoll(uint16 *regAddr);
 int AT_TestTest(uint16 *regAddr);
 int AT_i32QueryOnChipTemper(uint16 *regAddr);
 int AT_SleepTest(uint16 *regAddr);
+int AT_RPC(uint16 *regAddr);
 /****************************************************************************/
 /***        Local Variables                                               ***/
 /****************************************************************************/
@@ -159,6 +159,7 @@ static AT_Command_t atCommands[] =
 #endif
     { "TT", &attt_dummy_reg, FALSE, 1, 5, AT_printTT, AT_TestTest },
 
+    { "RP", NULL, FALSE, 0, 0, NULL, AT_RPC }
 };
 
 /*
@@ -213,6 +214,16 @@ int AT_SleepTest(uint16 *regAddr)
 {
 	uart_printf("sleep %d ms\r\n", g_sDevice.config.sleepPeriod);
     Sleep(g_sDevice.config.sleepPeriod);
+    return OK;
+}
+
+int AT_RPC(uint16 *regAddr)
+{
+	uart_printf("send RPC req to %04x\r\n", g_sDevice.config.unicastDstAddr);
+	char tmp[] = "/home_obj1/run param1 param2";
+	//API_bSendToEndPoint(UNICAST, g_sDevice.config.unicastDstAddr, 2, 2, tmp, sizeof(tmp));
+	RPC_vCaller(tmp, 2, 0x00158d0000355273);
+	return OK;
 }
 /****************************************************************************
  *
@@ -2186,7 +2197,6 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
 * RETURNS:
 *
 *
-*
 ****************************************************************************/
 bool API_bSendToAirPort(uint16 txMode, uint16 unicastDest, uint8 *buf, int len)
 {
@@ -2239,13 +2249,126 @@ bool API_bSendToAirPort(uint16 txMode, uint16 unicastDest, uint8 *buf, int len)
       even block the following waiting data. So just let it go and focus on the next data.You can implement this
       mechanism in application layer.
     */
-    DBG_vPrintf(TRACE_ATAPI, "Fail to send: 0x%x, discard it... \r\n", st);
+    DBG_vPrintf(TRACE_ATAPI, "Fail to send, error code: 0x%x, discard it... \r\n", st);
     PDUM_eAPduFreeAPduInstance(hapdu_ins);
     return FALSE;
   }
   return TRUE;
 }
 
+/****************************************************************************
+*
+* NAME: API_bSendToEndPoint
+*
+* DESCRIPTION:
+* API support layer,Call APS(application support sub-layer) to send data
+*
+* PARAMETERS: Name          RW   Usage
+*
+* RETURNS:
+*
+*
+*
+****************************************************************************/
+bool API_bSendToEndPoint(uint16 txMode, uint16 unicastDest, uint8 srcEpId, uint8 dstEpId, char *buf, int len)
+{
+  PDUM_thAPduInstance hapdu_ins = PDUM_hAPduAllocateAPduInstance(apduZCL);
+  /* Invalid instance */
+  if(PDUM_INVALID_HANDLE == hapdu_ins)
+	  return FALSE;
+
+  char *payload_addr = PDUM_pvAPduInstanceGetPayload(hapdu_ins);
+
+  /* Copy buffer into AirPort's APDU */
+  memcpy(payload_addr, buf, len);
+
+  /* Set payload size */
+  PDUM_eAPduInstanceSetPayloadSize(hapdu_ins, len);
+
+  ZPS_teStatus st;
+  if(BROADCAST == txMode)
+  {
+    DBG_vPrintf(TRACE_ATAPI, "Broadcast %d ...\r\n", len);
+
+    /* APDU will be released by the stack automatically after the APDU is send */
+    st = ZPS_eAplAfBroadcastDataReq(hapdu_ins,
+    		                        TRANS_CLUSTER_ID,
+    		                        srcEpId,
+    		                        dstEpId,
+                                    ZPS_E_BROADCAST_ALL,
+                                    SEC_MODE_FOR_DATA_ON_AIR,
+                                    0,
+                                    NULL);
+  }
+  else if(UNICAST == txMode)
+  {
+    DBG_vPrintf(TRACE_ATAPI, "Unicast %d ...\r\n", len);
+
+    st = ZPS_eAplAfUnicastDataReq(hapdu_ins,
+    		                      TRANS_CLUSTER_ID,
+    		                      srcEpId,
+    		                      dstEpId,
+	                              unicastDest,
+	                              SEC_MODE_FOR_DATA_ON_AIR,
+	                              0,
+	                              NULL);
+  }
+
+  if(ZPS_E_SUCCESS != st)
+  {
+    /*
+      In API support layer,we don't care about the failure, because handling this failure will delay or
+      even block the following waiting data. So just let it go and focus on the next data.You can implement this
+      mechanism in application layer.
+    */
+	  DBG_vPrintf(TRACE_ATAPI, "Fail to send, error code: 0x%x, discard it... \r\n", st);
+    PDUM_eAPduFreeAPduInstance(hapdu_ins);
+    return FALSE;
+  }
+  return TRUE;
+}
+
+/* Override is not supported */
+bool API_bSendToMacDev(uint64 unicastMacAddr, uint8 srcEpId, uint8 dstEpId, char *buf, int len)
+{
+	PDUM_thAPduInstance hapdu_ins = PDUM_hAPduAllocateAPduInstance(apduZCL);
+
+	/* Invalid instance */
+	if(PDUM_INVALID_HANDLE == hapdu_ins)
+		return FALSE;
+
+	char *payload_addr = PDUM_pvAPduInstanceGetPayload(hapdu_ins);
+
+	/* Copy buffer into AirPort's APDU */
+	memcpy(payload_addr, buf, len);
+
+	/* Set payload size */
+	PDUM_eAPduInstanceSetPayloadSize(hapdu_ins, len);
+
+	ZPS_teStatus st;
+
+	DBG_vPrintf(TRACE_ATAPI, "Unicast %d ...\r\n", len);
+	st = ZPS_eAplAfUnicastIeeeDataReq(hapdu_ins,
+									  TRANS_CLUSTER_ID,
+									  srcEpId,
+									  dstEpId,
+									  unicastMacAddr,
+									  SEC_MODE_FOR_DATA_ON_AIR,
+									  0,
+									  NULL);
+	if(ZPS_E_SUCCESS != st)
+	{
+	  /*
+	    In API support layer,we don't care about the failure, because handling this failure will delay or
+	    even block the following waiting data. So just let it go and focus on the next data.You can implement this
+	    mechanism in application layer.
+	  */
+		DBG_vPrintf(TRACE_ATAPI, "Fail to send, error code: 0x%x, discard it... \r\n", st);
+	    PDUM_eAPduFreeAPduInstance(hapdu_ins);
+	    return FALSE;
+	}
+	return TRUE;
+}
 /****************************************************************************/
 /***        END OF FILE                                                   ***/
 /****************************************************************************/

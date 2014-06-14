@@ -264,6 +264,10 @@
       <OutputClusters Cluster="OTA" TxAPDUs="COO->apduZCL" Discoverable="true"/>
       <OutputClusters Cluster="Trans" TxAPDUs="COO->apduZCL" Discoverable="true"/>
     </Endpoints>
+    <Endpoints Id="2" Enabled="true" ApplicationDeviceId="1283" ApplicationDeviceVersion="0" Profile="SeeedTransSerial" Message="APP_msgRpcEvents" Name="COO_RPC_EP">
+      <InputClusters Cluster="Trans" RxAPDU="COO->apduZCL" Discoverable="true"/>
+      <OutputClusters Cluster="Trans" TxAPDUs="COO->apduZCL" Discoverable="true"/>
+    </Endpoints>
     <PDUConfiguration NumNPDUs="16" PDUMMutexName="mutexPDUM">
       <APDUs Id="COO->apduZDP" Name="apduZDP" Size="108" Instances="6"/>
       <APDUs Id="COO->apduZCL" Name="apduZCL" Size="100" Instances="16"/>
@@ -472,6 +476,10 @@
       <OutputClusters Cluster="OTA" TxAPDUs="END->apduZCL" Discoverable="true"/>
       <OutputClusters Cluster="Trans" TxAPDUs="END->apduZCL" Discoverable="true"/>
     </Endpoints>
+    <Endpoints Id="2" Enabled="true" ApplicationDeviceId="1284" ApplicationDeviceVersion="0" Profile="SeeedTransSerial" Message="APP_msgRpcEvents" Name="END_RPC_EP">
+      <InputClusters Cluster="Trans" RxAPDU="END->apduZCL" Discoverable="true"/>
+      <OutputClusters Cluster="Trans" TxAPDUs="END->apduZCL" Discoverable="true"/>
+    </Endpoints>
     <PDUConfiguration NumNPDUs="16" PDUMMutexName="mutexPDUM">
       <APDUs Id="END->apduZDP" Name="apduZDP" Size="100" Instances="6"/>
       <APDUs Id="END->apduZCL" Name="apduZCL" Size="100" Instances="16"/>
@@ -670,6 +678,10 @@
       <InputClusters Cluster="OTA" RxAPDU="ROU->apduZCL" Discoverable="true"/>
       <InputClusters Cluster="Trans" RxAPDU="ROU->apduZCL" Discoverable="true"/>
       <OutputClusters Cluster="OTA" TxAPDUs="ROU->apduZCL" Discoverable="true"/>
+      <OutputClusters Cluster="Trans" TxAPDUs="ROU->apduZCL" Discoverable="true"/>
+    </Endpoints>
+    <Endpoints Id="2" Enabled="true" ApplicationDeviceId="1285" ApplicationDeviceVersion="0" Profile="SeeedTransSerial" Message="APP_msgRpcEvents" Name="ROU_RPC_EP">
+      <InputClusters Cluster="Trans" RxAPDU="ROU->apduZCL" Discoverable="true"/>
       <OutputClusters Cluster="Trans" TxAPDUs="ROU->apduZCL" Discoverable="true"/>
     </Endpoints>
     <PDUConfiguration NumNPDUs="16" PDUMMutexName="mutexPDUM">

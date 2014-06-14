@@ -111,6 +111,7 @@ CFLAGS  += -DTRACE_HAL=1
 CFLAGS  += -DTRACE_SLEEP=1
 CFLAGS  += -DTRACE_SPM=1
 CFLAGS  += -DTRACE_NWK=1
+CFLAGS  += -DTRACE_RPC=1
 
 else
 
@@ -131,6 +132,7 @@ CFLAGS  += -DTRACE_HAL=0
 CFLAGS  += -DTRACE_SLEEP=0
 CFLAGS  += -DTRACE_SPM=0
 CFLAGS  += -DTRACE_NWK=0
+CFLAGS  += -DTRACE_RPC=1
 endif
 
 else
@@ -152,6 +154,7 @@ CFLAGS  += -DTRACE_HAL=0
 CFLAGS  += -DTRACE_SLEEP=0
 CFLAGS  += -DTRACE_SPM=0
 CFLAGS  += -DTRACE_NWK=0
+CFLAGS  += -DTRACE_RPC=0
 endif
 
 ###############################################################################

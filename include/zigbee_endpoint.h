@@ -33,9 +33,10 @@
 /****************************************************************************/
 
 #define TRANS_CLUSTER_ID                0x1000
-#define TRANS_ENDPOINT_ID               (1)
-#define DATA_POINT_NUM					1
-#define VERIFY_BYTE						0x3e
+#define TRANS_ENDPOINT_ID               (1)    //for Data
+#define RPC_ENDPOINT_ID                 (2)    //oliver add for RPC
+#define DATA_POINT_NUM					1      //not used
+#define VERIFY_BYTE						0x3e   //not used
 
 /****************************************************************************/
 /***        Type Definitions                                              ***/
