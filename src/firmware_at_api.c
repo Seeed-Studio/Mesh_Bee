@@ -222,7 +222,7 @@ int AT_RPC(uint16 *regAddr)
 	uart_printf("send RPC req to %04x\r\n", g_sDevice.config.unicastDstAddr);
 	char tmp[] = "/home_obj1/run param1 param2";
 	//API_bSendToEndPoint(UNICAST, g_sDevice.config.unicastDstAddr, 2, 2, tmp, sizeof(tmp));
-	RPC_vCaller(tmp, 2, 0x00158d0000355273);
+	RPC_vCaller(0x00158d0000355273, tmp);
 	return OK;
 }
 /****************************************************************************

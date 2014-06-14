@@ -32,6 +32,7 @@
 #include "zps_apl_aib.h"
 #include "firmware_rpc.h"
 #include "firmware_algorithm.h"
+#include "rpc_usr.h"
 /****************************************************************************/
 /***        Local Function Prototypes                                     ***/
 /****************************************************************************/
@@ -41,94 +42,7 @@ PRIVATE char* search_arg(char **arg, char *p, char next_sep);
 PRIVATE void RpcHandler(tsArguments *tsArg);
 
 
-/* [RpcMethod prototypes] */
-bool A_run(tsArguments tsArg);
-bool A_stop(tsArguments tsArg);
-bool B_run(tsArguments tsArg);
-bool B_stop(tsArguments tsArg);
-bool C_run(tsArguments tsArg);
-bool C_stop(tsArguments tsArg);
-bool D_run(tsArguments tsArg);
-bool D_stop(tsArguments tsArg);
 
-/* hash tree search algorithm for rpc_func search */
-/* MethodEntity: HashKey, MethodName, MethodPointer */
-tsMethodEntity methodEntityA[] = {
-		{0x7A19CDD7, "run", A_run},
-		{0x5BC1D108, "stop", A_stop}
-};
-
-tsMethodEntity methodEntityB[] = {
-		{0x7A19CDD7, "run", B_run},
-		{0x5BC1D108, "stop", B_stop}
-};
-
-tsMethodEntity methodEntityC[] = {
-		{0x7A19CDD7, "run", C_run},
-		{0x5BC1D108, "stop", C_stop}
-};
-
-tsMethodEntity methodEntityD[] = {
-		{0x7A19CDD7, "run", D_run},
-		{0x5BC1D108, "stop", D_stop}
-};
-
-/* Rpc Entity: HashKey, objName, MethodArray, MethodNum */
-tsRpcEntity rpcEntity[] = {
-		{0xB6B0A1DC, "home_obj1", methodEntityA, 2},
-		{0x52560720, "office_obj2", methodEntityB, 2},
-		{0x95B96A69, "television_obj3", methodEntityC, 2},
-		{0x553EAE82, "washer_obj4", methodEntityD, 2}
-};
-
-/* [Rpc Method defined here] */
-bool A_run(tsArguments tsArg)
-{
-    DBG_vPrintf(TRACE_RPC, "home_obj is running \r\n");
-    return TRUE;
-}
-
-bool A_stop(tsArguments tsArg)
-{
-	DBG_vPrintf(TRACE_RPC, "home_obj is stopping \r\n");
-    return TRUE;
-}
-
-bool B_run(tsArguments tsArg)
-{
-	DBG_vPrintf(TRACE_RPC, "office_obj2 is running \r\n");
-    return TRUE;
-}
-
-bool B_stop(tsArguments tsArg)
-{
-	DBG_vPrintf(TRACE_RPC, "office_obj2 is stopping \r\n");
-    return TRUE;
-}
-
-bool C_run(tsArguments tsArg)
-{
-
-    return TRUE;
-}
-
-bool C_stop(tsArguments tsArg)
-{
-
-    return TRUE;
-}
-
-bool D_run(tsArguments tsArg)
-{
-
-    return TRUE;
-}
-
-bool D_stop(tsArguments tsArg)
-{
-
-    return TRUE;
-}
 
 /****************************************************************************/
 /***        Tasks                                                         ***/
@@ -305,6 +219,7 @@ PUBLIC void RPC_vInit(void)
     for(; i < rpcEntityNum; i++)
     {
         rpcEntity[i].hashKey = calc_hashnr(rpcEntity[i].objName, strlen(rpcEntity[i].objName));
+
         int j = 0;
         for(; j < rpcEntity[i].methodNum; j++)
         {
@@ -328,13 +243,13 @@ PUBLIC void RPC_vInit(void)
  * void
  *
  ****************************************************************************/
-PUBLIC void RPC_vCaller(char* cmd, uint8 port, uint64 mac)
+PUBLIC void RPC_vCaller(uint64 mac, char* cmd)
 {
 	char tmp[RPC_MAX_STR_LEN];
 	if(strlen(cmd) + 1 > RPC_MAX_STR_LEN) return;
 
 	strcpy(tmp, cmd);
-	API_bSendToMacDev(mac, 2, port, tmp, strlen(tmp) + 1);
+	API_bSendToMacDev(mac, 2, 2, tmp, strlen(tmp) + 1);
 }
 /****************************************************************************/
 /***        Tools Functions                                               ***/

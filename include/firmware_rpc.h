@@ -71,5 +71,5 @@ typedef struct _rpcEntity
 int GetRpcEntityElementPos( char *lpszString, tsRpcEntity *lpTable, int nTableSize );
 int GetMethodEntityElementPos( char *lpszString, tsMethodEntity *lpTable, int nTableSize );
 PUBLIC void RPC_vInit(void);
-PUBLIC void RPC_vCaller(char* cmd, uint8 port, uint64 mac);
+PUBLIC void RPC_vCaller(uint64 mac, char* cmd);
 #endif /* FIRMWARE_RPC_H_ */
