@@ -170,6 +170,60 @@ void vDelayMsec(uint32 u32Period)
 
 /****************************************************************************
  *
+ * NAME: aupsReadable
+ *
+ * DESCRIPTION:
+ * Delay n ms
+ *
+ * PARAMETERS: Name         RW  Usage
+ *             u32Period    R   ms
+ *
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
+PUBLIC uint32 aupsAirPortReadable(void)
+{
+    uint32 dataCnt = 0;
+    OS_eEnterCriticalSection(mutexAirPort);
+    dataCnt = ringbuffer_data_size(&rb_air_aups);
+    OS_eExitCriticalSection(mutexAirPort);
+    return dataCnt;
+}
+
+
+/****************************************************************************
+ *
+ * NAME: aupsAirPortRead
+ *
+ * DESCRIPTION:
+ * Read len bytes of data to dst
+ *
+ * PARAMETERS: Name         RW  Usage
+ *             dst          W   Pointer to destination of the buffer
+ *             len          R   number of the bytes you want to read
+ * RETURNS:
+ * uint8: real number of bytes you read
+ *
+ ****************************************************************************/
+PUBLIC uint8 aupsAirPortRead(void *dst, int len)
+{
+    uint32 dataCnt = 0, readCnt = 0;
+
+    OS_eEnterCriticalSection(mutexAirPort);
+    dataCnt = ringbuffer_data_size(&rb_air_aups);
+    if(dataCnt >= len)
+    	readCnt = len;
+    else
+    	readCnt = dataCnt;
+
+    ringbuffer_pop(&rb_air_aups, dst, dataCnt);
+    OS_eExitCriticalSection(mutexAirPort);
+
+    return readCnt;
+}
+/****************************************************************************
+ *
  * NAME: Arduino_Loop
  *
  * DESCRIPTION:

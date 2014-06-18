@@ -60,7 +60,7 @@
 /****************************************************************************/
 /***        Configurations                                                ***/
 /****************************************************************************/
-#define FW_VERSION                      0x1003
+#define FW_VERSION                      0x1004
 
 #define RADIO_RECALIBRATION                                         //re-calibrate the radio per 1min
 #define SEC_MODE_FOR_DATA_ON_AIR        ZPS_E_APL_AF_SECURE_NWK     //securing mode for the packets passing through the air
@@ -70,7 +70,7 @@
 #define DIO_ON_SLEEP                    9
 #define DIO_ASSOC                       10
 #define DIO_RSSI                        11
-
+#define WAKE_BTN                        (1)    //WakeUp IO
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/

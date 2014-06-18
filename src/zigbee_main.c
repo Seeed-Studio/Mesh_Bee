@@ -61,7 +61,7 @@ PUBLIC uint8 u8PDM_GetFileSystemOccupancy(void);
 #endif
 
 #define RAM_HELD    2
-#define WAKE_BTN  (1)    //WakeUp IO
+
 /****************************************************************************/
 /***        Type Definitions                                              ***/
 /****************************************************************************/
