@@ -4,7 +4,7 @@
   <head>
     <meta charset='utf-8' />
     <meta http-equiv="X-UA-Compatible" content="chrome=1" />
-    <meta name="description" content="Mesh Bee Firmware Project : Firmware covering not only ZigBee" />
+    <meta name="description" content="Mesh Bee Firmware Project : Powerful tiny thing" />
 
     <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
 
@@ -19,7 +19,7 @@
           <a id="forkme_banner" href="https://github.com/Seeed-Studio/Mesh_Bee">View on GitHub</a>
 
           <h1 id="project_title">Mesh Bee Firmware Project</h1>
-          <h2 id="project_tagline">Firmware covering not only ZigBee</h2>
+          <h2 id="project_tagline">Powerful tiny thing</h2>
 
             <section id="downloads">
               <a class="zip_download_link" href="https://github.com/Seeed-Studio/Mesh_Bee/zipball/master">Download this project as a .zip file</a>
@@ -34,83 +34,43 @@
         <h3>
 <a name="the-canvas" class="anchor" href="#the-canvas"><span class="octicon octicon-link"></span></a>The Canvas</h3>
 
-<p>Here we developed a magical ZigBee module - <strong>Mesh Bee</strong>.</p>
+<p>Here we created a magical ZigBee module - <strong>Mesh Bee</strong>.</p>
 
 <p><img src="http://www.seeedstudio.com/wiki/images/thumb/e/ef/Mesh_bee.jpg/600px-Mesh_bee.jpg" alt="image"></p>
 
-<p>Mesh Bee is a 2.4GHz wireless transceiver from seeed studio. It's based on NXP's newly JN516x series wireless microcontroller chip and supports ZigBee Pro network stack. </p>
-
-<p>The reason we introducing it here is that Mesh Bee is totally open hardware and open sourced, which means that you can customize the firmware at your will. NXP provided the whole developing environment and tools which are all free. There's already a ZigBee Pro stack software to get start. The integrated peripherals' drivers are implemented. You can use JN516x's ARM core to control things and JenOS to simplify your development. </p>
-
-<p>Mesh Bee will bring you lots of fun.</p>
+<p>MeshBee is a low-cost, community-supported zigbee wireless development platform for developers and hobbyists.It uses microchip JN516x from NXP that enables several different standards-based zigbee mesh networking which makes it more easy and cost-effective to integrate ZigBee functionality into target project.<br>
+  MeshBee is the best choice to make your connected thing. </p>
 
 <h3>
-<a name="the-image" class="anchor" href="#the-image"><span class="octicon octicon-link"></span></a>The Image</h3>
+<a name="system-diagram" class="anchor" href="#system-diagram"><span class="octicon octicon-link"></span></a>System Diagram</h3>
 
-<p>We have already developed a firmware for Mesh Bee. The factory firmware wraps the complicated ZigBee stack operation into a few easy to use serial commands, and drives Mesh Bee into a transparent serial communication node that can be part of a simple point-to-point connection or a complex mesh network. Although it can cover the most parts in use it still need improvements. </p>
+<p>You can develop a stand-alone application in AUPS(Arduino user programming space). The user application consists of two arduino-style functions at the top level: setup &amp; loop, which act just like arduino's. The latest firmware wraps the complicated ZigBee stack operation into a few easy-to-use serial commands, and drives Mesh Bee into a transparent serial communication node that can be part of a simple point-to-point connection or a complex mesh network. 
+MeshBee has four basic mode: AT/MCU/DATA/API, you can choose one which meets your request best.</p>
 
-<h4>
-<a name="features-now" class="anchor" href="#features-now"><span class="octicon octicon-link"></span></a><em>Features now:</em>
-</h4>
+<p><img src="http://www.seeedstudio.com/wiki/images/f/f2/MeshBeeArchitecture0603.jpg" alt="image"></p>
 
-<ol>
-<li>Handle ZigBee network formation<br>
-</li>
-<li>Configuration persistent when reboot<br>
-</li>
-<li>OTA support<br>
-</li>
-<li>AT commands to configure Mesh Bee
+<h3>
+<a name="main-roadmap" class="anchor" href="#main-roadmap"><span class="octicon octicon-link"></span></a>Main Roadmap:</h3>
 
-<ul>
-<li>Show node's information<br>
-</li>
-<li>Whether re-form the network when power up<br>
-</li>
-<li>Whether re-scan the network when power up<br>
-</li>
-<li>Whether auto join network searched<br>
-</li>
-<li>List all networks scanned<br>
-</li>
-<li>Select a network to join<br>
-</li>
-<li>Change the baud rate of UART1<br>
-</li>
-<li>Broadcast or unicast<br>
-</li>
-<li>Unicast destination address<br>
-</li>
-<li>OTA<br>
-</li>
-<li>...<br>
-</li>
-</ul>
-</li>
-</ol><h4>
-<a name="todo-list" class="anchor" href="#todo-list"><span class="octicon octicon-link"></span></a><em>TODO list:</em>
-</h4>
-
-<p><strong>1. Master Branch:</strong><br><em>Improve the slave firmware (current factory firmware). This branch will still make Mesh Bee a 'slave' UART device to transfer data through a ZigBee network, but more useful.</em>  </p>
-
-<p><strong>2. Experimental Branch:</strong><br>
-    * We will create a arduino-ful programming space for user,so you can treat MeshBee as a wireless Arduino.A main state machine and core stream task is used to handle data from uart.
-  <img src="http://www.seeedstudio.com/wiki/images/8/81/MeshBeeArchitectureNew.jpg" alt="image">*</p>
-
-<p>We built a feature <a href="https://groups.google.com/forum/#!topic/seeedstudio-mesh-bee-discussion-group/b073efRU6Lg">poll page</a> for phase 1 at google group, please vote for the features you interested in or you can advance them by posting replies. Thanks.</p>
+<p>This is a simple roadmap intended to give a basic understanding of the project's history for anyone who wants to follow us or contribute.<br><del>1. Handle ZigBee network formation</del><br><del>2. Configuration persistent when reboot</del><br><del>3. OTA support</del><br><del>4. AT commands to configure Mesh Bee</del><br><del>* Show node's information</del><br><del>* Whether re-form the network when power up</del><br><del>* Whether re-scan the network when power up</del><br><del>* Whether auto join network searched</del><br><del>* List all networks scanned</del><br><del>* Select a network to join</del><br><del>* Change the baud rate of UART1</del><br><del>* Broadcast or unicast</del><br><del>* Unicast destination address</del><br><del>* OTA</del><br><del>* Sleep end device</del><br><del>5. DATA mode</del><br><del>6. API mode</del><br><del>7. MCU mode with AUPS(Arduino-ful user programming space).</del><br><del>8. End device supports cyclic Sleep mode</del><br><del>9. End device supports pin wake.</del><br><del>10. implement micro-RPC</del><br>
+11. More powerful API frame like XBee<br>
+12. Deep sleep mode<br>
+13. Cross platform configuration Tools(Configure MeshBee in a friendly way, generate API frame, monitor the network)     </p>
 
 <h3>
 <a name="discussion" class="anchor" href="#discussion"><span class="octicon octicon-link"></span></a>Discussion</h3>
 
-<p>Any query, any question, any idea, any suggestion? Please follow our discussion group <a href="https://groups.google.com/forum/#!forum/seeedstudio-mesh-bee-discussion-group">here</a> and chat. Feel free to report bugs at that <a href="https://groups.google.com/forum/#!forum/seeedstudio-mesh-bee-discussion-group">group</a> or <a href="https://github.com/Seeed-Studio/Mesh_Bee/issues">github issue</a>. And welcome new ideas.</p>
+<p>If you have any ideas or questions, need help, or are looking for collaborators, you'll find everything you need in our forums and in our community. Come join us. <a href="https://groups.google.com/forum/#!forum/seeedstudio-mesh-bee-discussion-group">here</a>. Click for open issues or open a fresh issue to start a discussion around a feature idea or a bug <a href="https://github.com/Seeed-Studio/Mesh_Bee/issues">here</a> </p>
 
 <h3>
 <a name="links" class="anchor" href="#links"><span class="octicon octicon-link"></span></a>Links</h3>
 
 <ul>
-<li>  Buy Mesh Bee - coming soon</li>
+<li>  Pick one from online store - <a href="http://www.seeedstudio.com/depot/Mesh-Bee-Open-Source-Zigbee-Pro-Module-with-MCU-JN5168-p-1751.html">here</a>
+</li>
 <li>  Wiki page for Mesh Bee - <a href="http://www.seeedstudio.com/wiki/Mesh_Bee">here</a>
 </li>
+<li>  User's manual and Cookbook - <a href="https://groups.google.com/forum/#!topic/seeedstudio-mesh-bee-discussion-group/NByFzvWBsWg">here</a> </li>
 </ul>
       </section>
     </div>
