@@ -54,7 +54,8 @@
 int API_Reboot_CallBack(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr);
 int API_RegisterSetResp_CallBack(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr);
 int API_QueryOnChipTemper_CallBack(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr);
-int API_i32SetGpio_CallBack(tsApiSpec *reqApiSpec, tsApiSpec *respApiSpec, uint16 *regAddr);
+int API_Adc_callBack(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr);
+int API_i32Gpio_CallBack(tsApiSpec *reqApiSpec, tsApiSpec *respApiSpec, uint16 *regAddr);
 int API_listAllNodes_CallBack(tsApiSpec *reqApiSpec, tsApiSpec *respApiSpec, uint16 *regAddr);
 int API_showInfo_CallBack(tsApiSpec *reqApiSpec, tsApiSpec *respApiSpec, uint16 *regAddr);
 
@@ -195,10 +196,13 @@ static AT_Command_ApiMode_t atCommandsApiMode[] =
     { "ATBR", ATBR, &g_sDevice.config.baudRateUart1, API_RegisterSetResp_CallBack },
 
 	/* Query local on-chip temperature */
-	{ "ATQT", ATQT ,NULL, API_QueryOnChipTemper_CallBack},
+	{ "ATQT", ATQT ,NULL, API_QueryOnChipTemper_CallBack },
+
+	/* Sample ADC */
+	{ "ATAD", ATAD, NULL, API_Adc_callBack },
 
 	/* Set digital output */
-	{"ATIO", ATIO, NULL, API_i32SetGpio_CallBack},
+	{"ATIO", ATIO, NULL, API_i32Gpio_CallBack },
 
 #ifndef TARGET_COO
 	{ "LN", ATLN, NULL, API_listNetworkScaned_CallBack },
@@ -1158,7 +1162,7 @@ int AT_i32QueryOnChipTemper(uint16 *regAddr)
 
   /*
 	If the JN516x device operates at temperatures in excess of 90¡ãC, it may be necessary
-	to call this function to maintain the frequ ency tolerance of the clock to within the
+	to call this function to maintain the frequency tolerance of the clock to within the
 	40ppm limit specified by the IEEE 802.15. 4 standard.
   */
   vHAL_PullXtal((int32)i16ChipTemperature);
@@ -1316,7 +1320,71 @@ int API_QueryOnChipTemper_CallBack(tsApiSpec *reqApiSpec, tsApiSpec *respApiSpec
 
 /****************************************************************************
 *
-* NAME: API_i32SetGpio_CallBack
+* NAME: API_Adc_callBack
+*
+* DESCRIPTION:
+* Query ADC
+*
+* PARAMETERS: Name         RW  Usage
+*
+* RETURNS:
+* int
+* apiSpec, returned tsApiSpec Frame
+*
+****************************************************************************/
+int API_Adc_callBack(tsApiSpec *reqApiSpec, tsApiSpec *respApiSpec, uint16 *regAddr)
+{
+	tsAdc adc;
+	memset(&adc, 0, sizeof(tsAdc));
+	if(API_LOCAL_AT_REQ == reqApiSpec->teApiIdentifier)
+	{
+        memcpy((uint8*)&adc, reqApiSpec->payload.localAtReq.value, sizeof(tsAdc));
+        adc.value = vHAL_AdcSampleRead(adc.src);
+
+        tsLocalAtResp localAtResp;
+		memset(&localAtResp, 0, sizeof(tsLocalAtResp));
+
+		/* Assemble LocalAtResp */
+		assembleLocalAtResp(&localAtResp,
+							reqApiSpec->payload.localAtReq.frameId,
+							ATAD,
+							AT_OK,
+							(uint8*)&adc,
+							sizeof(tsAdc));
+
+		/* Assemble apiSpec */
+		assembleApiSpec(respApiSpec,
+						API_LOCAL_AT_RESP,
+						(uint8*)&localAtResp,
+						sizeof(tsLocalAtResp));
+	}
+	else if(API_REMOTE_AT_REQ == reqApiSpec->teApiIdentifier)
+	{
+		memcpy((uint8*)&adc, reqApiSpec->payload.remoteAtReq.value, sizeof(tsAdc));
+		adc.value = vHAL_AdcSampleRead(adc.src);
+
+		tsRemoteAtResp remoteAtResp;
+		memset(&remoteAtResp, 0, sizeof(tsRemoteAtResp));
+
+		/* Assemble RemoteAtResp */
+		assembleRemoteAtResp(&remoteAtResp,
+							reqApiSpec->payload.remoteAtReq.frameId,
+							ATAD,
+							AT_OK,
+							(uint8*)&adc,
+							sizeof(tsAdc),
+							reqApiSpec->payload.remoteAtReq.unicastAddr);
+
+	   /* Assemble apiSpec */
+	   assembleApiSpec(respApiSpec,
+					  API_REMOTE_AT_RESP,
+					  (uint8*)&remoteAtResp,
+					  sizeof(tsRemoteAtResp));
+	}
+}
+/****************************************************************************
+*
+* NAME: API_i32Gpio_CallBack
 *
 * DESCRIPTION:
 * Set GPIO
@@ -1328,78 +1396,86 @@ int API_QueryOnChipTemper_CallBack(tsApiSpec *reqApiSpec, tsApiSpec *respApiSpec
 * apiSpec, returned tsApiSpec Frame
 *
 ****************************************************************************/
-int API_i32SetGpio_CallBack(tsApiSpec *reqApiSpec, tsApiSpec *respApiSpec, uint16 *regAddr)
+int API_i32Gpio_CallBack(tsApiSpec *reqApiSpec, tsApiSpec *respApiSpec, uint16 *regAddr)
 {
-	 uint8 pio;
-	 uint8 state;
-	 IO_T  io;
-	 if(API_LOCAL_AT_REQ == reqApiSpec->teApiIdentifier)
-	 {
-		 tsLocalAtReq localAtReq;
-	     memset(&localAtReq, 0, sizeof(tsLocalAtReq));
-	     localAtReq = reqApiSpec->payload.localAtReq;
-	     pio = localAtReq.value[0];
-	     state = localAtReq.value[1];
+    IO_T io;
+    tsGpio gpio;
+    memset(&gpio, 0, sizeof(tsGpio));
+    if(API_LOCAL_AT_REQ == reqApiSpec->teApiIdentifier)
+    {
+       memcpy((uint8*)&gpio, reqApiSpec->payload.localAtReq.value, sizeof(tsGpio));
 
-	     /* Set GPIO through suli */
-	     suli_pin_init(&io, pio);
-	     suli_pin_dir(&io, HAL_PIN_OUTPUT);
-	     suli_pin_write(&io, state);
+       /* if read */
+       if(GPIO_RD == gpio.rw)
+       {
+    	   suli_pin_init(&io, gpio.pio);
+    	   suli_pin_dir(&io, HAL_PIN_INPUT);
+    	   gpio.state = suli_pin_read(&io);
+       }
+       else
+       {
+           suli_pin_init(&io, gpio.pio);
+    	   suli_pin_dir(&io, HAL_PIN_OUTPUT);
+    	   suli_pin_write(&io, gpio.state);
+       }
 
-	     /* Response */
-	     tsLocalAtResp localAtResp;
-	     memset(&localAtResp, 0, sizeof(tsLocalAtResp));
+       /* Response */
+	   tsLocalAtResp localAtResp;
+	   memset(&localAtResp, 0, sizeof(tsLocalAtResp));
 
-		 /* Assemble LocalAtResp */
-		 assembleLocalAtResp(&localAtResp,
-							 reqApiSpec->payload.localAtReq.frameId,
-							 ATIO,
-							 AT_OK,
-							 &dummy_value,
-							 1);
+	   /* Assemble LocalAtResp */
+	   assembleLocalAtResp(&localAtResp,
+		  				   reqApiSpec->payload.localAtReq.frameId,
+						   ATIO,
+						   AT_OK,
+						   (uint8*)&gpio,
+						   sizeof(tsGpio));
 
-		 /* Assemble apiSpec */
-		 assembleApiSpec(respApiSpec,
-						API_LOCAL_AT_RESP,
-						(uint8*)&localAtResp,
-						sizeof(tsLocalAtResp));
+	   /* Assemble apiSpec */
+	   assembleApiSpec(respApiSpec,
+		  			  API_LOCAL_AT_RESP,
+					  (uint8*)&localAtResp,
+					  sizeof(tsLocalAtResp));
+    }
+    else if(API_REMOTE_AT_REQ == reqApiSpec->teApiIdentifier)
+    {
+    	memcpy((uint8*)&gpio, reqApiSpec->payload.remoteAtReq.value, sizeof(tsGpio));
 
-	 }
-	 else if(API_REMOTE_AT_REQ == reqApiSpec->teApiIdentifier)
-	 {
-		 tsRemoteAtReq remoteAtReq;
-		 memset(&remoteAtReq, 0, sizeof(tsRemoteAtReq));
-	 	 remoteAtReq = reqApiSpec->payload.remoteAtReq;
-	 	 pio = remoteAtReq.value[0];
-	 	 state = remoteAtReq.value[1];
+        /* if read */
+        if(GPIO_RD == gpio.rw)
+        {
+     	   suli_pin_init(&io, gpio.pio);
+     	   suli_pin_dir(&io, HAL_PIN_INPUT);
+     	   gpio.state = suli_pin_read(&io);
+        }
+        else
+        {
+            suli_pin_init(&io, gpio.pio);
+     	   suli_pin_dir(&io, HAL_PIN_OUTPUT);
+     	   suli_pin_write(&io, gpio.state);
+        }
 
-		 /* Set GPIO through suli */
-		 suli_pin_init(&io, pio);
-		 suli_pin_dir(&io, HAL_PIN_OUTPUT);
-		 suli_pin_write(&io, state);
+        /* Response */
+		tsRemoteAtResp remoteAtResp;
+		memset(&remoteAtResp, 0, sizeof(tsRemoteAtResp));
 
-		 /* Response */
-		 tsRemoteAtResp remoteAtResp;
-		 memset(&remoteAtResp, 0, sizeof(tsRemoteAtResp));
-
-	 	 /* Assemble RemoteAtResp */
-		 assembleRemoteAtResp(&remoteAtResp,
+		/* Assemble RemoteAtResp */
+		assembleRemoteAtResp(&remoteAtResp,
 							 reqApiSpec->payload.remoteAtReq.frameId,
 							 ATIO,
 							 AT_OK,
-							 &dummy_value,
-							 1,
+							 (uint8*)&gpio,
+							 sizeof(tsGpio),
 							 reqApiSpec->payload.remoteAtReq.unicastAddr);
 
-	    /* Assemble apiSpec */
-	    assembleApiSpec(respApiSpec,
+		/* Assemble apiSpec */
+		assembleApiSpec(respApiSpec,
 					   API_REMOTE_AT_RESP,
 					   (uint8*)&remoteAtResp,
 					   sizeof(tsRemoteAtResp));
-	 	}
-	 return OK;
-}
 
+    }
+}
 
 /****************************************************************************
 *

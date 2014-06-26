@@ -68,7 +68,8 @@ typedef enum
     ATOA = 0x64,  //ota abort
     ATOS = 0x66,  //ota status poll
     ATTP = 0x68,  //for test
-    ATIO = 0x70   //set IOs
+    ATIO = 0x70,  //set IOs
+    ATAD = 0x72   //read ADC value from AD1 AD2 AD3 AD4
 }teAtIndex;
 
 /* API mode AT return value */
@@ -80,6 +81,12 @@ typedef enum
 	INVALID_PARAM = 3
 }teAtRetVal;
 
+/* GPIO R/W flag */
+enum eGpioRw
+{
+    GPIO_RD = 1,
+    GPIO_WR = 0
+};
 /* adapt RPC in the future */
 typedef enum
 {
@@ -236,6 +243,21 @@ typedef struct
     uint8  per;    //percent
     uint32 min;    //Remaining time
 }__attribute__ ((packed)) tsOtaStatusResp;
+
+/* GPIO parameter */
+typedef struct
+{
+    uint8 rw;      //read/write flag
+    uint8 pio;     //pin number
+    uint8 state;   //state of pio
+}__attribute__ ((packed)) tsGpio;
+
+/* ADC structure */
+typedef struct
+{
+    uint8 src;
+    uint16 value;
+}__attribute__ ((packed)) tsAdc;
 
 /* API-specific structure */
 typedef struct
