@@ -137,7 +137,7 @@ PUBLIC void PCK_vApiSpecDataFrame(tsApiSpec *apiSpec, uint8 frameId, uint8 optio
     memcpy(txDataPacket.data, data, min_cnt);
 
     apiSpec->startDelimiter = API_START_DELIMITER;
-    apiSpec->length = sizeof(tsTxDataPacket);
+    apiSpec->length = sizeof(tsTxDataPacket) - API_DATA_LEN + min_cnt; //shao: send the actual payload data
     apiSpec->teApiIdentifier = API_DATA_PACKET;
     apiSpec->payload.txDataPacket = txDataPacket;
     apiSpec->checkSum = calCheckSum((uint8*)&txDataPacket, apiSpec->length);

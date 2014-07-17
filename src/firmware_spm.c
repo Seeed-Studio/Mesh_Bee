@@ -105,14 +105,15 @@ uint32 SPM_u32PullData(void *data, int len)
 	OS_eExitCriticalSection(mutexRxRb);
 
     min_cnt = MIN(free_cnt, len);
-    DBG_vPrintf(TRACE_SPM, "rev_cnt: %u, free_cnt: %u \r\n", len, free_cnt);
-    if(min_cnt > 0)
+    
+    //shao: fixed a bug here
+    OS_eEnterCriticalSection(mutexRxRb); 
+    if (min_cnt > 0)
     {
-    	OS_eEnterCriticalSection(mutexRxRb);
-    	ringbuffer_push(&rb_rx_spm, data, min_cnt);
-    	avlb_cnt = ringbuffer_data_size(&rb_rx_spm);
-    	OS_eExitCriticalSection(mutexRxRb);
+        ringbuffer_push(&rb_rx_spm, data, min_cnt);
     }
+    avlb_cnt = ringbuffer_data_size(&rb_rx_spm);
+    OS_eExitCriticalSection(mutexRxRb); 
     return avlb_cnt;
 }
 
@@ -153,6 +154,7 @@ OS_TASK(APP_taskHandleUartRx)
     if (dataCnt == 0)  return;
 
     DBG_vPrintf(TRACE_SPM, "-SPM running- \r\n");
+    memset(tmp, 0, RXFIFOLEN); 
 
     /* SPM State Machine */
     switch(g_sDevice.eMode)
@@ -164,7 +166,7 @@ OS_TASK(APP_taskHandleUartRx)
         	 OS_eEnterCriticalSection(mutexRxRb);
         	 ringbuffer_read(&rb_rx_spm, tmp, popCnt);
         	 OS_eExitCriticalSection(mutexRxRb);
-
+             
         	 int len = popCnt;
         	 bool found = FALSE;
         	 while (len--)
@@ -177,10 +179,10 @@ OS_TASK(APP_taskHandleUartRx)
         	 {
         		 return;
         	 }
-
+             
         	 /* Process AT command */
         	 int ret = API_i32AtCmdProc(tmp, popCnt);
-
+             
         	 char *resp;
         	 if (ret == OK)
         		 resp = "OK\r\n\r\n";
@@ -202,7 +204,7 @@ OS_TASK(APP_taskHandleUartRx)
         case E_MODE_API:
         {
         	/* read some data from ringbuffer */
-        	popCnt = MIN(dataCnt, THRESHOLD_READ);
+            popCnt = MIN(dataCnt, RXFIFOLEN); 
 
         	OS_eEnterCriticalSection(mutexRxRb);
         	ringbuffer_read(&rb_rx_spm, tmp, popCnt);
@@ -222,42 +224,41 @@ OS_TASK(APP_taskHandleUartRx)
         	break;
         }
         /* Data mode */
-        case E_MODE_DATA:
+    case E_MODE_DATA:
         {
-        	/* read some data from ringbuffer */
-        	popCnt = MIN(dataCnt, THRESHOLD_READ);
+            /* read some data from ringbuffer */
+            popCnt = MIN(dataCnt, RXFIFOLEN);
 
-        	OS_eEnterCriticalSection(mutexRxRb);
-        	ringbuffer_pop(&rb_rx_spm, tmp, popCnt);
-        	OS_eExitCriticalSection(mutexRxRb);
+            OS_eEnterCriticalSection(mutexRxRb);
+            ringbuffer_pop(&rb_rx_spm, tmp, popCnt);
+            OS_eExitCriticalSection(mutexRxRb);
 
-        	/* pre pos */
+            /* pre pos */
 
-        	/* AT filter to find AT delimiter */
-        	if (searchAtStarter(tmp, popCnt))
-        	{
-        		g_sDevice.eMode = E_MODE_AT;
-        	    PDM_vSaveRecord(&g_sDevicePDDesc);
-        	    uart_printf("Enter AT Mode.\r\n");
-        	    clear_ringbuffer(&rb_rx_spm);
-        	}
-        	/* if not containing AT, send out the data */
-        	else if (g_sDevice.eState == E_NETWORK_RUN)    //Make sure network has been created.
-        	{
-                /* Send Data frame,call pack_lib to pack a frame */
-        		memset(&apiSpec, 0, sizeof(tsApiSpec));
-        		PCK_vApiSpecDataFrame(&apiSpec, 0x00, 0x00, g_sDevice.config.unicastDstAddr, tmp, popCnt);
-        		memset(tmp, 0, RXFIFOLEN);
-        		size = i32CopyApiSpec(&apiSpec, tmp);
-        		API_bSendToAirPort(g_sDevice.config.txMode, apiSpec.payload.txDataPacket.unicastAddr, tmp, size);
-        		//API_bSendToEndPoint(g_sDevice.config.txMode, g_sDevice.config.unicastDstAddr, 2, 2, tmp, popCnt);
-        	}
+            /* AT filter to find AT delimiter */
+            if (searchAtStarter(tmp, popCnt))
+            {
+                g_sDevice.eMode = E_MODE_AT;
+                PDM_vSaveRecord(&g_sDevicePDDesc);
+                uart_printf("Enter AT Mode.\r\n");
+                clear_ringbuffer(&rb_rx_spm);
+            }
+            /* if not containing AT, send out the data */
+            else if (g_sDevice.eState == E_NETWORK_RUN)    //Make sure network has been created.
+            {
+                // Send Data frame,call pack_lib to pack a frame
+                memset(&apiSpec, 0, sizeof(tsApiSpec));
+                PCK_vApiSpecDataFrame(&apiSpec, 0x00, 0x00, g_sDevice.config.unicastDstAddr, tmp, popCnt);
+                memset(tmp, 0, RXFIFOLEN);
+                size = i32CopyApiSpec(&apiSpec, tmp);
+                API_bSendToAirPort(g_sDevice.config.txMode, apiSpec.payload.txDataPacket.unicastAddr, tmp, size);
+                //API_bSendToEndPoint(g_sDevice.config.txMode, g_sDevice.config.unicastDstAddr, 2, 2, tmp, popCnt);
+            }
 
-        	/* Activate again */
-        	if ((dataCnt - popCnt) >= THRESHOLD_READ)
-				OS_eActivateTask(APP_taskHandleUartRx);
-			else if ((dataCnt - popCnt) > 0)
-				vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(1));
+            /* Activate again */
+            if ((dataCnt - popCnt) >= THRESHOLD_READ) OS_eActivateTask(APP_taskHandleUartRx);
+            else if ((dataCnt - popCnt) > 0) vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(1)); 
+            
         	break;
         }
         /* Arduino-ful MCU mode */

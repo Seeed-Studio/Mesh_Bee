@@ -136,6 +136,39 @@ int API_RescanNetwork_CallBack(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, u
 }
 
 /****************************************************************************
+ * NAME: AT_reJoinNetwork
+ *
+ * DESCRIPTION:
+ * rejoin the last network
+ *
+ * PARAMETERS: Name         RW  Usage
+ *             regAddr      R   useless
+ *
+ * RETURNS:
+ * int: OK - at action success
+ ****************************************************************************/
+
+int AT_reJoinNetwork(uint16 *regAddr)
+{
+    /* Leave Nwk with rejoin */
+    ZPS_teStatus e = ZPS_eAplZdoLeaveNetwork(0, FALSE, TRUE);
+    if (e)
+    {
+        /* Failed to leave,restart */
+        DBG_vPrintf(TRACE_JOIN, "Leave failed.\r\n");
+        g_sDevice.eState = E_NETWORK_JOINING; 
+        ZPS_eAplZdoRejoinNetwork();
+        return OK;
+    } else
+    {
+        /* Reset Nwk stack State Machine */
+        DBG_vPrintf(TRACE_JOIN, "Wait leaving...\r\n");
+        g_sDevice.eSubState = E_SUB_REJOINNING; 
+        vStartStopTimer(APP_JoinTimer, APP_TIME_MS(5000), E_NETWORK_WAIT_LEAVE);
+        return OK;
+    }
+}
+/****************************************************************************
  * NAME: vHandleNetworkLeave
  *
  * DESCRIPTION:
@@ -171,16 +204,27 @@ PUBLIC void vHandleNetworkLeave(ZPS_tsAfEvent sStackEvent)
         if (OS_eGetSWTimerStatus(APP_JoinTimer) == OS_E_SWTIMER_EXPIRED) endUp = 2;
     }
 
-    if (endUp)
+    //handle re-scan's 2nd stage
+    if (g_sDevice.eSubState == E_SUB_RESCANNING && endUp > 0)
     {
-        if (g_sDevice.eSubState == E_SUB_RESCANNING)
-        {
-            g_sDevice.eState = E_NETWORK_STARTUP;
-            g_sDevice.eSubState = E_SUB_NONE;
-            deleteStackPDM();
-            vAHI_SwReset();
-        }
+        g_sDevice.eState = E_NETWORK_STARTUP;
+        g_sDevice.eSubState = E_SUB_NONE;
+        deleteStackPDM();
+        vAHI_SwReset();
     }
+    
+    //handle re-join's 2nd stage
+    if (g_sDevice.eSubState == E_SUB_REJOINNING && endUp == 1)
+    {
+        g_sDevice.eState = E_NETWORK_JOINING;
+        g_sDevice.eSubState = E_SUB_NONE;
+    }
+    if (g_sDevice.eSubState == E_SUB_REJOINNING && endUp == 2) 
+    {
+        g_sDevice.eState = E_NETWORK_JOINING;
+        ZPS_eAplZdoRejoinNetwork(); 
+    }
+    
 }
 
 /****************************************************************************

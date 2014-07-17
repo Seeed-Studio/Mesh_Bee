@@ -257,6 +257,7 @@ bool uart_get_tx_status_busy()
 void uart_trigger_tx()
 {
     OS_eEnterCriticalSection(mutexTxRb);
+    
     uint8 tmp[TXFIFOLEN];
     uint32 cnt = ringbuffer_data_size(&rb_tx_uart);
 
@@ -301,7 +302,7 @@ void uart_tx_data(void *data, int len)
     OS_eEnterCriticalSection(mutexTxRb);
     ringbuffer_push(&rb_tx_uart, data, len);
     OS_eExitCriticalSection(mutexTxRb);
-
+    
     if (!uart_get_tx_status_busy())
         uart_trigger_tx();
 }

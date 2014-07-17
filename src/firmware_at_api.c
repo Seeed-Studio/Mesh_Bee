@@ -84,83 +84,88 @@ static uint8  dummy_value = 0;
   Instruction set of AT mode
   [cmd_name, reg_addr, isHex, digits, max, printFunc, callback_func]
 */
+#define HEX               TRUE
+#define DEC               FALSE
 static AT_Command_t atCommands[] =
 {
     //reboot
-    { "RB", NULL, FALSE, 0, 0, NULL, AT_reboot },
+    { "RB", NULL, DEC, 0, 0, NULL, AT_reboot }, 
 
     //power up action, for coo:powerup re-form the network; for rou:powerup re-scan networks
-    { "PA", &g_sDevice.config.powerUpAction, FALSE, 1, 1, NULL, AT_powerUpActionSet },
+    { "PA", &g_sDevice.config.powerUpAction, DEC, 1, 1, NULL, AT_powerUpActionSet }, 
 
 #ifndef TARGET_COO
     //for rou&end, auto join the first network in scan result list
-    { "AJ", &g_sDevice.config.autoJoinFirst, FALSE, 1, 1, NULL, NULL },
+    { "AJ", &g_sDevice.config.autoJoinFirst, DEC, 1, 1, NULL, NULL }, 
 
     // re-scan radio channels to find networks
-    { "RS", NULL, FALSE, 0, 0, NULL, AT_reScanNetwork },
+    { "RS", NULL, DEC, 0, 0, NULL, AT_reScanNetwork }, 
 
     // list all network scaned
-    { "LN", NULL, FALSE, 0, 0, NULL, AT_listNetworkScaned },
+    { "LN", NULL, DEC, 0, 0, NULL, AT_listNetworkScaned }, 
 
     //network index which is selected to join,MAX_SINGLE_CHANNEL_NETWORKS = 8
-    { "JN", &g_sDevice.config.networkToJoin, FALSE, 3, MAX_SINGLE_CHANNEL_NETWORKS, NULL, AT_joinNetworkWithIndex },
+    { "JN", &g_sDevice.config.networkToJoin, DEC, 3, MAX_SINGLE_CHANNEL_NETWORKS, NULL, AT_joinNetworkWithIndex },
+
+    // rejoin the last network
+    { "RJ", NULL, DEC, 0, 0, NULL, AT_reJoinNetwork }, 
 #endif
     // list all nodes of the whole network, this will take a little more time
-    { "LA", NULL, FALSE, 0, 0, NULL, AT_listAllNodes },
+    { "LA", NULL, DEC, 0, 0, NULL, AT_listAllNodes }, 
 
     //tx mode, 0: broadcast; 1:unicast
-    { "TM", &g_sDevice.config.txMode, FALSE, 1, 1, NULL, NULL },
+    { "TM", &g_sDevice.config.txMode, DEC, 1, 1, NULL, NULL }, 
 
     //unicast dst addr
-    { "DA", &g_sDevice.config.unicastDstAddr, TRUE, 4, 65535, NULL, NULL },
+    { "DA", &g_sDevice.config.unicastDstAddr, HEX, 4, 65535, NULL, NULL },
 
     //baud rate for uart1
-    { "BR", &g_sDevice.config.baudRateUart1, FALSE, 1, 10, AT_printBaudRate, AT_setBaudRateUart1 },
+    { "BR", &g_sDevice.config.baudRateUart1, DEC, 1, 10, AT_printBaudRate, AT_setBaudRateUart1 }, 
 
     //Query On-Chip temperature
-    { "QT", NULL, FALSE, 0, 0, NULL, AT_i32QueryOnChipTemper},
+    { "QT", NULL, DEC, 0, 0, NULL, AT_i32QueryOnChipTemper }, 
 
 #ifdef TARGET_END
     /* for end device, sleep time ms */
-    { "SM", &g_sDevice.config.sleepMode, FALSE, 1, 5, NULL, NULL},
+    { "SM", &g_sDevice.config.sleepMode, DEC, 1, 5, NULL, NULL }, 
 
-    { "SP", &g_sDevice.config.sleepPeriod, FALSE, 4, 9999, NULL, NULL},
+    { "SP", &g_sDevice.config.sleepPeriod, DEC, 4, 9999, NULL, NULL }, 
 
-    { "ST", &g_sDevice.config.sleepWaitingTime, FALSE, 4, 9999, NULL, NULL},
+    { "ST", &g_sDevice.config.sleepWaitingTime, DEC, 4, 9999, NULL, NULL }, 
 
-    { "SL", NULL, FALSE, 0, 0, NULL, AT_SleepTest},  //for inner test
+    { "SL", NULL, DEC, 0, 0, NULL, AT_SleepTest },  //for inner test
 #endif
     //show the information of node
-    { "IF", NULL, FALSE, 0, 0, NULL, AT_showInfo },
+    { "IF", NULL, DEC, 0, 0, NULL, AT_showInfo }, 
 
     //exit at mode into data mode
-    { "DT", NULL, FALSE, 0, 0, NULL, AT_enterDataMode },
+    { "DT", NULL, DEC, 0, 0, NULL, AT_enterDataMode }, 
 
     //exit at mode into data mode
-    { "AP", NULL, FALSE, 0, 0, NULL, AT_enterApiMode },
+    { "AP", NULL, DEC, 0, 0, NULL, AT_enterApiMode }, 
 
     //exit at mode into data mode
-    { "MC", NULL, FALSE, 0, 0, NULL, AT_enterMcuMode },
+    { "MC", NULL, DEC, 0, 0, NULL, AT_enterMcuMode }, 
 
     /* XTAL frequency of Arduino-ful MCU, rang from 10ms~3000ms */
-    { "MF", &g_sDevice.config.upsXtalPeriod, FALSE, 4, 3000, NULL, NULL},
+    { "MF", &g_sDevice.config.upsXtalPeriod, DEC, 4, 3000, NULL, NULL }, 
 
 #ifdef OTA_SERVER
     //ota trigger, trigger upgrade for unicastDstAddr
-    { "OT", NULL, FALSE, 0, 0, NULL, AT_triggerOTAUpgrade },
+    { "OT", NULL, DEC, 0, 0, NULL, AT_triggerOTAUpgrade }, 
 
     //ota rate, client req period
-    { "OR", &g_sDevice.config.reqPeriodMs, FALSE, 5, 60000, NULL, NULL },
+    { "OR", &g_sDevice.config.reqPeriodMs, DEC, 5, 60000, NULL, NULL }, 
 
     //ota abort
-    { "OA", NULL, FALSE, 0, 0, NULL, AT_abortOTAUpgrade },
+    { "OA", NULL, DEC, 0, 0, NULL, AT_abortOTAUpgrade }, 
 
     //ota status poll
-    { "OS", NULL, FALSE, 0, 0, NULL, AT_OTAStatusPoll },
+    { "OS", NULL, DEC, 0, 0, NULL, AT_OTAStatusPoll }, 
 #endif
-    { "TT", &attt_dummy_reg, FALSE, 1, 5, AT_printTT, AT_TestTest },
+    { "TT", &attt_dummy_reg, DEC, 1, 5, AT_printTT, AT_TestTest }, 
 
-    { "RP", NULL, FALSE, 0, 0, NULL, AT_RPC }
+    { "RP", NULL, DEC, 0, 0, NULL, AT_RPC }
 };
 
 /*
