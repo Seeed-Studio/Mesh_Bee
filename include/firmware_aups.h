@@ -37,4 +37,5 @@ PUBLIC void vDelayMsec(uint32 u32Period);
 PUBLIC void ups_init(void);
 PUBLIC uint32 aupsAirPortReadable(void);
 PUBLIC uint8 aupsAirPortRead(void *dst, int len);
+PUBLIC uint8 aupsSendApiFrm(void *dst, int len);
 #endif

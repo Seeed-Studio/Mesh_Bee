@@ -91,12 +91,12 @@ OS_ISR(APP_isrUART1)
             */
             u16AHI_UartBlockReadData(UART_COMM, tmp, avlb_cnt);
 
-        	/* if UART receive a event, sleep later */
+            /* if UART receive a event, sleep later */
 #ifdef TARGET_END
-        	if(E_MODE_API == g_sDevice.eMode || E_MODE_DATA == g_sDevice.eMode)
-        	{
-        	    vSleepSchedule();
-        	}
+            if(E_MODE_API == g_sDevice.eMode || E_MODE_DATA == g_sDevice.eMode)
+            {
+                vSleepSchedule();
+            }
 #endif
 
             /* Push data into ringbuffer through CMI Distributor */
@@ -213,7 +213,7 @@ int AT_printBaudRate(uint16 *regAddr)
  ****************************************************************************/
 void ringbuf_vInitialize()
 {
-	/* Init ringbuffer */
+    /* Init ringbuffer */
     init_ringbuffer(&rb_tx_uart, rb_tx_mempool, UART_TX_RB_LEN);
 }
 
@@ -257,7 +257,7 @@ bool uart_get_tx_status_busy()
 void uart_trigger_tx()
 {
     OS_eEnterCriticalSection(mutexTxRb);
-    
+
     uint8 tmp[TXFIFOLEN];
     uint32 cnt = ringbuffer_data_size(&rb_tx_uart);
 
@@ -302,7 +302,7 @@ void uart_tx_data(void *data, int len)
     OS_eEnterCriticalSection(mutexTxRb);
     ringbuffer_push(&rb_tx_uart, data, len);
     OS_eExitCriticalSection(mutexTxRb);
-    
+
     if (!uart_get_tx_status_busy())
         uart_trigger_tx();
 }
