@@ -113,7 +113,7 @@ Contributing to this software is warmly welcomed. You can do this basically by
 Thanks for your contribution.  
 
 
-Also, you can post on our discussion group at [here](http://www.seeedstudio.com/forum/viewforum.php?f=35) and share your ideas.
+Also, you can post on our discussion group at [here](https://groups.google.com/forum/#!forum/seeedstudio-mesh-bee-discussion-group) and share your ideas.
 
     
 ----
