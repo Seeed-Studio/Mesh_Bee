@@ -112,9 +112,8 @@ Contributing to this software is warmly welcomed. You can do this basically by
 
 Thanks for your contribution.  
 
-Want to know more about our firmware development process? Please check out this link: [https://github.com/Seeed-Studio/Mesh_Bee/releases/tag/v1003_alpha](https://github.com/Seeed-Studio/Mesh_Bee/releases/tag/v1003_alpha).
 
-And more, you can post on our discussion group at [here](https://groups.google.com/forum/#!forum/seeedstudio-mesh-bee-discussion-group) and share your ideas.
+Also, you can post on our discussion group at [here](http://www.seeedstudio.com/forum/viewforum.php?f=35) and share your ideas.
 
     
 ----
