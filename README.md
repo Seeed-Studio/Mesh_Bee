@@ -12,7 +12,7 @@ MeshBee
 
 ![image](https://raw.githubusercontent.com/Seeed-Studio/Mesh_Bee/master/doc/state_machine.jpg)
 
-MeshBee® is a 2.4 GHz wireless zigbee RF module. It use microchip JN516x from NXP that enables several different flvors of standards-based zigbee mesh networking. Our released firmware fully supports Zigbee Pro stack. You can use MeshBee® in three different ways:
+MeshBee® is a 2.4 GHz wireless zigbee RF module. It use microchip JN516x from NXP that enables several different flavors of standards-based zigbee mesh networking. Our released firmware fully supports Zigbee Pro stack. You can use MeshBee® in three different ways:
 Master Mode: the factory firmware warps the complicated Zigbee stack operation into a few easy to use serial commands(AT commands).
 Slave Mode: for a complex mesh network, a host application can send API frames to the MeshBee® that contain short address and payload information instead of using AT command.
 Transparent Mode: MeshBee® can also work as a transparent serial communication node that can be part of a simple point-to-point connection. When operating in this mode, the modules act as a serial line replacement - all UART data received through UART1 is directly send to a specified remote node.
