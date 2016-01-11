@@ -123,14 +123,11 @@ Contributing to this software is warmly welcomed. You can do this basically by
 
 Thanks for your contribution.  
 
-<<<<<<< .merge_file_EctlVH
 
-Also, you can post on our discussion group at [here](https://groups.google.com/forum/#!forum/seeedstudio-mesh-bee-discussion-group) and share your ideas.
-=======
+
 Want to know more about our firmware development process? Please check out this link: [https://github.com/Seeed-Studio/Mesh_Bee/tree/v1.0.4_preview](https://github.com/Seeed-Studio/Mesh_Bee/releases/tag/v1003_alpha).
 
 Besides, you can post on our discussion group at [here](https://groups.google.com/forum/#!forum/seeedstudio-mesh-bee-discussion-group) and share your ideas or find some solutions for your problem.
->>>>>>> .merge_file_MF8KKk
 
     
 ----
