@@ -26,6 +26,7 @@
 /***        Include files                                                 ***/
 /****************************************************************************/
 #include "firmware_aups.h"
+#include "firmware_uart.h"
 #include "suli.h"
 #include "ups_arduino_sketch.h"
 #include "firmware_hal.h"
@@ -34,7 +35,7 @@
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
 #ifndef TRACE_UPS
-#define TRACE_UPS TRUE
+#define TRACE_UPS FALSE
 #endif
 
 /****************************************************************************/
@@ -50,8 +51,7 @@ extern bool searchAtStarter(uint8 *buffer, int len);
 /****************************************************************************/
 /***        Exported Variables                                            ***/
 /****************************************************************************/
-/* If runs Master Mode,create two aups_ringbuf[UART,AirPort] */
-
+/* If node works on Master Mode,create two aups_ringbuf[UART,AirPort] */
 struct ringbuffer rb_uart_aups;
 struct ringbuffer rb_air_aups;
 
@@ -62,13 +62,9 @@ uint8 aups_air_mempool[AUPS_AIR_RB_LEN] = {0};
 /****************************************************************************/
 /***        Local Variables                                               ***/
 /****************************************************************************/
-//End Device enters sleep mode only if idle task get CPU, so Arduino Loop MUST NOT
-//continues without interval.
-#ifdef TARGET_END
-PRIVATE uint32 _loopInterval = 1000;
-#else
+
 PRIVATE uint32 _loopInterval = 0;
-#endif
+
 
 /****************************************************************************/
 /***        External Variables                                            ***/
@@ -78,6 +74,7 @@ PRIVATE uint32 _loopInterval = 0;
 /****************************************************************************/
 /***        Exported Functions                                            ***/
 /****************************************************************************/
+extern uint32 SPM_u32PullData(void *data, int len);
 
 /****************************************************************************
  *
@@ -111,45 +108,22 @@ void UPS_vInitRingbuffer()
  * void
  *
  ****************************************************************************/
-void ups_init(void)
+PUBLIC void ups_init(void)
 {
-	/* Init ringbuffer */
-	UPS_vInitRingbuffer();
-	//init suli
+    /* Init ringbuffer */
+    UPS_vInitRingbuffer();
+
+    /* init suli */
     suli_init();
-    //init arduino sketch with arduino-style setup function
+
+    /* init arduino sketch with arduino-style setup function */
     arduino_setup();
-    //start arduino loops, Arduino_LoopTimer is bound with Arduino_Loop task
-    OS_eStartSWTimer(Arduino_LoopTimer, APP_TIME_MS(1), NULL);
+
+    /* Activate Arduino-ful MCU */
+    OS_eStartSWTimer(Arduino_LoopTimer, APP_TIME_MS(500), NULL);
 }
 
 
-
-
-/****************************************************************************
- *
- * NAME: setLoopInterval
- *
- * DESCRIPTION:
- * set the interval between loops
- * End Device enters sleep mode only if idle task get CPU, so Arduino Loop MUST NOT
- * continues without interval.
- *
- * PARAMETERS: Name         RW  Usage
- *             ms           W   interval in ms
- *
- * RETURNS:
- * void
- *
- ****************************************************************************/
-void setLoopIntervalMs(uint32 ms)
-{
-    _loopInterval = ms;
-}
-
-/****************************************************************************/
-/***        Local Functions                                               ***/
-/****************************************************************************/
 /****************************************************************************
  *
  * NAME: setNodeState
@@ -172,6 +146,109 @@ void setNodeState(uint32 state)
     PDM_vSaveRecord(&g_sDevicePDDesc);
 }
 
+/****************************************************************************
+ *
+ * NAME: vDelayMsec
+ *
+ * DESCRIPTION:
+ * Delay n ms
+ *
+ * PARAMETERS: Name         RW  Usage
+ *             u32Period    R   ms
+ *
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
+void vDelayMsec(uint32 u32Period)
+{
+    uint32 i, k;
+    const uint32 u32MsecCount = 1800;
+    volatile uint32 j;                  //declare as volatile so compiler doesn't optimize increment away
+
+    for (k = 0; k < u32Period; k++)
+        for (i = 0; i < u32MsecCount; i++) j++;
+}
+
+/****************************************************************************
+ *
+ * NAME: aupsReadable
+ *
+ * DESCRIPTION:
+ * Delay n ms
+ *
+ * PARAMETERS: Name         RW  Usage
+ *             u32Period    R   ms
+ *
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
+PUBLIC uint32 aupsAirPortReadable(void)
+{
+    uint32 dataCnt = 0;
+    OS_eEnterCriticalSection(mutexAirPort);
+    dataCnt = ringbuffer_data_size(&rb_air_aups);
+    OS_eExitCriticalSection(mutexAirPort);
+    return dataCnt;
+}
+
+
+/****************************************************************************
+ *
+ * NAME: aupsAirPortRead
+ *
+ * DESCRIPTION:
+ * Read len bytes of data to dst
+ *
+ * PARAMETERS: Name         RW  Usage
+ *             dst          W   Pointer to destination of the buffer
+ *             len          R   number of the bytes you want to read
+ * RETURNS:
+ * uint8: real number of bytes you read
+ *
+ ****************************************************************************/
+PUBLIC uint8 aupsAirPortRead(void *dst, int len)
+{
+    uint32 dataCnt = 0, readCnt = 0;
+
+    OS_eEnterCriticalSection(mutexAirPort);
+    dataCnt = ringbuffer_data_size(&rb_air_aups);
+    if (dataCnt >= len) readCnt = len;
+    else readCnt = dataCnt;
+
+    ringbuffer_pop(&rb_air_aups, dst, dataCnt);
+    OS_eExitCriticalSection(mutexAirPort);
+
+    return readCnt;
+}
+
+
+/****************************************************************************
+ *
+ * NAME: aupsSendApiFrm
+ *
+ * DESCRIPTION:
+ * send a api frame into the stream processor
+ *
+ * PARAMETERS: Name         RW  Usage
+ *             dst          W   Pointer to destination of the buffer
+ *             len          R   number of the bytes you want to read
+ * RETURNS:
+ * uint8: real number of bytes you read
+ *
+ ****************************************************************************/
+PUBLIC uint8 aupsSendApiFrm(void *data, int len)
+{
+    uint32 avlb_cnt = SPM_u32PullData(data, len);
+    if (avlb_cnt >= THRESHOLD_READ)
+    {
+        OS_eActivateTask(APP_taskHandleUartRx);             //Activate SPM immediately
+    } else
+    {
+        vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(5));  //Activate SPM 5ms later
+    }
+}
 
 
 /****************************************************************************
@@ -184,43 +261,54 @@ void setNodeState(uint32 state)
  ****************************************************************************/
 OS_TASK(Arduino_Loop)
 {
-
-	/*
-	  Mutex, only in MCU mode,this loop will be called
+    /*
+      Mutex, only in MCU mode,this loop will be called
       or data in ringbuffer may become mess
     */
-	if(E_MODE_MCU == g_sDevice.eMode)
-	{
-		/* Back-Ground to search AT delimiter */
-		uint8 tmp[AUPS_UART_RB_LEN];
-		uint8 *Device = NULL;
-		uint16 DeviceId = 0;
-		uint32 avlb_cnt = suli_uart_readable(Device, DeviceId);
-		uint32 min_cnt = MIN(AUPS_UART_RB_LEN, avlb_cnt);
-
-		/* Read,not pop,make sure we don't pollute user data in AUPS ringbuffer */
-		vHAL_UartRead(tmp, min_cnt);
-		if (searchAtStarter(tmp, min_cnt))
-		{
-			/* Set AT mode */
-			setNodeState(E_MODE_AT);
-			suli_uart_printf(Device, DeviceId, "Enter AT Mode.\r\n");
-			/* Clear ringbuffer of AUPS */
-			OS_eEnterCriticalSection(mutexRxRb);
-			clear_ringbuffer(&rb_uart_aups);
-			OS_eExitCriticalSection(mutexRxRb);
-		}
-		else
-		{
-		    arduino_loop();
-		}
-	}
-
-    if(_loopInterval > 0)
+    if(E_MODE_MCU == g_sDevice.eMode)
     {
-		OS_eStartSWTimer(Arduino_LoopTimer, APP_TIME_MS(_loopInterval), NULL);
-    } else
-    {
-		OS_eActivateTask(Arduino_Loop);
+        /* Back-Ground to search AT delimiter */
+        uint8 tmp[AUPS_UART_RB_LEN];
+        uint32 avlb_cnt = suli_uart_readable(NULL, NULL);
+        uint32 min_cnt = MIN(AUPS_UART_RB_LEN, avlb_cnt);
+
+        /* Read,not pop,make sure we don't pollute user data in AUPS ringbuffer */
+        vHAL_UartRead(tmp, min_cnt);
+        if (searchAtStarter(tmp, min_cnt))
+        {
+            /* Set AT mode */
+            setNodeState(E_MODE_AT);
+            suli_uart_printf(NULL, NULL, "Enter AT Mode.\r\n");
+
+            /* Clear ringbuffer of AUPS */
+            OS_eEnterCriticalSection(mutexRxRb);
+            clear_ringbuffer(&rb_uart_aups);
+            OS_eExitCriticalSection(mutexRxRb);
+        }
+        else
+        {
+            arduino_loop();
+        }
+
+        /*
+         * If a sleep event has already been scheduled in arduino_loop,
+         * don't set a new arduino_loop
+        */
+        if(true == bGetSleepStatus())
+            return;
+
+        /* re-activate Arduino_Loop */
+        if(g_sDevice.config.upsXtalPeriod > 0)
+        {
+            OS_eStartSWTimer(Arduino_LoopTimer, APP_TIME_MS(g_sDevice.config.upsXtalPeriod), NULL);
+        }
+        else
+        {
+            OS_eActivateTask(Arduino_Loop);  //this task is the lowest priority
+        }
     }
 }
+
+/****************************************************************************/
+/***        END OF FILE                                                   ***/
+/****************************************************************************/

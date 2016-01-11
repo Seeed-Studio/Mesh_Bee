@@ -33,6 +33,9 @@
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
+#ifndef TRACE_SPM
+#define TRACE_SPM FALSE
+#endif
 
 /****************************************************************************/
 /***        Local Function Prototypes                                     ***/
@@ -75,7 +78,7 @@ PRIVATE void SPM_vProcStream(uint32 dataCnt);
  ****************************************************************************/
 void SPM_vInit()
 {
-	init_ringbuffer(&rb_rx_spm, spm_rx_mempool, SPM_RX_RB_LEN);
+    init_ringbuffer(&rb_rx_spm, spm_rx_mempool, SPM_RX_RB_LEN);
 }
 
 /****************************************************************************
@@ -92,24 +95,25 @@ void SPM_vInit()
  ****************************************************************************/
 uint32 SPM_u32PullData(void *data, int len)
 {
-	uint32 free_cnt = 0;
-	uint32 min_cnt = 0;
-	uint32 avlb_cnt = 0;
+    uint32 free_cnt = 0;
+    uint32 min_cnt = 0;
+    uint32 avlb_cnt = 0;
 
-	/* Cal how much free space do SPM have */
-	OS_eEnterCriticalSection(mutexRxRb);
-	free_cnt = ringbuffer_free_space(&rb_rx_spm);
-	OS_eExitCriticalSection(mutexRxRb);
+    /* Cal how much free space do SPM have */
+    OS_eEnterCriticalSection(mutexRxRb);
+    free_cnt = ringbuffer_free_space(&rb_rx_spm);
+    OS_eExitCriticalSection(mutexRxRb);
 
     min_cnt = MIN(free_cnt, len);
-    DBG_vPrintf(TRACE_NODE, "rev_cnt: %u, free_cnt: %u \r\n", len, free_cnt);
-    if(min_cnt > 0)
+
+    //shao: fixed a bug here
+    OS_eEnterCriticalSection(mutexRxRb);
+    if (min_cnt > 0)
     {
-    	OS_eEnterCriticalSection(mutexRxRb);
-    	ringbuffer_push(&rb_rx_spm, data, min_cnt);
-    	avlb_cnt = ringbuffer_data_size(&rb_rx_spm);
-    	OS_eExitCriticalSection(mutexRxRb);
+        ringbuffer_push(&rb_rx_spm, data, min_cnt);
     }
+    avlb_cnt = ringbuffer_data_size(&rb_rx_spm);
+    OS_eExitCriticalSection(mutexRxRb);
     return avlb_cnt;
 }
 
@@ -120,7 +124,7 @@ uint32 SPM_u32PullData(void *data, int len)
  * NAME: APP_taskHandleUartRx
  *
  * DESCRIPTION:
- * Stream Processing Machine(SPM), driving by software timer
+ * Stream Processing Machine(SPM), driving by ISR
  * Main state machine
  * State:  E_MODE_AT/E_MODE_DATA/E_MODE_API/E_MODE_MCU
  *
@@ -133,7 +137,7 @@ uint32 SPM_u32PullData(void *data, int len)
  * void
  *
  ****************************************************************************/
-static uint8 tmp[RXFIFOLEN];    //static memory
+static uint8 tmp[RXFIFOLEN*2];    //static memory
 OS_TASK(APP_taskHandleUartRx)
 {
     uint32 dataCnt = 0;
@@ -149,110 +153,120 @@ OS_TASK(APP_taskHandleUartRx)
     /* if there is no data in SPM data pool, return */
     if (dataCnt == 0)  return;
 
-    DBG_vPrintf(TRACE_EP, "-SPM running- \r\n");
+    DBG_vPrintf(TRACE_SPM, "-SPM running- \r\n");
+    memset(tmp, 0, RXFIFOLEN);
 
     /* SPM State Machine */
     switch(g_sDevice.eMode)
     {
         /* AT mode */
         case E_MODE_AT:
-        	 popCnt = MIN(dataCnt, RXFIFOLEN);
-        	 OS_eEnterCriticalSection(mutexRxRb);
-        	 ringbuffer_read(&rb_rx_spm, tmp, popCnt);
-        	 OS_eExitCriticalSection(mutexRxRb);
+        {
+             popCnt = MIN(dataCnt, RXFIFOLEN);
+             OS_eEnterCriticalSection(mutexRxRb);
+             ringbuffer_read(&rb_rx_spm, tmp, popCnt);
+             OS_eExitCriticalSection(mutexRxRb);
 
-        	 int len = popCnt;
-        	 bool found = FALSE;
-        	 while (len--)
-        	 {
-        		 if (tmp[len] == '\r' || tmp[len] == '\n')
-        			 found = TRUE;
-        	 }
+             int len = popCnt;
+             bool found = FALSE;
+             while (len--)
+             {
+                 if (tmp[len] == '\r' || tmp[len] == '\n')
+                     found = TRUE;
+             }
 
-        	 if (!found && popCnt < RXFIFOLEN)
-        	 {
-        		 return;
-        	 }
+             if (!found && popCnt < RXFIFOLEN)
+             {
+                 return;
+             }
 
-        	 /* Process AT command */
-        	 int ret = API_i32AtCmdProc(tmp, popCnt);
+             /* Process AT command */
+             int ret = API_i32AtCmdProc(tmp, popCnt);
 
-        	 char *resp;
-        	 if (ret == OK)
-        		 resp = "OK\r\n\r\n";
-        	 if (ret == ERR)
-        	     resp = "Error\r\n\r\n";
-        	 if (ret == ERRNCMD)
-        	     resp = "Error, invalid command\r\n\r\n";
-        	 if (ret == OUTRNG)
-        	     resp = "Error, out range\r\n\r\n";
-        	 uart_printf(resp);
+             char *resp;
+             if (ret == OK)
+                 resp = "OK\r\n\r\n";
+             if (ret == ERR)
+                 resp = "Error\r\n\r\n";
+             if (ret == ERRNCMD)
+                 resp = "Error, invalid command\r\n\r\n";
+             if (ret == OUTRNG)
+                 resp = "Error, out range\r\n\r\n";
+             uart_printf(resp);
 
-        	 /* Discard the treated part */
-        	 OS_eEnterCriticalSection(mutexRxRb);
-        	 ringbuffer_pop(&rb_rx_spm, tmp, popCnt);
-        	 OS_eExitCriticalSection(mutexRxRb);
-        	 break;
-
+             /* Discard the treated part */
+             OS_eEnterCriticalSection(mutexRxRb);
+             ringbuffer_pop(&rb_rx_spm, tmp, popCnt);
+             OS_eExitCriticalSection(mutexRxRb);
+             break;
+        }
         /* API mode */
         case E_MODE_API:
-        	/* read some data from ringbuffer */
-        	popCnt = MIN(dataCnt, THRESHOLD_READ);
+        {
+            /* read some data from ringbuffer */
+            popCnt = MIN(dataCnt, RXFIFOLEN);
 
-        	OS_eEnterCriticalSection(mutexRxRb);
-        	ringbuffer_read(&rb_rx_spm, tmp, popCnt);
-        	OS_eExitCriticalSection(mutexRxRb);
-        	if (searchAtStarter(tmp, popCnt))
-        	{
-        		g_sDevice.eMode = E_MODE_AT;
-        		PDM_vSaveRecord(&g_sDevicePDDesc);
-        		uart_printf("Enter AT Mode.\r\n");
-        		clear_ringbuffer(&rb_rx_spm);
-        	}
-        	{
-        	    SPM_vProcStream(dataCnt);
-        	}
-        	break;
+            OS_eEnterCriticalSection(mutexRxRb);
+            ringbuffer_read(&rb_rx_spm, tmp, popCnt);
+            OS_eExitCriticalSection(mutexRxRb);
 
+            if (searchAtStarter(tmp, popCnt))
+            {
+                g_sDevice.eMode = E_MODE_AT;
+                PDM_vSaveRecord(&g_sDevicePDDesc);
+                uart_printf("Enter AT Mode.\r\n");
+                clear_ringbuffer(&rb_rx_spm);
+            }
+            else
+            {
+                SPM_vProcStream(dataCnt);
+            }
+            break;
+        }
         /* Data mode */
-        case E_MODE_DATA:
-        	/* read some data from ringbuffer */
-        	popCnt = MIN(dataCnt, THRESHOLD_READ);
+    case E_MODE_DATA:
+        {
+            /* read some data from ringbuffer */
+            popCnt = MIN(dataCnt, RXFIFOLEN);
 
-        	OS_eEnterCriticalSection(mutexRxRb);
-        	ringbuffer_pop(&rb_rx_spm, tmp, popCnt);
-        	OS_eExitCriticalSection(mutexRxRb);
+            OS_eEnterCriticalSection(mutexRxRb);
+            ringbuffer_pop(&rb_rx_spm, tmp, popCnt);
+            OS_eExitCriticalSection(mutexRxRb);
 
-        	if ((dataCnt - popCnt) >= THRESHOLD_READ)
-        		OS_eActivateTask(APP_taskHandleUartRx);
-        	else if ((dataCnt - popCnt) > 0)
-        		vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(1));
+            /* pre pos */
 
-        	/* AT filter to find AT delimiter */
-        	if (searchAtStarter(tmp, popCnt))
-        	{
-        		g_sDevice.eMode = E_MODE_AT;
-        	    PDM_vSaveRecord(&g_sDevicePDDesc);
-        	    uart_printf("Enter AT Mode.\r\n");
-        	    clear_ringbuffer(&rb_rx_spm);
-        	}
-        	/* if not containing AT, send out the data */
-        	else if (g_sDevice.eState == E_NETWORK_RUN)    //Make sure network has been created.
-        	{
-                /* Send Data frame,call pack_lib to pack a frame */
-        		memset(&apiSpec, 0, sizeof(tsApiSpec));
-        		PCK_vApiSpecDataFrame(&apiSpec, 0x00, 0x00, g_sDevice.config.unicastDstAddr, tmp, popCnt);
-        		memset(tmp, 0, RXFIFOLEN);
-        		size = i32CopyApiSpec(&apiSpec, tmp);
-        		API_bSendToAirPort(g_sDevice.config.txMode, apiSpec.payload.txDataPacket.unicastAddr, tmp, size);
-        	}
-        	break;
+            /* AT filter to find AT delimiter */
+            if (searchAtStarter(tmp, popCnt))
+            {
+                g_sDevice.eMode = E_MODE_AT;
+                PDM_vSaveRecord(&g_sDevicePDDesc);
+                uart_printf("Enter AT Mode.\r\n");
+                clear_ringbuffer(&rb_rx_spm);
+            }
+            /* if not containing AT, send out the data */
+            else if (g_sDevice.eState == E_NETWORK_RUN)    //Make sure network has been created.
+            {
+                // Send Data frame,call pack_lib to pack a frame
+                memset(&apiSpec, 0, sizeof(tsApiSpec));
+                PCK_vApiSpecDataFrame(&apiSpec, 0x00, 0x00, tmp, popCnt);
+                memset(tmp, 0, RXFIFOLEN);
+                size = i32CopyApiSpec(&apiSpec, tmp);
+                API_bSendToAirPort(g_sDevice.config.txMode, g_sDevice.config.unicastDstAddr, tmp, size);
+                //API_bSendToEndPoint(g_sDevice.config.txMode, g_sDevice.config.unicastDstAddr, 2, 2, tmp, popCnt);
+            }
 
+            /* Activate again */
+            if ((dataCnt - popCnt) >= THRESHOLD_READ) OS_eActivateTask(APP_taskHandleUartRx);
+            else if ((dataCnt - popCnt) > 0) vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(1));
+
+            break;
+        }
         /* Arduino-ful MCU mode */
         case E_MODE_MCU:
-        	SPM_vProcStream(dataCnt);
-        	break;
-        default:break;
+        {
+            SPM_vProcStream(dataCnt);
+            break;
+        }
     }
 }
 
@@ -271,39 +285,42 @@ OS_TASK(APP_taskHandleUartRx)
  ****************************************************************************/
 PRIVATE void SPM_vProcStream(uint32 dataCnt)
 {
-	uint8 tmp[RXFIFOLEN] = {0};
-	/* calc the minimal */
-	uint32 readCnt = MIN(dataCnt, RXFIFOLEN);
+    uint8 tmp[SPM_RX_RB_LEN] = { 0 };
+    /* calc the minimal */
+    uint32 readCnt = MIN(dataCnt, SPM_RX_RB_LEN);
 
-	OS_eEnterCriticalSection(mutexRxRb);
-	ringbuffer_read(&rb_rx_spm, tmp, readCnt);
-	OS_eExitCriticalSection(mutexRxRb);
+    OS_eEnterCriticalSection(mutexRxRb);
+    ringbuffer_read(&rb_rx_spm, tmp, readCnt);
+    OS_eExitCriticalSection(mutexRxRb);
 
-	/* Instance an apiSpec */
-	tsApiSpec apiSpec;
-	bool bValid = FALSE;
-	memset(&apiSpec, 0, sizeof(tsApiSpec));
+    /* Instance an apiSpec */
+    tsApiSpec apiSpec;
+    bool bValid = FALSE;
+    memset(&apiSpec, 0, sizeof(tsApiSpec));
 
-	/* Deassemble apiSpec frame */
-	uint16 procSize =  u16DecodeApiSpec(tmp, readCnt, &apiSpec, &bValid);
-	if(!bValid)
-	{
-	/*
-	  Invalid frame,discard from ringbuffer
-	  Any data received prior to the start delimiter will be discarded.
-	  If the frame is not received correctly or if the checksum fails,
-	  discard too.And Re-Activate Task 1ms later.
-	*/
-		vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(1));
-	}
-	else
-	{
-		/* Process API frame using API support layer's api */
-		API_i32ApiFrmCmdProc(&apiSpec);
-	}
-	/* Discard already processed part */
-	OS_eEnterCriticalSection(mutexRxRb);
-	ringbuffer_pop(&rb_rx_spm, tmp, procSize);
-	OS_eExitCriticalSection(mutexRxRb);
+    /* Deassemble apiSpec frame */
+    uint16 procSize =  u16DecodeApiSpec(tmp, readCnt, &apiSpec, &bValid);
+    if(!bValid)
+    {
+    /*
+      Invalid frame,discard from ringbuffer
+      Any data received prior to the start delimiter will be discarded.
+      If the frame is not received correctly or if the checksum fails,
+      discard too.And Re-Activate Task 1ms later.
+    */
+        vResetATimer(APP_tmrHandleUartRx, APP_TIME_MS(1));
+    }
+    else
+    {
+        /* Process API frame using API support layer's api */
+        API_i32ApiFrmProc(&apiSpec);
+    }
+    /* Discard already processed part */
+    OS_eEnterCriticalSection(mutexRxRb);
+    ringbuffer_pop(&rb_rx_spm, tmp, procSize);
+    OS_eExitCriticalSection(mutexRxRb);
 }
 
+/****************************************************************************/
+/***        END OF FILE                                                   ***/
+/****************************************************************************/

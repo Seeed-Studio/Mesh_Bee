@@ -7,7 +7,9 @@
  * Spread by SeeedStudio
  * Author     : Jack Shao
  * Create Time: 2014/4
- * Change Log :
+ * Change Log : [Oliver: Modify 2014/05]
+ *              [Oliver: Modify 2014/05] Poll period set to 200ms
+ *              [Oliver: Modify 2014/06] DATA/API mode support for sleep too
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -29,7 +31,6 @@
 #include "firmware_sleep.h"
 #include "firmware_aups.h"
 
-
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
@@ -45,17 +46,20 @@
 /****************************************************************************/
 /***        Local Function Prototypes                                     ***/
 /****************************************************************************/
+/* wake up call back */
 PUBLIC void vWakeCallBack(void);
 
 /****************************************************************************/
 /***        Exported Variables                                            ***/
 /****************************************************************************/
-
+static bool SLEEP_ENABLE = false;  /* if enable a sleep, set this flag */
 
 /****************************************************************************/
 /***        Local Variables                                               ***/
 /****************************************************************************/
 PRIVATE uint32 _wakeupTime = 0;
+
+/* Pointer to a structure to be populated with the wake point and callback function */
 PRIVATE	pwrm_tsWakeTimerEvent	sWake;
 
 /****************************************************************************/
@@ -66,10 +70,53 @@ PRIVATE	pwrm_tsWakeTimerEvent	sWake;
 /****************************************************************************/
 /***        Exported Functions                                            ***/
 /****************************************************************************/
+/****************************************************************************
+ *
+ * NAME: SleepScheduleTask
+ *
+ * DESCRIPTION:
+ * Sleep schedule task
+ *
+ * PARAMETERS: Name         RW  Usage
+ *
+ *
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
+OS_TASK(SleepScheduleTask)
+{
+#ifdef TARGET_END
+	    Sleep(g_sDevice.config.sleepPeriod);
+#endif
+}
 
 /****************************************************************************
  *
- * NAME: goSleepMs
+ * NAME: vSleepSchedule
+ *
+ * DESCRIPTION:
+ * Sleep schedule main entry
+ *
+ * PARAMETERS: Name         RW  Usage
+ *
+ *
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
+PUBLIC void vSleepSchedule(void)
+{
+	/* Only the end device which works in DIO and Timer mode can call this function */
+	if(SLEEP_MODE_WAKE_BY_TIMER == g_sDevice.config.sleepMode ||
+			SLEEP_MODE_WAKE_BY_DIO_TIMER == g_sDevice.config.sleepMode)
+	{
+		vResetATimer(SleepTimer, APP_TIME_MS(g_sDevice.config.sleepWaitingTime));
+	}
+}
+/****************************************************************************
+ *
+ * NAME: Sleep
  *
  * DESCRIPTION:
  * set the End Device into sleep mode for n ms
@@ -81,35 +128,84 @@ PRIVATE	pwrm_tsWakeTimerEvent	sWake;
  * void
  *
  ****************************************************************************/
-void goSleepMs(uint32 ms)
+PUBLIC void Sleep(uint32 ms)
 {
 #ifdef TARGET_END
-    _wakeupTime = ms;
-    OS_eActivateTask(SleepEnableTask);
+	DBG_vPrintf(TRACE_SLEEP, "Sleep %ld ms\r\n", ms);
+
+	/* Set the next wake point */
+	_wakeupTime = ms;
+	PWRM_eScheduleActivity(&sWake, _wakeupTime*32 , vWakeCallBack);
+
+	/*
+	 * Stop all software timers, prepare for sleeping
+	 * Must stop all of the swTimers, otherwise can not enter sleep mode again
+    */
+    stopAllSwTimers();
+
+    /* Set this flag */
+    SLEEP_ENABLE = true;
 #endif
 }
-
 
 /****************************************************************************
  *
- * NAME: SleepEnableTask
+ * NAME: sleep
  *
  * DESCRIPTION:
- * task for enabling sleep mode
- * runs at lowest priority to ensure all other tasks are inactive
+ * set the End Device into sleep mode for n s
+ *
+ * PARAMETERS: Name         RW  Usage
+ *             s            W   s
+ *
+ * RETURNS:
+ * void
  *
  ****************************************************************************/
-OS_TASK(SleepEnableTask)
+PUBLIC void sleep(uint16 s)
 {
-#ifdef TARGET_END
-    DBG_vPrintf(TRACE_SLEEP, "SleepEnable Task\r\n");
-
-    PWRM_eScheduleActivity(&sWake, _wakeupTime*32 , vWakeCallBack);		// Schedule the next sleep point
-
-    stopAllSwTimers();
-#endif
+    uint32 ms = s*1000;
+    Sleep(ms);
 }
 
+/****************************************************************************
+ *
+ * NAME: usleep
+ *
+ * DESCRIPTION:
+ * set the End Device into sleep mode for n us
+ *
+ * PARAMETERS: Name         RW  Usage
+ *             us           W   us
+ *
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
+PUBLIC void usleep(uint32 us)
+{
+    uint32 ms = us/1000;
+    Sleep(ms);
+}
+
+/****************************************************************************
+ *
+ * NAME: bGetSleepStatus
+ *
+ * DESCRIPTION:
+ * determine a sleep enabled or not
+ *
+ * PARAMETERS: Name         RW  Usage
+ *
+ *
+ * RETURNS:
+ * status
+ *
+ ****************************************************************************/
+PUBLIC bool bGetSleepStatus(void)
+{
+    return SLEEP_ENABLE;
+}
 
 /****************************************************************************
  *
@@ -124,9 +220,11 @@ OS_TASK(SleepEnableTask)
  ****************************************************************************/
 PUBLIC void vWakeCallBack(void)
 {
-	// Cannot schedule the next wake event until the wake up callback
-	// function has completed. Instead, activate a high priority task
-	// so that it runs immediately after the callback
+	/*
+	 * Cannot schedule the next wake event until the wake up callback
+	 * function has completed. Instead, activate a high priority task
+	 * so that it runs immediately after the callback
+	*/
 	OS_eActivateTask(WakeUpTask);
 }
 
@@ -135,27 +233,43 @@ PUBLIC void vWakeCallBack(void)
  * NAME: APP_WakeUpTask
  *
  * DESCRIPTION:
- * Wakeup initialisation task
+ * Wake up initialization task
  * RETURNS:
  * void
  *
  ****************************************************************************/
 OS_TASK(WakeUpTask)
 {
-    DBG_vPrintf(TRACE_SLEEP, "Wake up task\r\n");
+    DBG_vPrintf(TRACE_SLEEP, "WakeUp Task.\r\n");
 
+    /* Clean sleep flag */
+    SLEEP_ENABLE = false;
+
+    /* When a device wakes up, Poll from its parent immediately */
     OS_eActivateTask(PollTask);
-#ifdef FW_MODE_MASTER
-    ups_init();
-#endif
-}
 
+    /* Wakeup houseKeepping task: determine state */
+    if(E_MODE_MCU == g_sDevice.eMode)
+    {
+    	ups_init();        //Initialize AUPS
+    }
+    else if(E_MODE_AT == g_sDevice.eMode)
+    {
+    	//do nothing now
+    }
+    else
+    {
+    	vSleepSchedule(); //Reset SleepScheduleTimer again in DATA/API mode
+    }
+}
 /****************************************************************************
  *
- * NAME: APP_WakeUpTask
+ * NAME: PollTask
  *
  * DESCRIPTION:
- * Wakeup initialisation task
+ * Polling Task requests the buffered data and should normally be
+ * called immediately after waking from sleep.
+ *
  * RETURNS:
  * void
  *
@@ -171,7 +285,8 @@ OS_TASK(PollTask)
         DBG_vPrintf(TRACE_SLEEP, "\nPoll Failed %d\n", u8PStatus);
     }
 
-    //OS_eStartSWTimer(PollTimer, APP_TIME_MS(1), NULL);
+    /* Poll per 200ms */
+    OS_eStartSWTimer(PollTimer, APP_TIME_MS(200), NULL);
 }
 
 
@@ -180,10 +295,10 @@ OS_TASK(PollTask)
  * NAME: stopAllSwTimers
  *
  * DESCRIPTION:
- * set the End Device into sleep mode after n ms
+ * stop all of the software timers, prepare for a sleeping
  *
  * PARAMETERS: Name         RW  Usage
- *             ms           W   ms
+ *
  *
  * RETURNS:
  * void
@@ -228,9 +343,21 @@ void stopAllSwTimers()
     {
         OS_eStopSWTimer(Arduino_LoopTimer);
     }
+    if(OS_eGetSWTimerStatus(PollTimer) != OS_E_SWTIMER_STOPPED)
+    {
+    	OS_eStopSWTimer(PollTimer);
+    }
+    if(OS_eGetSWTimerStatus(SleepTimer) != OS_E_SWTIMER_STOPPED)
+    {
+    	OS_eStopSWTimer(SleepTimer);
+    }
 #endif
 }
+
 /****************************************************************************/
 /***        Local Functions                                               ***/
 /****************************************************************************/
 
+/****************************************************************************/
+/***        END OF FILE                                                   ***/
+/****************************************************************************/

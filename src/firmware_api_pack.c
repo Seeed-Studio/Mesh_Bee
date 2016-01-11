@@ -44,21 +44,22 @@ extern uint8 calCheckSum(uint8 *in, int len);
  ****************************************************************************/
 uint16 u16DecodeApiSpec(uint8 *buffer, int len, tsApiSpec *spec, bool *valid)
 {
-	uint8 *ptr = buffer;
-	while (*ptr != API_START_DELIMITER && len-- > 0) ptr++;
-	if (len < 4)
-	{
-	    *valid = FALSE;
-	    return ptr - buffer;
-	}
+    uint8 *ptr = buffer;
+    while (*ptr != API_START_DELIMITER && len-- > 0) ptr++;
+    if (len < 4)
+    {
+        *valid = FALSE;
+        return ptr - buffer;
+    }
 
-	/* read startDelimiter/length/apiIdentifier */
-	memcpy((uint8*)spec, ptr, 3);    //1 bytes align,read 3 bytes
+    /* read startDelimiter/length/apiIdentifier */
+    memcpy((uint8*)spec, ptr, 3);    //1 bytes align,read 3 bytes
 
     ptr += 3;
     len -= 3;
     if (len < (spec->length + 1))
     {
+        ptr -= 3;  //fix
         *valid = FALSE;
         return ptr - buffer;
     }
@@ -96,7 +97,7 @@ uint16 u16DecodeApiSpec(uint8 *buffer, int len, tsApiSpec *spec, bool *valid)
  ****************************************************************************/
 int i32CopyApiSpec(tsApiSpec *spec, uint8 *dst)
 {
-	int size = 0;
+    int size = 0;
     memcpy(dst, (uint8 * )spec, 3);
     dst += 3;
     size += 3;
@@ -113,7 +114,7 @@ int i32CopyApiSpec(tsApiSpec *spec, uint8 *dst)
 
 /****************************************************************************
  *
- * NAME: PAK_vApiSpecDataFrame
+ * NAME: PCK_vApiSpecDataFrame
  *
  * DESCRIPTION:
  * Pack data frame
@@ -122,29 +123,40 @@ int i32CopyApiSpec(tsApiSpec *spec, uint8 *dst)
  * tsApiSpec
  *
  ****************************************************************************/
-void PCK_vApiSpecDataFrame(tsApiSpec *apiSpec, uint8 frameId, uint8 option, uint16 unicastAddr, void *data, int len)
+PUBLIC void PCK_vApiSpecDataFrame(tsApiSpec *apiSpec, uint8 frameId, uint8 option, void *data, int len)
 {
-	tsTxDataPacket txDataPacket;
+    tsTxDataPacket txDataPacket;
     memset(&txDataPacket, 0, sizeof(tsTxDataPacket));
 
     int min_cnt = MIN(len, API_DATA_LEN);
 
-	txDataPacket.frameId = frameId;
+    txDataPacket.frameId = frameId;
     txDataPacket.option = option;
     txDataPacket.dataLen = min_cnt;
-    txDataPacket.unicastAddr = unicastAddr;
+    txDataPacket.unicastAddr = (uint16)ZPS_u16AplZdoGetNwkAddr();
+    txDataPacket.unicastAddr64 = ZPS_u64AplZdoGetIeeeAddr();
 
     memcpy(txDataPacket.data, data, min_cnt);
 
     apiSpec->startDelimiter = API_START_DELIMITER;
-    apiSpec->length = sizeof(tsTxDataPacket);
+    apiSpec->length = sizeof(tsTxDataPacket) - API_DATA_LEN + min_cnt; //shao: send the actual payload data
     apiSpec->teApiIdentifier = API_DATA_PACKET;
     apiSpec->payload.txDataPacket = txDataPacket;
     apiSpec->checkSum = calCheckSum((uint8*)&txDataPacket, apiSpec->length);
 }
 
-
-uint8 PCK_u8ApiSpecLocalAtIo(tsApiSpec *apiSpec, uint8 pin, uint8 state)
+/****************************************************************************
+ *
+ * NAME: PCK_u8ApiSpecLocalAtIo
+ *
+ * DESCRIPTION:
+ * Pack local ATIO frame
+ *
+ * RETURNS:
+ * tsApiSpec
+ *
+ ****************************************************************************/
+PUBLIC uint8 PCK_u8ApiSpecLocalAtIo(tsApiSpec *apiSpec, uint8 pin, uint8 state)
 {
   apiSpec->startDelimiter = API_START_DELIMITER;
   apiSpec->length = sizeof(tsLocalAtReq);           //Note: union length != tsLocalAtReq length
@@ -165,7 +177,18 @@ uint8 PCK_u8ApiSpecLocalAtIo(tsApiSpec *apiSpec, uint8 pin, uint8 state)
   return 3 + sizeof(tsLocalAtReq) + 1;
 }
 
-uint8 PCK_u8ApiSpecRemoteAtIo(tsApiSpec *apiSpec, uint16 unicastAddr , uint8 pin, uint8 state)
+/****************************************************************************
+ *
+ * NAME: PCK_u8ApiSpecRemoteAtIo
+ *
+ * DESCRIPTION:
+ * Pack remote ATIO frame
+ *
+ * RETURNS:
+ * tsApiSpec
+ *
+ ****************************************************************************/
+PUBLIC uint8 PCK_u8ApiSpecRemoteAtIo(tsApiSpec *apiSpec, uint16 unicastAddr , uint8 pin, uint8 state)
 {
   apiSpec->startDelimiter = API_START_DELIMITER;
   apiSpec->length = sizeof(tsRemoteAtReq);           //Note: union length != tsLocalAtReq length

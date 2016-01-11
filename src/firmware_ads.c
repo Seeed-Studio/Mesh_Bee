@@ -29,10 +29,13 @@
 #include "zps_apl_aib.h"
 #include "firmware_at_api.h"
 
+#ifndef TRACE_ADS
+#define TRACE_ADS  FALSE
+#endif
 /****************************************************************************/
 /***        Local Function Prototypes                                     ***/
 /****************************************************************************/
-void ADS_vHandleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent);
+PRIVATE void ADS_vHandleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent);
 
 /****************************************************************************/
 /***        Tasks                                                          ***/
@@ -54,7 +57,7 @@ OS_TASK(APP_taskMyEndPoint)
 {
     ZPS_tsAfEvent sStackEvent;
 
-    DBG_vPrintf(TRACE_EP, "-EndPoint- \r\n");
+    DBG_vPrintf(TRACE_ADS, "-EndPoint- \r\n");
 
     if (g_sDevice.eState != E_NETWORK_RUN)
         return;
@@ -63,7 +66,7 @@ OS_TASK(APP_taskMyEndPoint)
     {
         if ((ZPS_EVENT_APS_DATA_INDICATION == sStackEvent.eType))
         {
-            DBG_vPrintf(TRACE_EP, "[D_IND] from 0x%04x \r\n",
+            DBG_vPrintf(TRACE_ADS, "[D_IND] from 0x%04x \r\n",
                         sStackEvent.uEvent.sApsDataIndEvent.uSrcAddress.u16Addr);
 
             /* Handle stack event's data from AirPort */
@@ -73,18 +76,18 @@ OS_TASK(APP_taskMyEndPoint)
         {
             if (g_sDevice.config.txMode == BROADCAST)
             {
-                DBG_vPrintf(TRACE_EP, "[D_CFM] from 0x%04x \r\n",
+                DBG_vPrintf(TRACE_ADS, "[D_CFM] from 0x%04x \r\n",
                             sStackEvent.uEvent.sApsDataConfirmEvent.uDstAddr.u16Addr);
             }
         }
         else if (ZPS_EVENT_APS_DATA_ACK == sStackEvent.eType)
         {
-            DBG_vPrintf(TRACE_EP, "[D_ACK] from 0x%04x \r\n",
+            DBG_vPrintf(TRACE_ADS, "[D_ACK] from 0x%04x \r\n",
                         sStackEvent.uEvent.sApsDataAckEvent.u16DstAddr);
         }
         else
         {
-            DBG_vPrintf(TRACE_EP, "[UNKNOWN] event: 0x%x\r\n", sStackEvent.eType);
+            DBG_vPrintf(TRACE_ADS, "[UNKNOWN] event: 0x%x\r\n", sStackEvent.eType);
         }
     }
 }
@@ -104,14 +107,21 @@ OS_TASK(APP_taskMyEndPoint)
  * void
  *
  ****************************************************************************/
-void ADS_vHandleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
+PRIVATE void ADS_vHandleDataIndicatorEvent(ZPS_tsAfEvent sStackEvent)
 {
+	/* if AirPort receive a event, sleep later */
+#ifdef TARGET_END
+	if(E_MODE_API == g_sDevice.eMode || E_MODE_DATA == g_sDevice.eMode)
+	{
+	    vSleepSchedule();
+	}
+#endif
     /* Call API support layer */
     int ret = API_i32AdsStackEventProc(&sStackEvent);
     if(ret!=OK)
     {
     	/* report module error */
-    	DBG_vPrintf(TRACE_EP, "ADS: process stack event fail.\r\n");
+    	DBG_vPrintf(TRACE_ADS, "ADS: process stack event fail.\r\n");
     }
 }
 

@@ -68,10 +68,8 @@ at the top level: setup & loop, which act just like arduino's.
 
  If you want to use it,only three simple steps are required:
      
-     (1) SET LOOP PREIOD 
-         setLoopInterValMs(t ms);
          
-     (2) WRITE YOUR OWN CODE JUST LIKE ARDUINO STYLE 
+     (1) WRITE YOUR OWN CODE JUST LIKE ARDUINO STYLE 
          arduino_setup()
          {
            /* Initialize your own system */
@@ -79,12 +77,14 @@ at the top level: setup & loop, which act just like arduino's.
       
          arduino_loop()
          {
-           /* This loop will be execute per t ms */
+           /* This loop will be execute */
          }
  
-     (3) At AT Console,input command: ATMC
+     (2) In AT mode, using command ATMF to set the delay time between each arduino_loop
+	 
+     (3) In AT mode, input command ATMC
          MeshBee will enter MCU mode(arduino-ful MCU)
-         then,arduino loop will be executed per t ms.
+         then,arduino loop will be executed cyclically.
          When you exist MCU mode,this loop will be 
          suspended.
 
@@ -93,8 +93,19 @@ at the top level: setup & loop, which act just like arduino's.
 
 We introduced Suli too. Suli means Seeed Unified Library Interface. We'll switch to Suli for our future module driver/library release. That means our suli-compatible library/driver will adapt all platforms that suli supporting. Please glance over https://github.com/Seeed-Studio/Suli for more information. 
 
-
-
+##### 1.5 Micro-RPC in MeshBee
+ 
+A micro-RPC framework was implemented in MeshBee.
+Each system in peer-to-peer mode can make an RPC.
+      RPC Commands are in the format: "/<Object name>/<Method name> <Arguments separated by spaces>
+      This is an example of the RPC command required to turn on a LED on MeshBee: 
+      /myled/write HIGH
+	  (1) How to deploy your own PRC method?
+	   Open /include/rpc_usr.h at first.     
+        * 1. Add a set of methods which is divided into groups according to their objName to a methodEntity.
+        * 2. Add one obj(something like air_conditioner, or light_switch) to rpcEntity[]
+        * 3. Implement these Rpc method.
+		
 #### 2. Usage
 
 1. Install the SDK toolchain;
@@ -112,8 +123,14 @@ Contributing to this software is warmly welcomed. You can do this basically by
 
 Thanks for your contribution.  
 
+<<<<<<< .merge_file_EctlVH
 
 Also, you can post on our discussion group at [here](https://groups.google.com/forum/#!forum/seeedstudio-mesh-bee-discussion-group) and share your ideas.
+=======
+Want to know more about our firmware development process? Please check out this link: [https://github.com/Seeed-Studio/Mesh_Bee/tree/v1.0.4_preview](https://github.com/Seeed-Studio/Mesh_Bee/releases/tag/v1003_alpha).
+
+Besides, you can post on our discussion group at [here](https://groups.google.com/forum/#!forum/seeedstudio-mesh-bee-discussion-group) and share your ideas or find some solutions for your problem.
+>>>>>>> .merge_file_MF8KKk
 
     
 ----

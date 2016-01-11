@@ -26,12 +26,12 @@
 /****************************************************************************/
 #include "common.h"
 #include "firmware_uart.h"
-
+#include "firmware_cmi.h"
 /****************************************************************************/
 /***        Macro Definitions                                             ***/
 /****************************************************************************/
 #ifndef TRACE_UART
-#define TRACE_UART TRUE
+#define TRACE_UART FALSE
 #endif
 
 extern void CMI_vPushData(void *data, int len);
@@ -43,10 +43,8 @@ unsigned char txfifo[TXFIFOLEN];
 unsigned char rxfifo[RXFIFOLEN];
 PRIVATE  volatile bool txbusy = FALSE;
 
-//struct ringbuffer rb_rx_uart;
-struct ringbuffer rb_tx_uart;    //for UART transfer data
-
-//uint8 rb_rx_mempool[UART_RX_RB_LEN];
+/* for UART transfer data */
+struct ringbuffer rb_tx_uart;
 uint8 rb_tx_mempool[UART_TX_RB_LEN];
 
 
@@ -79,7 +77,7 @@ OS_ISR(APP_isrUART1)
 
     intrpt = (u8AHI_UartReadInterruptStatus(UART_COMM) >> 1) & 0x7;
 
-    DBG_vPrintf(TRACE_NODE, "\r\nuart interrupt: %d \r\n", intrpt);
+    DBG_vPrintf(TRACE_UART, "\r\nUART interrupt: %d \r\n", intrpt);
     if (intrpt == E_AHI_UART_INT_RXDATA)
     {
         avlb_cnt = u16AHI_UartReadRxFifoLevel(UART_COMM);
@@ -93,8 +91,16 @@ OS_ISR(APP_isrUART1)
             */
             u16AHI_UartBlockReadData(UART_COMM, tmp, avlb_cnt);
 
-            /* Push data into ringbuffer through CMI switcher */
-            CMI_vPushData(tmp, avlb_cnt);
+            /* if UART receive a event, sleep later */
+#ifdef TARGET_END
+            if(E_MODE_API == g_sDevice.eMode || E_MODE_DATA == g_sDevice.eMode)
+            {
+                vSleepSchedule();
+            }
+#endif
+
+            /* Push data into ringbuffer through CMI Distributor */
+            CMI_vUrtRevDataDistributor(tmp, avlb_cnt);
         }
     }
     else if (intrpt == E_AHI_UART_INT_TX) //tx empty
@@ -207,7 +213,7 @@ int AT_printBaudRate(uint16 *regAddr)
  ****************************************************************************/
 void ringbuf_vInitialize()
 {
-	/* Init ringbuffer */
+    /* Init ringbuffer */
     init_ringbuffer(&rb_tx_uart, rb_tx_mempool, UART_TX_RB_LEN);
 }
 
@@ -251,6 +257,7 @@ bool uart_get_tx_status_busy()
 void uart_trigger_tx()
 {
     OS_eEnterCriticalSection(mutexTxRb);
+
     uint8 tmp[TXFIFOLEN];
     uint32 cnt = ringbuffer_data_size(&rb_tx_uart);
 
@@ -330,3 +337,6 @@ int uart_printf(const char *fmt, ...)
 
 
 
+/****************************************************************************/
+/***        END OF FILE                                                   ***/
+/****************************************************************************/

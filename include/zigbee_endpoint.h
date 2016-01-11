@@ -33,9 +33,10 @@
 /****************************************************************************/
 
 #define TRANS_CLUSTER_ID                0x1000
-#define TRANS_ENDPOINT_ID               (1)
-#define DATA_POINT_NUM					1
-#define VERIFY_BYTE						0x3e
+#define TRANS_ENDPOINT_ID               (1)    //for Data
+#define RPC_ENDPOINT_ID                 (2)    //oliver add for RPC
+#define DATA_POINT_NUM					1      //not used
+#define VERIFY_BYTE						0x3e   //not used
 
 /****************************************************************************/
 /***        Type Definitions                                              ***/
@@ -50,19 +51,13 @@ typedef struct
 	int16 datapoint[DATA_POINT_NUM];	//a series of data points
 }tsDataStream;
 
-typedef enum
-{
-	INNER_TEMP = 1,
-	INNER_VOL = 2
-	/*your own data type here*/
-}teDataType;
+
 
 /****************************************************************************/
 /***        Exported Functions                                            ***/
 /****************************************************************************/
-
 void clientOtaFinishing();
-bool sendToAir(uint16 txmode, uint16 unicastDest, tsApiFrame *apiFrame,  teFrameType type, uint8 *buff, int len);
+
 /****************************************************************************/
 /***        External Variables                                            ***/
 /****************************************************************************/

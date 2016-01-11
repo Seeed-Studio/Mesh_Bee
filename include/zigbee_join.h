@@ -53,8 +53,10 @@ PUBLIC void vRestoreLastNWK(ZPS_tsNwkNetworkDescr * desc);
 
 int AT_listNetworkScaned(uint16 *regAddr);
 int AT_reScanNetwork(uint16 *regAddr);
+int AT_reJoinNetwork(uint16 *regAddr); 
 int AT_joinNetworkWithIndex(uint16 *regAddr);
-int API_RescanNetwork_CallBack(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr);
+int API_RescanNetwork_CallBack(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr); 
+int API_RejoinNetwork_CallBack(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr);
 int API_JoinNetworkWithIndex_CallBack(tsApiSpec *inputApiSpec, tsApiSpec *retApiSpec, uint16 *regAddr);
 int API_listNetworkScaned_CallBack(tsApiSpec *reqApiSpec, tsApiSpec *respApiSpec, uint16 *regAddr);
 

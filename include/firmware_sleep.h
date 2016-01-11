@@ -2,12 +2,12 @@
  * firmware_sleep.h
  * Handles sleep mode of End Device
  * Firmware for SeeedStudio Mesh Bee(Zigbee) module
- * 
+ *
  * Copyright (c) NXP B.V. 2012.
  * Spread by SeeedStudio
  * Author     : Jack Shao
  * Create Time: 2014/4
- * Change Log :
+ * Change Log : Oliver Wang Modify 2014/06
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -27,9 +27,11 @@
 
 #include "common.h"
 
-PUBLIC void goSleepMs(uint32 ms);     //must not exceed 7000ms
+/* [function] */
 PUBLIC void stopAllSwTimers();
-
-
-
+PUBLIC void Sleep(uint32 ms);             //must not exceed 7000ms, because parent will discard its message after 7s
+PUBLIC void sleep(uint16 s);
+PUBLIC void usleep(uint32 us);
+PUBLIC void vSleepSchedule(void);
+PUBLIC bool bGetSleepStatus(void);
 #endif
