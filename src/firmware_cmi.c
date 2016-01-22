@@ -44,7 +44,7 @@
 /****************************************************************************/
 /***        External Function Prototypes                                     ***/
 /****************************************************************************/
-extern uint32 SPM_u32PullData(void *data, int len);
+extern uint32 SPM_u32PushData(void *data, int len);
 
 /****************************************************************************/
 /***        Exported Variables                                            ***/
@@ -89,17 +89,17 @@ void CMI_vUrtRevDataDistributor(void *data, int len)
     {
         /* AT mode */
         case E_MODE_AT:
-            avlb_cnt = SPM_u32PullData(data, len);
+            avlb_cnt = SPM_u32PushData(data, len);
             break;
 
         /* API mode */
         case E_MODE_API:
-            avlb_cnt = SPM_u32PullData(data, len);
+            avlb_cnt = SPM_u32PushData(data, len);
             break;
 
         /* DATA mode */
         case E_MODE_DATA:
-            avlb_cnt = SPM_u32PullData(data, len);
+            avlb_cnt = SPM_u32PushData(data, len);
             break;
 
         /* Arduino-ful MCU mode */

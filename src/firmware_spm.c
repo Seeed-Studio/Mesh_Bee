@@ -83,7 +83,7 @@ void SPM_vInit()
 
 /****************************************************************************
  *
- * NAME: SPM_u32PullData
+ * NAME: SPM_u32PushData
  *
  * DESCRIPTION:
  * SPM pull some data into data pool
@@ -93,7 +93,7 @@ void SPM_vInit()
  * available data size of SPM
  *
  ****************************************************************************/
-uint32 SPM_u32PullData(void *data, int len)
+uint32 SPM_u32PushData(void *data, int len)
 {
     uint32 free_cnt = 0;
     uint32 min_cnt = 0;

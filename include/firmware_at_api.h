@@ -35,12 +35,11 @@
 #define AT_REQ_PARAM_LEN      4         //maximal size of AT parameter
 #define AT_RESP_PARAM_LEN     20        //maximal size of AT response hex value
 #define API_DATA_LEN          32        //maximal size of each API data frame
-#define AT_CMD_LEN            8         //AT command length
 
 #define API_START_DELIMITER   0x7e   //API special frame start delimiter
 
-#define OPTION_CAST_MASK      0x40    //option unicast or broadcast MASK
-#define OPTION_ACK_MASK       0x80    //option ACK or not MASK
+#define OPTION_ACK_MASK       0x01    //option ACK or not
+#define OPTION_CAST_MASK      0x02    //option unicast or broadcast
 
 /*
   API mode index
@@ -98,7 +97,6 @@ typedef enum
     API_REMOTE_AT_RESP = 0x97,   //remote At response
     API_DATA_PACKET = 0x02,      //indicate that's a data packet,data packet is certainly remote packet.
     API_TEST = 0x8f,             //Test
-    /* recently */
     API_OTA_NTC = 0xd3,
     API_OTA_REQ = 0xb0,
     API_OTA_RESP = 0x06,
@@ -152,6 +150,7 @@ typedef struct
 typedef struct
 {
     uint8 frameId;                  //identifies the UART data frame to correlate with subsequent ACK
+    uint8 option;
     uint8 atCmdId;                  //AT Command index
     uint8 value[AT_REQ_PARAM_LEN];  //if present,indicates the requested parameter value to set
                                     //the given register,if no character present,register is queried
@@ -164,6 +163,7 @@ typedef struct
     uint8 frameId;                      //identifies the UART data frame to correlate with subsequent ACK
     uint8 atCmdId;                      //AT Command index
     uint8 eStatus;                      //OK,ERROR,Invalid command,Invalid Parameter
+    uint8 valueLen;
     uint8 value[AT_RESP_PARAM_LEN];     //value returned in hex format
 }__attribute__ ((packed)) tsLocalAtResp;
 
@@ -172,7 +172,7 @@ typedef struct
 typedef struct
 {
     uint8 frameId;
-    uint8 option;                //0x01 Disable ACK,default: 0x00 Enable ACK
+    uint8 option;
     uint8 atCmdId;
     uint8 value[AT_REQ_PARAM_LEN];
     uint16 unicastAddr;

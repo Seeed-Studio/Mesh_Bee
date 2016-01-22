@@ -74,7 +74,7 @@ PRIVATE uint32 _loopInterval = 0;
 /****************************************************************************/
 /***        Exported Functions                                            ***/
 /****************************************************************************/
-extern uint32 SPM_u32PullData(void *data, int len);
+extern uint32 SPM_u32PushData(void *data, int len);
 
 /****************************************************************************
  *
@@ -240,7 +240,7 @@ PUBLIC uint8 aupsAirPortRead(void *dst, int len)
  ****************************************************************************/
 PUBLIC uint8 aupsSendApiFrm(void *data, int len)
 {
-    uint32 avlb_cnt = SPM_u32PullData(data, len);
+    uint32 avlb_cnt = SPM_u32PushData(data, len);
     if (avlb_cnt >= THRESHOLD_READ)
     {
         OS_eActivateTask(APP_taskHandleUartRx);             //Activate SPM immediately

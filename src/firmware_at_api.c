@@ -426,6 +426,7 @@ int assembleLocalAtResp(tsLocalAtResp *resp, uint8 frm_id, uint8 cmd_id, uint8 s
     resp->frameId = frm_id;
     resp->atCmdId = cmd_id;
     resp->eStatus = status;
+    resp->valueLen = len;
     memcpy(resp->value, value, len);
     return sizeof(tsLocalAtResp);
 }
@@ -475,7 +476,7 @@ void assembleApiSpec(tsApiSpec *api, uint8 idtf, uint8 *payload, int payload_len
     api->startDelimiter = API_START_DELIMITER;
     api->length = payload_len;
     api->teApiIdentifier = idtf;
-    memcpy((uint8 *)&api->payload.localAtReq, payload, payload_len);
+    memcpy((uint8 *)&api->payload.dummyByte, payload, payload_len);
     api->checkSum = calCheckSum(payload, payload_len);
 }
 
@@ -1241,7 +1242,6 @@ int API_QueryOnChipTemper_CallBack(tsApiSpec *reqApiSpec, tsApiSpec *respApiSpec
       40ppm limit specified by the IEEE 802.15. 4 standard.
     */
     vHAL_PullXtal((int32)i16ChipTemperature);
-    uint8 val = (uint8)i16ChipTemperature;
 
     if (API_LOCAL_AT_REQ == reqApiSpec->teApiIdentifier)
     {
@@ -1253,8 +1253,8 @@ int API_QueryOnChipTemper_CallBack(tsApiSpec *reqApiSpec, tsApiSpec *respApiSpec
                             reqApiSpec->payload.localAtReq.frameId,
                             ATQT,
                             AT_OK,
-                            &val,
-                            sizeof(uint8));
+                            (uint8*)&i16ChipTemperature,
+                            sizeof(int16));
 
         /* Assemble apiSpec */
         assembleApiSpec(respApiSpec,
@@ -1271,8 +1271,8 @@ int API_QueryOnChipTemper_CallBack(tsApiSpec *reqApiSpec, tsApiSpec *respApiSpec
                              reqApiSpec->payload.remoteAtReq.frameId,
                              ATQT,
                              AT_OK,
-                             &val,
-                             sizeof(uint8));
+                             (uint8*)&i16ChipTemperature,
+                             sizeof(int16));
 
         /* Assemble apiSpec */
         assembleApiSpec(respApiSpec,
@@ -1706,11 +1706,12 @@ int API_i32ApiFrmProc(tsApiSpec *apiSpec)
                 }
             }
 
-            /* UART ACK,if frameId ==0,No ACK(implement in v1003) */
-            if (0 != apiSpec->payload.localAtReq.frameId)
+            /* UART ACK */
+            if (0 == (apiSpec->payload.localAtReq.option & OPTION_ACK_MASK))
             {
                 CMI_vLocalAckDistributor(&retApiSpec);
             }
+            result = OK;
             break;
         }
 
@@ -1864,11 +1865,20 @@ int API_i32AdsStackEventProc(ZPS_tsAfEvent *sStackEvent)
                     }
                 }
             }
-            /* ACK unicast to u16SrcAddr */
-            size = i32CopyApiSpec(&respApiSpec, tmp);
-            ret = API_bSendToAirPort(UNICAST, u16SrcAddr, tmp, size);
-            if (!ret) result = ERR;
-            else result = OK;
+
+            if (0 == ((apiSpec.payload.remoteAtReq.option) & OPTION_ACK_MASK))
+            {
+            	/* ACK unicast to u16SrcAddr */
+				size = i32CopyApiSpec(&respApiSpec, tmp);
+				ret = API_bSendToAirPort(UNICAST, u16SrcAddr, tmp, size);
+				if (!ret) result = ERR;
+				else result = OK;
+            }else
+            {
+            	/* the caller doesn't need response */
+            	result = OK;
+            }
+
             break;
         }
 
