@@ -3,7 +3,7 @@
 MeshBee
 ------------
 
-![image](http://www.seeedstudio.com/wiki/images/6/6b/QQ20140327-1.png)
+![image](http://wiki.seeedstudio.com/images/thumb/e/ef/Mesh_bee.jpg/400px-Mesh_bee.jpg)
 
 
 
@@ -114,7 +114,7 @@ Each system in peer-to-peer mode can make an RPC.
 4. Open eclipse of the toolchain, "File" -> "Import". 
 5. Or you can build this repo by command line: Open "Jennic Bash Shell" -> change directory to "A/build", then execute "./build.sh" to build all targets.
 
-The details are descripted at [this](http://www.seeedstudio.com/wiki/Mesh_Bee) wiki page, please launch there and find your need.
+The details are descripted at [this](http://wiki.seeed.cc/Mesh_Bee/) wiki page, please launch there and find your need.
 
 #### 3. Contribution
 
